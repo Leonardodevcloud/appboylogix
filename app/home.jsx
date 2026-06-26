@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { api } from '../src/api';
 import { useGPS } from '../src/hooks/useGPS';
 
-// Paleta exata do protÃ³tipo
+// Paleta exata do protótipo
 const C = {
   navy950:  '#031f3b',
   navy900:  '#042C53',
@@ -74,9 +74,11 @@ export default function Home() {
       const [me, entregas] = await Promise.all([api.get('/motoboys/app/eu'), api.get('/motoboys/app/fila')]);
       setEu(me); setFila(entregas);
     } catch (e) {
-      if (e.message.includes('401') || e.message.toLowerCase().includes('invÃ¡lido')) {
-        await api.logout(); router.replace('/');
-      }
+      // Qualquer falha ao carregar os dados do motoboy (token expirado/inválido,
+      // sessão perdida) volta para o login. Não depende de casar texto da mensagem.
+      console.log('[HOME] erro ao carregar:', e?.message);
+      await api.logout();
+      router.replace('/');
     }
   }, []);
 
@@ -97,7 +99,7 @@ export default function Home() {
   }
 
   async function sair() {
-    Alert.alert('Sair', 'Encerrar sessÃ£o?', [
+    Alert.alert('Sair', 'Encerrar sessão?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: async () => { await api.logout(); router.replace('/'); } },
     ]);
@@ -119,11 +121,11 @@ export default function Home() {
     <View style={s.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
 
-      {/* Status bar topo â€” fundo claro como no protÃ³tipo */}
+      {/* Status bar topo — fundo claro como no prototipo */}
       <View style={s.mStatus}>
         <View style={s.hello}>
           <Text style={s.helloSmall}>Boa tarde,</Text>
-          <Text style={s.helloB}>{eu.nome_completo.split(' ')[0]} ðŸ‘‹</Text>
+          <Text style={s.helloB}>{eu.nome_completo.split(' ')[0]} 👋</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Switch value={eu.online} onValueChange={toggleOnline}
@@ -149,7 +151,7 @@ export default function Home() {
         {novas.length > 0 && (
           <>
             <View style={s.mSec}>
-              <Text style={s.mSecTxt}>Nova corrida disponÃ­vel</Text>
+              <Text style={s.mSecTxt}>Nova corrida disponível</Text>
               <Text style={s.mSecBadge}>{novas.length} nova{novas.length > 1 ? 's' : ''}</Text>
             </View>
             {novas.map(e => (
@@ -168,7 +170,7 @@ export default function Home() {
                   </View>
                   {(e.pontos || []).length > 0 && (
                     <View style={s.rPt}>
-                      <View style={[s.pin, { backgroundColor: C.azulV }]}><Text style={s.pinTxt}>â¬¡</Text></View>
+                      <View style={[s.pin, { backgroundColor: C.azulV }]}><Text style={s.pinTxt}>⬡</Text></View>
                       <View style={{ flex: 1 }}>
                         <Text style={s.rPtMain}>{e.pontos.length} destino{e.pontos.length > 1 ? 's' : ''}</Text>
                         <Text style={s.rPtSub}>{e.pontos.map(p => p.nome_fantasia || p.endereco?.split(',')[0]).join(', ')}</Text>
@@ -177,7 +179,7 @@ export default function Home() {
                   )}
                 </View>
                 <View style={s.rMeta}>
-                  {e.distancia_km && <View><Text style={s.rMetaB}>{Number(e.distancia_km).toFixed(1)} km</Text><Text style={s.rMetaL}>DistÃ¢ncia</Text></View>}
+                  {e.distancia_km && <View><Text style={s.rMetaB}>{Number(e.distancia_km).toFixed(1)} km</Text><Text style={s.rMetaL}>Distância</Text></View>}
                   <View><Text style={s.rMetaB}>{(e.pontos || []).length}</Text><Text style={s.rMetaL}>Paradas</Text></View>
                 </View>
                 <TouchableOpacity
@@ -209,7 +211,7 @@ export default function Home() {
                     <View style={[s.pin, { backgroundColor: C.navy900 }]}><Text style={s.pinTxt}>C</Text></View>
                     <View style={{ flex: 1 }}>
                       <Text style={s.rPtMain} numberOfLines={1}>{e.coleta_endereco}</Text>
-                      <Text style={s.rPtSub}>Ir atÃ© o ponto de coleta</Text>
+                      <Text style={s.rPtSub}>Ir até o ponto de coleta</Text>
                     </View>
                   </View>
                 </View>
@@ -219,7 +221,7 @@ export default function Home() {
                 >
                   {busy[e.id] ? <ActivityIndicator color={C.azulP} size="small" />
                     : <Text style={[s.mBtnTxt, { color: C.azulP }]}>
-                        {e.status === 'aguardando_coleta' ? 'Iniciar coleta' : 'Coleta concluÃ­da â€” saindo'}
+                        {e.status === 'aguardando_coleta' ? 'Iniciar coleta' : 'Coleta concluida — saindo'}
                       </Text>}
                 </TouchableOpacity>
               </View>
@@ -246,10 +248,10 @@ export default function Home() {
                   </View>
                   <View style={s.rRoute}>
                     <View style={s.rPt}>
-                      <View style={[s.pin, { backgroundColor: C.azulV }]}><Text style={s.pinTxt}>â¬¡</Text></View>
+                      <View style={[s.pin, { backgroundColor: C.azulV }]}><Text style={s.pinTxt}>⬡</Text></View>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.rPtMain}>{concluidos} de {pontos.length} paradas concluÃ­das</Text>
-                        {prox && <Text style={s.rPtSub} numberOfLines={1}>PrÃ³x.: {prox.nome_fantasia || prox.endereco}</Text>}
+                        <Text style={s.rPtMain}>{concluidos} de {pontos.length} paradas concluídas</Text>
+                        {prox && <Text style={s.rPtSub} numberOfLines={1}>Próx.: {prox.nome_fantasia || prox.endereco}</Text>}
                       </View>
                     </View>
                   </View>
@@ -275,7 +277,7 @@ export default function Home() {
 
         {fila.length === 0 && (
           <View style={s.vazio}>
-            <Text style={s.vaziIco}>ðŸ“¦</Text>
+            <Text style={s.vaziIco}>📦</Text>
             <Text style={s.vaziTxt}>Nenhuma entrega na fila</Text>
             <Text style={s.vaziSub}>Puxe para atualizar</Text>
           </View>
@@ -286,12 +288,12 @@ export default function Home() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Bottom nav â€” igual ao protÃ³tipo */}
+      {/* Bottom nav — igual ao prototipo */}
       <View style={s.mTab}>
-        <View style={[s.mTabItem, s.mTabOn]}><Text style={s.mTabIco}>â¬¡</Text><Text style={[s.mTabLbl, { color: C.azulP }]}>InÃ­cio</Text></View>
-        <TouchableOpacity style={s.mTabItem}><Text style={s.mTabIco}>â—·</Text><Text style={s.mTabLbl}>Rotas</Text></TouchableOpacity>
-        <TouchableOpacity style={s.mTabItem}><Text style={s.mTabIco}>â–£</Text><Text style={s.mTabLbl}>Ganhos</Text></TouchableOpacity>
-        <TouchableOpacity style={s.mTabItem} onPress={sair}><Text style={s.mTabIco}>â˜°</Text><Text style={s.mTabLbl}>Perfil</Text></TouchableOpacity>
+        <View style={[s.mTabItem, s.mTabOn]}><Text style={s.mTabIco}>🏠</Text><Text style={[s.mTabLbl, { color: C.azulP }]}>Início</Text></View>
+        <TouchableOpacity style={s.mTabItem}><Text style={s.mTabIco}>📍</Text><Text style={s.mTabLbl}>Rotas</Text></TouchableOpacity>
+        <TouchableOpacity style={s.mTabItem}><Text style={s.mTabIco}>💰</Text><Text style={s.mTabLbl}>Ganhos</Text></TouchableOpacity>
+        <TouchableOpacity style={s.mTabItem} onPress={sair}><Text style={s.mTabIco}>👤</Text><Text style={s.mTabLbl}>Perfil</Text></TouchableOpacity>
       </View>
     </View>
   );

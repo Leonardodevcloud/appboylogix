@@ -14,7 +14,7 @@ export default function Login() {
   const [erro, setErro]             = useState('');
 
   useEffect(() => {
-    api.isLogado().then(ok => { if (ok) router.replace('/home'); else setCarregando(false); });
+    api.isLogado().then(ok => { if (ok) router.replace('/home'); else setCarregando(false); }).catch(e => { console.log('[LOGIN] isLogado erro:', e?.message); setCarregando(false); });
   }, []);
 
   async function entrar() {
@@ -72,7 +72,7 @@ export default function Login() {
           <Text style={[s.label, { marginTop: 16 }]}>PIN</Text>
           <TextInput
             style={[s.inp, { letterSpacing: 10, textAlign: 'center', fontSize: 20 }]}
-            placeholder="• • • • • •"
+            placeholder="â€¢ â€¢ â€¢ â€¢ â€¢ â€¢"
             placeholderTextColor="#94A3B8"
             secureTextEntry
             keyboardType="numeric"

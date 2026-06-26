@@ -11,7 +11,15 @@ async function req(method, path, body) {
   const token = await getToken();
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = 'Bearer ' + token;
-  const r = await fetch(API_URL + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  // Timeout de 12s: nenhuma requisicao pode prender o app indefinidamente.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  let r;
+  try {
+    r = await fetch(API_URL + path, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   const data = await r.json();
   if (!r.ok) throw new Error(data.mensagem || data.erro || 'Erro ' + r.status);
   return data;
@@ -34,10 +42,10 @@ export const api = {
     // Para o rastreamento de fundo e limpa a entrega ativa.
     try {
       const Location = require('expo-location');
-      const { GPS_TASK, setEntregaAtiva } = require('../tasks/gpsTask');
+      const { GPS_TASK } = require('../tasks/gpsTask');
       const rodando = await Location.hasStartedLocationUpdatesAsync(GPS_TASK).catch(() => false);
       if (rodando) await Location.stopLocationUpdatesAsync(GPS_TASK);
-      await setEntregaAtiva(null);
+      await SecureStore.deleteItemAsync('lx_gps_entrega_ativa');
     } catch {}
     await SecureStore.deleteItemAsync('lx_motoboy_token');
     await SecureStore.deleteItemAsync('lx_motoboy');
@@ -49,7 +57,16 @@ export const api = {
   },
 
   async isLogado() {
-    const t = await getToken();
-    return !!t;
+    // Blindado: se o SecureStore travar ou demorar, assume não-logado (mostra login)
+    // em vez de prender o app no splash.
+    try {
+      const t = await Promise.race([
+        getToken(),
+        new Promise((resolve) => setTimeout(() => resolve(null), 4000)),
+      ]);
+      return !!t;
+    } catch {
+      return false;
+    }
   },
 };
