@@ -2,7 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 
 export const API_URL = 'https://logix-production-61ae.up.railway.app/api/v1';
 
-async function getToken() {
+// Exportado para a task de background (que não pode usar o objeto `api` com hooks).
+export async function getToken() {
   return SecureStore.getItemAsync('lx_motoboy_token');
 }
 
@@ -30,6 +31,14 @@ export const api = {
 
   async logout() {
     try { await this.post('/motoboys/auth/logout', {}); } catch {}
+    // Para o rastreamento de fundo e limpa a entrega ativa.
+    try {
+      const Location = require('expo-location');
+      const { GPS_TASK, setEntregaAtiva } = require('../tasks/gpsTask');
+      const rodando = await Location.hasStartedLocationUpdatesAsync(GPS_TASK).catch(() => false);
+      if (rodando) await Location.stopLocationUpdatesAsync(GPS_TASK);
+      await setEntregaAtiva(null);
+    } catch {}
     await SecureStore.deleteItemAsync('lx_motoboy_token');
     await SecureStore.deleteItemAsync('lx_motoboy');
   },
