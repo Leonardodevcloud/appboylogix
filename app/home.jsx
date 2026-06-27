@@ -82,7 +82,45 @@ export default function Home() {
     }
   }, []);
 
-  useEffect(() => { carregar(); const t = setInterval(carregar, 30_000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    // Antes de tudo: confere a situação do cadastro. Se não estiver aprovado,
+    // o motoboy não acessa a operação — vai para a tela de status/bloqueio.
+    (async () => {
+      try {
+        const mc = await api.meuCadastro();
+        if (mc.situacao && mc.situacao !== 'aprovado') { router.replace('/cadastro-status'); return; }
+      } catch { /* segue; se o token estiver ruim, o carregar() trata */ }
+      carregar();
+    })();
+    const t = setInterval(carregar, 30_000);
+
+    // WebSocket: se a central solicitar reenvio enquanto o app está aberto,
+    // mostra o aviso e redireciona para a correção (bloqueio).
+    let ws;
+    (async () => {
+      try {
+        const { getToken, API_URL } = require('../src/api');
+        const token = await getToken();
+        if (!token) return;
+        const wsUrl = API_URL.replace(/^http/, 'ws').replace('/api/v1', '') + '/ws?token=' + token;
+        ws = new WebSocket(wsUrl);
+        ws.onmessage = (ev) => {
+          try {
+            const { evento, dados } = JSON.parse(ev.data);
+            if (evento === 'cadastro.reenvio') {
+              Alert.alert('Ação necessária', dados?.motivo || 'A central pediu uma correção no seu cadastro.', [
+                { text: 'Ver agora', onPress: () => router.replace('/cadastro-status') },
+              ]);
+            } else if (evento === 'cadastro.recusado') {
+              router.replace('/cadastro-status');
+            }
+          } catch {}
+        };
+      } catch {}
+    })();
+
+    return () => { clearInterval(t); try { ws?.close(); } catch {} };
+  }, []);
 
   async function toggleOnline(val) {
     try { await api.patch('/motoboys/app/status', { online: val }); setEu(p => ({ ...p, online: val })); }

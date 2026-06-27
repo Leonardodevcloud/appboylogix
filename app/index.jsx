@@ -7,8 +7,11 @@ import { router } from 'expo-router';
 import { api } from '../src/api';
 
 export default function Login() {
+  const [modo, setModo] = useState('email');  // 'email' | 'pin'
   const [telefone, setTelefone] = useState('');
   const [pin, setPin]           = useState('');
+  const [email, setEmail]       = useState('');
+  const [senha, setSenha]       = useState('');
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando]     = useState(false);
   const [erro, setErro]             = useState('');
@@ -18,13 +21,20 @@ export default function Login() {
   }, []);
 
   async function entrar() {
-    if (!telefone.trim() || !pin.trim()) { setErro('Preencha telefone e PIN'); return; }
-    setEnviando(true); setErro('');
-    try {
-      await api.login(telefone.replace(/\D/g, ''), pin);
-      router.replace('/home');
-    } catch (e) { setErro(e.message); }
-    setEnviando(false);
+    setErro('');
+    if (modo === 'email') {
+      if (!email.trim() || !senha.trim()) { setErro('Preencha e-mail e senha'); return; }
+      setEnviando(true);
+      try { await api.loginEmail(email.trim(), senha); router.replace('/home'); }
+      catch (e) { setErro(e.message); }
+      setEnviando(false);
+    } else {
+      if (!telefone.trim() || !pin.trim()) { setErro('Preencha telefone e PIN'); return; }
+      setEnviando(true);
+      try { await api.login(telefone.replace(/\D/g, ''), pin); router.replace('/home'); }
+      catch (e) { setErro(e.message); }
+      setEnviando(false);
+    }
   }
 
   if (carregando) return (
@@ -58,29 +68,54 @@ export default function Login() {
           <Text style={s.formTitle}>Entrar no app</Text>
           <Text style={s.formSub}>Use seu telefone e PIN fornecido pelo operador</Text>
 
-          <Text style={s.label}>Telefone</Text>
-          <TextInput
-            style={s.inp}
-            placeholder="(71) 99999-9999"
-            placeholderTextColor="#94A3B8"
-            keyboardType="phone-pad"
-            value={telefone}
-            onChangeText={setTelefone}
-            autoFocus
-          />
-
-          <Text style={[s.label, { marginTop: 16 }]}>PIN</Text>
-          <TextInput
-            style={[s.inp, { letterSpacing: 10, textAlign: 'center', fontSize: 20 }]}
-            placeholder="â€¢ â€¢ â€¢ â€¢ â€¢ â€¢"
-            placeholderTextColor="#94A3B8"
-            secureTextEntry
-            keyboardType="numeric"
-            maxLength={8}
-            value={pin}
-            onChangeText={setPin}
-            onSubmitEditing={entrar}
-          />
+          {modo === 'email' ? (
+            <>
+              <Text style={s.label}>E-mail</Text>
+              <TextInput
+                style={s.inp}
+                placeholder="seu@email.com"
+                placeholderTextColor="#94A3B8"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <Text style={[s.label, { marginTop: 16 }]}>Senha</Text>
+              <TextInput
+                style={s.inp}
+                placeholder="Sua senha"
+                placeholderTextColor="#94A3B8"
+                secureTextEntry
+                value={senha}
+                onChangeText={setSenha}
+                onSubmitEditing={entrar}
+              />
+            </>
+          ) : (
+            <>
+              <Text style={s.label}>Telefone</Text>
+              <TextInput
+                style={s.inp}
+                placeholder="(71) 99999-9999"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                value={telefone}
+                onChangeText={setTelefone}
+              />
+              <Text style={[s.label, { marginTop: 16 }]}>PIN</Text>
+              <TextInput
+                style={[s.inp, { letterSpacing: 10, textAlign: 'center', fontSize: 20 }]}
+                placeholder="• • • • • •"
+                placeholderTextColor="#94A3B8"
+                secureTextEntry
+                keyboardType="numeric"
+                maxLength={8}
+                value={pin}
+                onChangeText={setPin}
+                onSubmitEditing={entrar}
+              />
+            </>
+          )}
 
           {!!erro && (
             <View style={s.erroBox}>
@@ -92,6 +127,18 @@ export default function Login() {
             {enviando
               ? <ActivityIndicator color="#fff" />
               : <Text style={s.btnTxt}>Entrar na plataforma</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => { setErro(''); setModo(modo === 'email' ? 'pin' : 'email'); }} style={{ marginTop: 16, alignItems: 'center' }}>
+            <Text style={s.alterna}>{modo === 'email' ? 'Entrar com telefone e PIN' : 'Entrar com e-mail e senha'}</Text>
+          </TouchableOpacity>
+
+          <View style={s.divisor}>
+            <View style={s.divisorLinha} /><Text style={s.divisorTxt}>ou</Text><View style={s.divisorLinha} />
+          </View>
+
+          <TouchableOpacity style={s.btnCadastro} onPress={() => router.push('/cadastro')} activeOpacity={0.85}>
+            <Text style={s.btnCadastroTxt}>Criar uma conta</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -128,4 +175,10 @@ const s = StyleSheet.create({
   btn:        { backgroundColor: AZUL, borderRadius: 14, padding: 15, marginTop: 20, alignItems: 'center' },
   btnDisabled:{ opacity: 0.6 },
   btnTxt:     { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
+  alterna:    { color: '#378ADD', fontSize: 13.5, fontWeight: '700' },
+  divisor:    { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 18 },
+  divisorLinha: { flex: 1, height: 1, backgroundColor: '#dde9f5' },
+  divisorTxt: { color: '#8ba5bc', fontSize: 12, fontWeight: '600' },
+  btnCadastro: { borderWidth: 1.5, borderColor: '#185FA5', paddingVertical: 14, borderRadius: 13, alignItems: 'center' },
+  btnCadastroTxt: { color: '#185FA5', fontSize: 15, fontWeight: '800' },
 });
