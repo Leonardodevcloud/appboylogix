@@ -123,8 +123,12 @@ export default function Cadastro() {
     try {
       const r = await api.enviarCadastro({ ...form, documentos: docs });
       const modalidade = r.modalidade ? `\n\nModalidade escolhida: ${r.modalidade}` : '';
+      // Login automático com o e-mail/senha recém-cadastrados, para o motoboy
+      // já entrar logado e ver a tela de "em análise" sem precisar relogar.
+      let logou = false;
+      try { await api.loginEmail(form.email.trim(), form.senha); logou = true; } catch {}
       Alert.alert('Cadastro enviado!', `Seu cadastro foi enviado para análise.${modalidade}\n\nVocê receberá um aviso quando for aprovado.`, [
-        { text: 'OK', onPress: () => router.replace('/') },
+        { text: 'OK', onPress: () => router.replace(logou ? '/cadastro-status' : '/') },
       ]);
     } catch (e) { Alert.alert('Erro', e.message || 'Falha ao enviar'); }
     setEnviando(false);
