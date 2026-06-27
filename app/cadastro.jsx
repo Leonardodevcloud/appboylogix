@@ -57,12 +57,12 @@ export default function Cadastro() {
   }
   async function capturar() {
     if (!camRef.current) return;
-    const foto = await camRef.current.takePictureAsync({ quality: 0.6, base64: true });
+    const foto = await camRef.current.takePictureAsync({ quality: 0.4, base64: true });
     setDocs(d => ({ ...d, [camAberta]: `data:image/jpeg;base64,${foto.base64}` }));
     setCamAberta(null);
   }
   async function daGaleria(tipo) {
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.6, base64: true });
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.4, base64: true });
     if (!r.canceled && r.assets?.[0]?.base64) {
       const a = r.assets[0];
       const mime = a.mimeType || 'image/jpeg';
