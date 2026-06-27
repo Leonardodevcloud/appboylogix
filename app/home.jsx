@@ -293,7 +293,7 @@ export default function Home() {
         <View style={[s.mTabItem, s.mTabOn]}><Text style={s.mTabIco}>🏠</Text><Text style={[s.mTabLbl, { color: C.azulP }]}>Início</Text></View>
         <TouchableOpacity style={s.mTabItem}><Text style={s.mTabIco}>📍</Text><Text style={s.mTabLbl}>Rotas</Text></TouchableOpacity>
         <TouchableOpacity style={s.mTabItem}><Text style={s.mTabIco}>💰</Text><Text style={s.mTabLbl}>Ganhos</Text></TouchableOpacity>
-        <TouchableOpacity style={s.mTabItem} onPress={sair}><Text style={s.mTabIco}>👤</Text><Text style={s.mTabLbl}>Perfil</Text></TouchableOpacity>
+        <TouchableOpacity style={s.mTabItem} onPress={() => router.push('/perfil')}><Text style={s.mTabIco}>👤</Text><Text style={s.mTabLbl}>Perfil</Text></TouchableOpacity>
       </View>
     </View>
   );
