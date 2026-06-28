@@ -150,9 +150,10 @@ export default function Corrida() {
                   </Text>
                   <Text style={[st.etapaNome, !feito && !atual && st.txtFuturo]}>{p.nome_fantasia || 'Destino'}</Text>
                   <Text style={[st.etapaEnd, !feito && !atual && st.txtFuturo]}>{p.endereco}</Text>
-                  {!!p.complemento && <Text style={st.etapaInfo}>📌 {p.complemento}</Text>}
-                  {!!p.numero_nf && <Text style={st.etapaInfo}>🧾 NF {p.numero_nf}</Text>}
-                  {!!p.observacoes && atual && <Text style={st.etapaObs}>💬 {p.observacoes}</Text>}
+                  {!!p.complemento && <Text style={[st.etapaInfo, !feito && !atual && st.txtFuturo]}>📌 {p.complemento}</Text>}
+                  {!!p.numero_nf && <Text style={[st.etapaInfo, !feito && !atual && st.txtFuturo]}>🧾 NF {p.numero_nf}</Text>}
+                  {!!p.telefone && <Text style={[st.etapaInfo, !feito && !atual && st.txtFuturo]}>📞 {p.telefone}</Text>}
+                  {!!p.observacoes && <Text style={[st.etapaObs, !feito && !atual && st.txtFuturoObs]}>💬 {p.observacoes}</Text>}
                   {feito && !!p.finalizado_em && <Text style={st.etapaHora}>Entregue às {hora(p.finalizado_em)}</Text>}
                   {atual && (
                     <View style={st.acoesPonto}>
@@ -239,6 +240,7 @@ const st = StyleSheet.create({
   txtOk: { color: C.ok },
   txtAtual: { color: C.azulP },
   txtFuturo: { color: C.tinta3 },
+  txtFuturoObs: { color: C.tinta3, backgroundColor: '#f0f4f8' },
   etapaNome: { fontSize: 14.5, fontWeight: '700', color: C.tinta, marginTop: 2 },
   etapaEnd: { fontSize: 13, color: C.tinta2, marginTop: 1, lineHeight: 18 },
   etapaInfo: { fontSize: 12.5, color: C.tinta2, marginTop: 4 },

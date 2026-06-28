@@ -127,8 +127,16 @@ export default function Rota() {
                 onMapReady={() => setMapaPronto(true)} rotateEnabled={false} pitchEnabled={false}>
                 {mapaPronto && <UrlTile urlTemplate="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png" maximumZ={20} tileSize={512} flipY={false} zIndex={-1} shouldReplaceMapContent={true} />}
                 {linhaRota.length > 1 && <Polyline coordinates={linhaRota} strokeColor={C.azulP} strokeWidth={4} zIndex={3} />}
-                {temColeta && <Marker coordinate={{ latitude: dados.coleta.lat, longitude: dados.coleta.lng }} title="Coleta" pinColor={C.navy900} />}
-                {paradas.map((p, i) => <Marker key={p.ponto_id} coordinate={{ latitude: p.lat, longitude: p.lng }} title={`${i + 1} · ${p.protocolo}`} pinColor={i === paradas.length - 1 ? C.ok : C.azulP} />)}
+                {temColeta && (
+                  <Marker coordinate={{ latitude: dados.coleta.lat, longitude: dados.coleta.lng }} title="Coleta" anchor={{ x: 0.5, y: 0.5 }}>
+                    <View style={[st.pin, { backgroundColor: C.navy900 }]}><Text style={st.pinTxt}>C</Text></View>
+                  </Marker>
+                )}
+                {paradas.map((p, i) => (
+                  <Marker key={p.ponto_id} coordinate={{ latitude: p.lat, longitude: p.lng }} title={`${i + 1} · ${p.protocolo}`} anchor={{ x: 0.5, y: 0.5 }}>
+                    <View style={[st.pin, { backgroundColor: i === paradas.length - 1 ? C.ok : C.azulP }]}><Text style={st.pinTxt}>{i + 1}</Text></View>
+                  </Marker>
+                ))}
               </MapView>
             </View>
           )}
@@ -188,6 +196,8 @@ const st = StyleSheet.create({
 
   mapaWrap: { height: 220, backgroundColor: '#cfe0ee' },
   mapa: { flex: 1 },
+  pin: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 2.5, borderColor: '#fff' },
+  pinTxt: { color: '#fff', fontSize: 14, fontWeight: '900' },
 
   seq: { padding: 16 },
   seqTit: { fontSize: 10, fontWeight: '800', color: C.tinta3, letterSpacing: 0.5, marginBottom: 12 },
