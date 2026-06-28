@@ -67,7 +67,10 @@ export default function Home() {
   const [refresh, setRef] = useState(false);
   const [busy, setBusy]   = useState({});
 
-  useGPS(fila.find(e => ['aguardando_coleta','em_coleta','em_rota'].includes(e.status))?.id || null);
+  useGPS(
+    fila.find(e => ['aguardando_coleta','em_coleta','em_rota'].includes(e.status))?.id || null,
+    !!eu?.online,  // online esperando corrida também rastreia (para receber ofertas)
+  );
 
   const carregar = useCallback(async () => {
     try {

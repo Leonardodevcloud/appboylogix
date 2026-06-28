@@ -4,12 +4,15 @@ import { Platform } from 'react-native';
 import { GPS_TASK, setEntregaAtiva } from '../tasks/gpsTask';
 import { api } from '../api';
 
-// Ativa o rastreamento GPS enquanto houver uma entrega ativa (entregaId != null).
-// Tenta usar BACKGROUND (envia mesmo com app fechado). Se não houver suporte
-// (ex.: Expo Go), cai para um modo FOREGROUND com setInterval.
-export function useGPS(entregaId) {
+// Ativa o rastreamento GPS quando o motoboy está ONLINE (esperando corrida) ou
+// com uma ENTREGA ativa. Sem isso, o backend não tem a posição e o motoboy não
+// recebe ofertas. Tenta BACKGROUND (app fechado); se não houver suporte (Expo Go),
+// cai para FOREGROUND com setInterval.
+// Parâmetros: entregaId (string|null) e ativoExtra (bool) — rastrear mesmo sem entrega.
+export function useGPS(entregaId, ativoExtra = false) {
   const fgInterval = useRef(null);
   const modoBg = useRef(false);
+  const ativo = !!entregaId || !!ativoExtra;
 
   useEffect(() => {
     let cancelado = false;
@@ -28,7 +31,7 @@ export function useGPS(entregaId) {
     }
 
     async function iniciar() {
-      if (!entregaId) { await parar(); return; }
+      if (!ativo) { await parar(); return; }
 
       // Permissão de primeiro plano (obrigatória)
       const fg = await Location.requestForegroundPermissionsAsync();
@@ -93,5 +96,5 @@ export function useGPS(entregaId) {
       // Para apenas o foreground (preso a esta montagem). O background persiste.
       if (fgInterval.current) { clearInterval(fgInterval.current); fgInterval.current = null; }
     };
-  }, [entregaId]);
+  }, [entregaId, ativo]);
 }
