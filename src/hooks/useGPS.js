@@ -47,7 +47,9 @@ export function useGPS(entregaId, ativoExtra = false) {
         bgOk = bg.status === 'granted';
       } catch { bgOk = false; }
 
-      // Tenta iniciar updates em background (precisa de dev build; falha no Expo Go)
+      // Tenta iniciar updates em BACKGROUND (só funciona em dev/prod build; no Expo Go
+      // não envia nada). É um COMPLEMENTO para quando o app está fechado — não substitui
+      // o foreground, que roda sempre que o app está aberto (garante envio no Expo Go).
       if (bgOk) {
         try {
           const jaRodando = await Location.hasStartedLocationUpdatesAsync(GPS_TASK).catch(() => false);
@@ -59,31 +61,32 @@ export function useGPS(entregaId, ativoExtra = false) {
               pausesUpdatesAutomatically: false,
               showsBackgroundLocationIndicator: true,
               foregroundService: {
-                notificationTitle: 'Logix — corrida ativa',
-                notificationBody: 'Compartilhando sua localização durante a entrega.',
+                notificationTitle: 'Logix — você está online',
+                notificationBody: 'Compartilhando sua localização para receber corridas.',
                 notificationColor: '#185FA5',
               },
             });
           }
           modoBg.current = true;
-          if (!cancelado) console.log('[GPS] background ativo');
-          return;
+          if (!cancelado) console.log('[GPS] background ativo (complemento)');
         } catch (e) {
-          console.log('[GPS] background indisponível, usando foreground:', e?.message);
+          console.log('[GPS] background indisponível:', e?.message);
         }
       }
 
-      // Fallback: foreground com setInterval (funciona no Expo Go)
-      modoBg.current = false;
+      // FOREGROUND com setInterval: roda SEMPRE que o app está aberto.
+      // É o que garante o envio no Expo Go (onde background não funciona) e
+      // também cobre o app aberto numa build real.
       const reportar = async () => {
         try {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           const { latitude, longitude } = loc.coords;
           await api.post('/motoboys/app/posicao', { lat: latitude, lng: longitude, entrega_id: entregaId || undefined });
-          console.log('[GPS fg] enviado', latitude, longitude);
+          console.log('[GPS fg] enviado', latitude.toFixed(5), longitude.toFixed(5));
         } catch (e) { console.log('[GPS fg] erro:', e?.message); }
       };
       reportar();
+      if (fgInterval.current) clearInterval(fgInterval.current);
       fgInterval.current = setInterval(reportar, 15000);
     }
 
