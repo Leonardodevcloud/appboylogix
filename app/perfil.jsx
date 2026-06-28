@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  RefreshControl, Alert, Switch, ActivityIndicator, StatusBar,
+  RefreshControl, Alert, Switch, ActivityIndicator, StatusBar, Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { api } from '../src/api';
@@ -30,10 +30,16 @@ function fmtCpf(c) {
   return `${n.slice(0, 3)}.${n.slice(3, 6)}.${n.slice(6, 9)}-${n.slice(9)}`;
 }
 
-function Avatar({ nome, size = 76 }) {
+function Avatar({ nome, fotoUrl, size = 76 }) {
   const ini = (nome || '?').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
   const cores = [C.azulV, C.azulP, '#534AB7', '#0F6E56', '#854F0B'];
   const bg = cores[ini.charCodeAt(0) % cores.length];
+  if (fotoUrl) {
+    return (
+      <Image source={{ uri: fotoUrl }}
+        style={[st.av, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]} />
+    );
+  }
   return (
     <View style={[st.av, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
       <Text style={[st.avTxt, { fontSize: size * 0.36 }]}>{ini}</Text>
@@ -85,7 +91,7 @@ export default function Perfil() {
           <View style={{ width: 60 }} />
         </View>
         <View style={st.headerBody}>
-          <Avatar nome={p.nome_completo} size={76} />
+          <Avatar nome={p.nome_completo} fotoUrl={p.foto_url} size={76} />
           <Text style={st.nome}>{p.nome_completo}</Text>
           <View style={st.codBadge}>
             <Text style={st.codTxt}>#{String(p.codigo || 0).padStart(3, '0')}</Text>

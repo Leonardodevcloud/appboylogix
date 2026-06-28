@@ -260,8 +260,13 @@ export default function Home() {
         {/* Corrida ativa: leva para a visão macro (timeline) */}
         {[...emColeta, ...emRota].length > 0 && (
           <>
-            <View style={[s.mSec, { marginTop: 18 }]}>
+            <View style={[s.mSec, { marginTop: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
               <Text style={s.mSecTxt}>Corrida ativa</Text>
+              {[...emColeta, ...emRota].length > 1 && (
+                <TouchableOpacity onPress={() => router.push('/rota')} style={s.btnRota} activeOpacity={0.8}>
+                  <Text style={s.btnRotaTxt}>🗺 Ver minha rota</Text>
+                </TouchableOpacity>
+              )}
             </View>
             {[...emColeta, ...emRota].map(e => {
               const pontos = e.pontos || [];
@@ -346,6 +351,8 @@ const s = StyleSheet.create({
   mStatS:    { fontSize: 9.5, color: C.tinta2, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 2 },
   mSec:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 4 },
   mSecTxt:   { fontSize: 12, fontWeight: '800', color: C.tinta },
+  btnRota:   { backgroundColor: '#eef4fb', borderWidth: 1, borderColor: '#B5D4F4', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12 },
+  btnRotaTxt:{ fontSize: 12, fontWeight: '700', color: '#185FA5' },
   mSecBadge: { fontSize: 10, color: C.azulP, fontWeight: '700' },
   ride:      { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 16, padding: 14, marginBottom: 11, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 2 },
   rideNew:   { borderColor: C.azulV, shadowColor: C.azulV, shadowOpacity: 0.12, shadowRadius: 6, elevation: 4 },
