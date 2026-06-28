@@ -15,7 +15,7 @@ import { api, getToken, API_URL } from '../api';
 
 // Canal de notificação. IMPORTANTE: as configs de um canal travam após a 1a
 // criação no Android — se precisar mudar som/vibração, troque o ID (sufixo _vN).
-const CANAL_ID = 'corridas_v2';
+const CANAL_ID = 'corridas_v3';
 
 // Foreground: quando o app esta aberto, ainda assim exibe banner + toca som.
 export function configurarNotificacoes() {
@@ -38,7 +38,7 @@ export async function criarCanalAndroid() {
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 300, 200, 300],
       lightColor: '#185FA5',
-      sound: 'default',
+      sound: 'alerta_corrida.wav',
       enableVibrate: true,
       enableLights: true,
       bypassDnd: false,
@@ -112,6 +112,30 @@ export async function removerPushDoBackend() {
     globalThis.__lxPushToken = null;
   } catch (e) {
     console.log('[push] removerPushDoBackend:', e?.message);
+  }
+}
+
+// Dispara uma notificação LOCAL no canal de corridas — para testar som/vibração
+// sem depender do servidor/FCM. Se esta tocar e a do servidor não, o problema é
+// entrega; se nem esta tocar, é o canal/aparelho.
+export async function testarNotificacaoLocal() {
+  try {
+    await criarCanalAndroid();
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🔔 Teste de notificação Logix',
+        body: 'Ouviu o som e sentiu a vibração? Então o canal está OK.',
+        sound: 'default',
+        data: { tipo: 'teste' },
+      },
+      trigger: Platform.OS === 'android'
+        ? { seconds: 1, channelId: CANAL_ID }
+        : { seconds: 1 },
+    });
+    return true;
+  } catch (e) {
+    console.log('[push] teste local:', e?.message);
+    return false;
   }
 }
 

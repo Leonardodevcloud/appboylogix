@@ -28,7 +28,9 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "config": {
         "googleMaps": {
@@ -45,14 +47,21 @@
     },
     "plugins": [
       "expo-router",
-      "expo-location",
+      [
+        "expo-location",
+        {
+          "isAndroidForegroundServiceEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
       "expo-camera",
       "expo-audio",
       "expo-secure-store",
       [
         "expo-notifications",
         {
-          "color": "#185FA5"
+          "color": "#185FA5",
+          "sounds": ["./assets/sons/alerta_corrida.wav"]
         }
       ]
     ],
