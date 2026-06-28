@@ -76,6 +76,11 @@ export const api = {
   async meuCadastro() {
     return this.get('/motoboys/app/meu-cadastro');
   },
+
+  // ── Ofertas ──
+  async ofertaAtiva() { return this.get('/motoboys/app/oferta-ativa'); },
+  async aceitarOferta(ofertaId) { return this.post(`/motoboys/app/ofertas/${ofertaId}/aceitar`, {}); },
+  async recusarOferta(ofertaId) { return this.post(`/motoboys/app/ofertas/${ofertaId}/recusar`, {}); },
   // Reenvio após solicitação — autenticado.
   async reenviarCadastro(dados) {
     return this.post('/motoboys/app/reenviar-cadastro', dados);

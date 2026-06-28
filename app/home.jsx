@@ -91,6 +91,8 @@ export default function Home() {
         if (mc.situacao && mc.situacao !== 'aprovado') { router.replace('/cadastro-status'); return; }
       } catch { /* segue; se o token estiver ruim, o carregar() trata */ }
       carregar();
+      // Se já houver uma oferta pendente (app abriu depois do disparo), mostra.
+      try { const r = await api.ofertaAtiva(); if (r.oferta) router.push('/oferta'); } catch {}
     })();
     const t = setInterval(carregar, 30_000);
 
@@ -107,7 +109,10 @@ export default function Home() {
         ws.onmessage = (ev) => {
           try {
             const { evento, dados } = JSON.parse(ev.data);
-            if (evento === 'cadastro.reenvio') {
+            if (evento === 'oferta.nova') {
+              // Corrida chegando: abre a tela de oferta em primeiro plano.
+              router.push({ pathname: '/oferta', params: { oferta_id: dados?.ofertaId || '' } });
+            } else if (evento === 'cadastro.reenvio') {
               Alert.alert('Ação necessária', dados?.motivo || 'A central pediu uma correção no seu cadastro.', [
                 { text: 'Ver agora', onPress: () => router.replace('/cadastro-status') },
               ]);
