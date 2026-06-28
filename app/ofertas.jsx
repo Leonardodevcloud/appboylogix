@@ -153,8 +153,8 @@ export default function Ofertas() {
               </View>
 
               <View style={st.distLinha}>
-                <Text style={st.dist}>📍 {o.distancia_km != null ? Number(o.distancia_km).toFixed(1) + ' km até a coleta' : '—'}</Text>
-                {o.rota_km != null && <Text style={st.dist}>🛣 {Number(o.rota_km).toFixed(1)} km de rota</Text>}
+                <Text style={st.dist}>📍 {Number.isFinite(Number(o.distancia_km)) ? Number(o.distancia_km).toFixed(1) + ' km até a coleta' : '—'}</Text>
+                {Number.isFinite(Number(o.rota_km)) && Number(o.rota_km) > 0 && <Text style={st.dist}>🛣 {Number(o.rota_km).toFixed(1)} km de rota</Text>}
               </View>
 
               <View style={st.acoes}>

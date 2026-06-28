@@ -107,7 +107,7 @@ export default function OfertaDetalhe() {
         {mapaDisponivel && regiao ? (
           <MapView style={st.mapa} initialRegion={regiao} mapType="none">
             {/* Tiles do OpenStreetMap (sem API key do Google) */}
-            <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} flipY={false} />
+            <UrlTile urlTemplate="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png" maximumZ={20} flipY={false} />
             {temColetaGeo && <Marker coordinate={{ latitude: coleta.lat, longitude: coleta.lng }} title="Coleta" pinColor={C.azulV} />}
             {pontosGeo.map((p, i) => (
               <Marker key={i} coordinate={{ latitude: p.lat, longitude: p.lng }} title={`Entrega ${i + 1}`} pinColor={C.okV} />
@@ -146,8 +146,8 @@ export default function OfertaDetalhe() {
 
           <View style={st.chips}>
             {!!oferta.cliente_nome && <View style={st.chip}><Text style={st.chipTxt}>🏢 {oferta.cliente_nome}</Text></View>}
-            {oferta.distancia_km != null && <View style={st.chip}><Text style={st.chipTxt}>📍 {Number(oferta.distancia_km).toFixed(1)} km até coleta</Text></View>}
-            {oferta.rota_km != null && <View style={st.chip}><Text style={st.chipTxt}>🛣 {Number(oferta.rota_km).toFixed(1)} km de rota</Text></View>}
+            {Number.isFinite(Number(oferta.distancia_km)) && <View style={st.chip}><Text style={st.chipTxt}>📍 {Number(oferta.distancia_km).toFixed(1)} km até coleta</Text></View>}
+            {Number.isFinite(Number(oferta.rota_km)) && Number(oferta.rota_km) > 0 && <View style={st.chip}><Text style={st.chipTxt}>🛣 {Number(oferta.rota_km).toFixed(1)} km de rota</Text></View>}
             {oferta.tempo_estimado_min != null && <View style={st.chip}><Text style={st.chipTxt}>⏱ ~{oferta.tempo_estimado_min} min</Text></View>}
           </View>
 
