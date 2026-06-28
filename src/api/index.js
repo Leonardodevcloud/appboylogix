@@ -79,6 +79,7 @@ export const api = {
 
   // ── Ofertas ──
   async ofertaAtiva() { return this.get('/motoboys/app/oferta-ativa'); },
+  async ofertas() { return this.get('/motoboys/app/ofertas'); },
   async aceitarOferta(ofertaId) { return this.post(`/motoboys/app/ofertas/${ofertaId}/aceitar`, {}); },
   async recusarOferta(ofertaId) { return this.post(`/motoboys/app/ofertas/${ofertaId}/recusar`, {}); },
   // Reenvio após solicitação — autenticado.

@@ -64,6 +64,7 @@ function Av({ nome, size = 38 }) {
 export default function Home() {
   const [eu, setEu]       = useState(null);
   const [fila, setFila]   = useState([]);
+  const [qtdOfertas, setQtdOfertas] = useState(0);
   const [refresh, setRef] = useState(false);
   const [busy, setBusy]   = useState({});
 
@@ -95,7 +96,8 @@ export default function Home() {
       } catch { /* segue; se o token estiver ruim, o carregar() trata */ }
       carregar();
       // Se já houver uma oferta pendente (app abriu depois do disparo), mostra.
-      try { const r = await api.ofertaAtiva(); if (r.oferta) router.push('/oferta'); } catch {}
+      // Conta ofertas disponíveis (badge na home).
+      try { const r = await api.ofertas(); setQtdOfertas((r.ofertas || []).length); } catch {}
     })();
     const t = setInterval(carregar, 30_000);
 
@@ -113,8 +115,10 @@ export default function Home() {
           try {
             const { evento, dados } = JSON.parse(ev.data);
             if (evento === 'oferta.nova') {
-              // Corrida chegando: abre a tela de oferta em primeiro plano.
-              router.push({ pathname: '/oferta', params: { oferta_id: dados?.ofertaId || '' } });
+              // Nova corrida disponível: atualiza o badge (não abre tela cheia).
+              api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
+            } else if (evento === 'oferta.encerrada') {
+              api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
             } else if (evento === 'cadastro.reenvio') {
               Alert.alert('Ação necessária', dados?.motivo || 'A central pediu uma correção no seu cadastro.', [
                 { text: 'Ver agora', onPress: () => router.replace('/cadastro-status') },
@@ -192,6 +196,18 @@ export default function Home() {
           <View style={s.mStat}><Text style={s.mStatB}>{eu.entregas_ativas}</Text><Text style={s.mStatS}>Hoje</Text></View>
           <View style={s.mStat}><Text style={s.mStatB}>{fila.length}</Text><Text style={s.mStatS}>Na fila</Text></View>
         </View>
+
+        {/* Badge de ofertas disponíveis (corridas que o motoboy pode aceitar) */}
+        {qtdOfertas > 0 && (
+          <TouchableOpacity style={s.ofertaBadge} onPress={() => router.push('/ofertas')} activeOpacity={0.8}>
+            <View style={s.ofertaIco}><Text style={{ fontSize: 18 }}>🛵</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.ofertaTit}>{qtdOfertas} corrida{qtdOfertas > 1 ? 's' : ''} disponível{qtdOfertas > 1 ? 'eis' : ''}</Text>
+              <Text style={s.ofertaSub}>Toque para ver e aceitar</Text>
+            </View>
+            <Text style={s.ofertaSeta}>›</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Novas corridas */}
         {novas.length > 0 && (
@@ -358,6 +374,11 @@ const s = StyleSheet.create({
   helloB:    { fontSize: 16, fontWeight: '800', color: C.tinta },
   mBody:     { flex: 1, paddingHorizontal: 16, paddingTop: 6 },
   mStats:    { flexDirection: 'row', gap: 8, marginBottom: 14, marginTop: 8 },
+  ofertaBadge: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: C.sup, borderWidth: 1, borderColor: '#dde9f5', borderLeftWidth: 4, borderLeftColor: '#378ADD', borderRadius: 12, padding: 13, marginBottom: 14 },
+  ofertaIco: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#eaf3fc', alignItems: 'center', justifyContent: 'center' },
+  ofertaTit: { fontSize: 14.5, fontWeight: '800', color: '#0e2138' },
+  ofertaSub: { fontSize: 12, color: '#46637f', marginTop: 1 },
+  ofertaSeta: { fontSize: 22, color: '#8ba5bc', fontWeight: '700' },
   mStat:     { flex: 1, backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 11, alignItems: 'center' },
   mStatB:    { fontSize: 19, fontWeight: '800', color: C.tinta },
   mStatS:    { fontSize: 9.5, color: C.tinta2, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 2 },
