@@ -257,81 +257,43 @@ export default function Home() {
         )}
 
         {/* Em coleta */}
-        {emColeta.length > 0 && (
+        {/* Corrida ativa: leva para a visão macro (timeline) */}
+        {[...emColeta, ...emRota].length > 0 && (
           <>
             <View style={[s.mSec, { marginTop: 18 }]}>
-              <Text style={s.mSecTxt}>Aguardando coleta</Text>
+              <Text style={s.mSecTxt}>Corrida ativa</Text>
             </View>
-            {emColeta.map(e => (
-              <View key={e.id} style={s.ride}>
-                <View style={s.rTop}>
-                  <Text style={s.rTopB}>{e.protocolo}</Text>
-                  <View style={[s.pill, { backgroundColor: C.warnBg }]}><Text style={[s.pillTxt, { color: C.warn }]}>{STATUS_LABEL[e.status]}</Text></View>
-                </View>
-                <View style={s.rRoute}>
-                  <View style={s.rPt}>
-                    <View style={[s.pin, { backgroundColor: C.navy900 }]}><Text style={s.pinTxt}>C</Text></View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.rPtMain} numberOfLines={1}>{e.coleta_endereco}</Text>
-                      <Text style={s.rPtSub}>Ir até o ponto de coleta</Text>
-                    </View>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  style={[s.mBtn, s.mBtnSec, busy[e.id] && s.mBtnBusy]}
-                  onPress={() => avancar(e)} disabled={busy[e.id]} activeOpacity={0.85}
-                >
-                  {busy[e.id] ? <ActivityIndicator color={C.azulP} size="small" />
-                    : <Text style={[s.mBtnTxt, { color: C.azulP }]}>
-                        {e.status === 'aguardando_coleta' ? 'Iniciar coleta' : 'Coleta concluida — saindo'}
-                      </Text>}
-                </TouchableOpacity>
-              </View>
-            ))}
-          </>
-        )}
-
-        {/* Em andamento */}
-        {emRota.length > 0 && (
-          <>
-            <View style={[s.mSec, { marginTop: 18 }]}>
-              <Text style={s.mSecTxt}>Em andamento</Text>
-            </View>
-            {emRota.map(e => {
+            {[...emColeta, ...emRota].map(e => {
               const pontos = e.pontos || [];
-              const pendentes = pontos.filter(p => !p.status || p.status === 'pendente');
-              const concluidos = pontos.length - pendentes.length;
-              const prox = pendentes[0] || pontos[0];
+              const concluidos = pontos.filter(p => p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em).length;
+              const emRotaStatus = e.status === 'em_rota';
               return (
-                <View key={e.id} style={s.ride}>
+                <TouchableOpacity key={e.id} style={s.ride} activeOpacity={0.85}
+                  onPress={() => router.push({ pathname: '/corrida', params: { entrega_id: e.id } })}>
                   <View style={s.rTop}>
                     <Text style={s.rTopB}>{e.protocolo}</Text>
-                    <View style={[s.pill, { backgroundColor: C.azulV + '22' }]}><Text style={[s.pillTxt, { color: C.azulP }]}>Em rota</Text></View>
+                    <View style={[s.pill, { backgroundColor: emRotaStatus ? C.azulV + '22' : C.warnBg }]}>
+                      <Text style={[s.pillTxt, { color: emRotaStatus ? C.azulP : C.warn }]}>{STATUS_LABEL[e.status]}</Text>
+                    </View>
                   </View>
+                  {!!e.cliente_nome && <Text style={s.rCliente}>🏢 {e.cliente_nome}</Text>}
                   <View style={s.rRoute}>
                     <View style={s.rPt}>
-                      <View style={[s.pin, { backgroundColor: C.azulV }]}><Text style={s.pinTxt}>⬡</Text></View>
+                      <View style={[s.pin, { backgroundColor: emRotaStatus ? C.azulV : C.navy900 }]}><Text style={s.pinTxt}>{emRotaStatus ? '⬡' : 'C'}</Text></View>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.rPtMain}>{concluidos} de {pontos.length} paradas concluídas</Text>
-                        {prox && <Text style={s.rPtSub} numberOfLines={1}>Próx.: {prox.nome_fantasia || prox.endereco}</Text>}
+                        <Text style={s.rPtMain} numberOfLines={1}>
+                          {emRotaStatus ? `${concluidos} de ${pontos.length} entregas concluídas` : 'Ir até o ponto de coleta'}
+                        </Text>
+                        <Text style={s.rPtSub} numberOfLines={1}>
+                          {emRotaStatus ? `Próx.: ${(pontos.find(p => !(p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em)) || {}).endereco || '—'}` : e.coleta_endereco}
+                        </Text>
                       </View>
                     </View>
                   </View>
-                  {prox && (
-                    <TouchableOpacity
-                      style={[s.mBtn, s.mBtnP]}
-                      onPress={() => router.push({ pathname: '/concluir', params: { entregaId: e.id, pontoId: prox.id, endereco: prox.endereco, numero: concluidos + 1, total: pontos.length } })}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={s.mBtnTxt}>Finalizar parada {concluidos + 1}</Text>
-                    </TouchableOpacity>
-                  )}
-                  {!prox && (
-                    <TouchableOpacity style={[s.mBtn, s.mBtnP]} onPress={() => avancar(e)} activeOpacity={0.85}>
-                      <Text style={s.mBtnTxt}>Continuar rota</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+                  <View style={[s.mBtn, s.mBtnP]}>
+                    <Text style={s.mBtnTxt}>Abrir corrida</Text>
+                  </View>
+                </TouchableOpacity>
               );
             })}
           </>
@@ -392,6 +354,7 @@ const s = StyleSheet.create({
   pill:      { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 3 },
   pillTxt:   { fontSize: 10.5, fontWeight: '700' },
   rRoute:    { flexDirection: 'column', gap: 9 },
+  rCliente:  { fontSize: 12.5, color: '#46637f', fontWeight: '600', marginBottom: 8 },
   rPt:       { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   pin:       { width: 18, height: 18, borderRadius: 6, justifyContent: 'center', alignItems: 'center', flexShrink: 0, marginTop: 1 },
   pinTxt:    { color: '#fff', fontSize: 8, fontWeight: '800' },
