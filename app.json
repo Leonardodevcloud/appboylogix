@@ -10,6 +10,8 @@
       "backgroundColor": "#042C53"
     },
     "android": {
+      "package": "br.com.logix.motoboy",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#042C53"
       },
@@ -17,18 +19,23 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
-        "CAMERA"
+        "CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "SUA_KEY_GRATUITA_MAPS_SDK_ANDROID"
+          "apiKey": "AIzaSyA5_0AHF2PbkcS50z4NLLoxALg8uuAjk2Q"
         }
       }
     },
     "ios": {
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Para rastrear sua posi\u00e7\u00e3o durante as entregas.",
-        "NSLocationAlwaysUsageDescription": "Para reportar posi\u00e7\u00e3o em segundo plano.",
+        "NSLocationWhenInUseUsageDescription": "Para rastrear sua posiÃ§Ã£o durante as entregas.",
+        "NSLocationAlwaysUsageDescription": "Para reportar posiÃ§Ã£o em segundo plano.",
         "NSCameraUsageDescription": "Para fotografar os comprovantes de entrega."
       }
     },
@@ -36,8 +43,16 @@
       "expo-router",
       "expo-location",
       "expo-camera",
-      "expo-audio"
+      "expo-audio",
+      "expo-secure-store"
     ],
-    "scheme": "logix-motoboy"
+    "scheme": "logix-motoboy",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f9ea2287-dc0e-45d6-8f44-85620ee42cf5"
+      }
+    },
+    "owner": "leonardologix"
   }
 }

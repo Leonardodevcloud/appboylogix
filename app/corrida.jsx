@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
+import SheetNavegacao from '../src/componentes/SheetNavegacao';
 
 const C = {
   navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
@@ -34,6 +35,7 @@ export default function Corrida() {
   const [entrega, setEntrega] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [navAlvo, setNavAlvo] = useState(null);
 
   async function carregar() {
     try {
@@ -62,12 +64,7 @@ export default function Corrida() {
   }
 
   function navegar(lat, lng, label) {
-    const q = lat && lng ? `${lat},${lng}` : encodeURIComponent(label || '');
-    Alert.alert('Abrir navegação', 'Escolha o app de mapas', [
-      { text: 'Google Maps', onPress: () => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`) },
-      { text: 'Waze', onPress: () => Linking.openURL(`https://waze.com/ul?ll=${q}&navigate=yes`) },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    setNavAlvo({ lat, lng, label });
   }
 
   function ligar(tel) {
@@ -105,7 +102,7 @@ export default function Corrida() {
         <View style={st.resumoStats}>
           <View><Text style={st.statB}>{reais(entrega.valor_motoboy_cent)}</Text><Text style={st.statL}>valor</Text></View>
           <View><Text style={st.statB}>{concluidos} de {totalPontos}</Text><Text style={st.statL}>entregas</Text></View>
-          {entrega.distancia_km != null && <View><Text style={st.statB}>{Number(entrega.distancia_km).toFixed(1)} km</Text><Text style={st.statL}>rota</Text></View>}
+          {Number.isFinite(Number(entrega.distancia_km)) && Number(entrega.distancia_km) > 0 && <View><Text style={st.statB}>{Number(entrega.distancia_km).toFixed(1)} km</Text><Text style={st.statL}>rota</Text></View>}
         </View>
       </View>
 
@@ -127,7 +124,7 @@ export default function Corrida() {
               {!jaColetou && (
                 <View style={st.acoesPonto}>
                   <TouchableOpacity style={st.btnNav} onPress={() => navegar(entrega.coleta_lat, entrega.coleta_lng, entrega.coleta_endereco)}>
-                    <Text style={st.btnNavTxt}>🧭 Navegar</Text>
+                    <Text style={st.btnNavTxt}>➤  Navegar</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -160,7 +157,7 @@ export default function Corrida() {
                   {atual && (
                     <View style={st.acoesPonto}>
                       <TouchableOpacity style={st.btnNav} onPress={() => navegar(p.lat, p.lng, p.endereco)}>
-                        <Text style={st.btnNavTxt}>🧭 Navegar</Text>
+                        <Text style={st.btnNavTxt}>➤  Navegar</Text>
                       </TouchableOpacity>
                       {!!p.telefone && (
                         <TouchableOpacity style={st.btnTel} onPress={() => ligar(p.telefone)}>
@@ -200,6 +197,8 @@ export default function Corrida() {
           </View>
         )}
       </View>
+
+      <SheetNavegacao alvo={navAlvo} aoFechar={() => setNavAlvo(null)} />
     </View>
   );
 }

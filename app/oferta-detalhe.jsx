@@ -14,10 +14,10 @@ const C = {
 };
 
 // Carrega react-native-maps com segurança (não existe no Expo Go).
-let MapView = null, Marker = null, Polyline = null, UrlTile = null, mapaDisponivel = false;
+let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
 try {
   const maps = require('react-native-maps');
-  MapView = maps.default; Marker = maps.Marker; Polyline = maps.Polyline; UrlTile = maps.UrlTile;
+  MapView = maps.default; Marker = maps.Marker; Polyline = maps.Polyline; UrlTile = maps.UrlTile; PROVIDER_DEFAULT = maps.PROVIDER_DEFAULT;
   mapaDisponivel = !!MapView;
 } catch (e) { mapaDisponivel = false; }
 
@@ -31,6 +31,7 @@ export default function OfertaDetalhe() {
   const [dados, setDados] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [aceitando, setAceitando] = useState(false);
+  const [mapaPronto, setMapaPronto] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -86,8 +87,8 @@ export default function OfertaDetalhe() {
     regiao = {
       latitude: (minLat + maxLat) / 2,
       longitude: (minLng + maxLng) / 2,
-      latitudeDelta: Math.max(0.02, (maxLat - minLat) * 1.6),
-      longitudeDelta: Math.max(0.02, (maxLng - minLng) * 1.6),
+      latitudeDelta: Math.max(0.015, (maxLat - minLat) * 1.4),
+      longitudeDelta: Math.max(0.015, (maxLng - minLng) * 1.4),
     };
   }
 
@@ -105,18 +106,37 @@ export default function OfertaDetalhe() {
       <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 110 }}>
         {/* Mapa */}
         {mapaDisponivel && regiao ? (
-          <MapView style={st.mapa} initialRegion={regiao} mapType="none">
-            {/* Tiles do OpenStreetMap (sem API key do Google) */}
-            <UrlTile urlTemplate="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png" maximumZ={20} flipY={false} />
+          <MapView
+            style={st.mapa}
+            provider={PROVIDER_DEFAULT}
+            initialRegion={regiao}
+            mapType="standard"
+            onMapReady={() => setMapaPronto(true)}
+            rotateEnabled={false}
+            pitchEnabled={false}
+          >
+            {/* Tiles do OpenStreetMap via CARTO, por cima do mapa base.
+                Só montam após onMapReady para não serem cobertos pelo provider nativo. */}
+            {mapaPronto && (
+              <UrlTile
+                urlTemplate="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
+                maximumZ={20}
+                tileSize={512}
+                flipY={false}
+                zIndex={-1}
+                shouldReplaceMapContent={true}
+              />
+            )}
+            {/* Rota pelas ruas (ORS) ou linha reta de fallback. */}
+            {rotaOrs.length > 1 && (
+              <Polyline coordinates={rotaOrs} strokeColor={C.azulP} strokeWidth={5} zIndex={3} />
+            )}
+            {rotaOrs.length <= 1 && temColetaGeo && pontosGeo.length > 0 && (
+              <Polyline coordinates={[{ latitude: coleta.lat, longitude: coleta.lng }, ...pontosGeo.map(p => ({ latitude: p.lat, longitude: p.lng }))]} strokeColor={C.azulP} strokeWidth={4} lineDashPattern={[8, 6]} zIndex={3} />
+            )}
             {temColetaGeo && <Marker coordinate={{ latitude: coleta.lat, longitude: coleta.lng }} title="Coleta" pinColor={C.azulV} />}
             {pontosGeo.map((p, i) => (
               <Marker key={i} coordinate={{ latitude: p.lat, longitude: p.lng }} title={`Entrega ${i + 1}`} pinColor={C.okV} />
-            ))}
-            {/* Rota real pelas ruas (ORS). Se não veio, desenha linha reta como fallback. */}
-            {rotaOrs.length > 1 ? (
-              <Polyline coordinates={rotaOrs} strokeColor={C.azulP} strokeWidth={4} />
-            ) : (temColetaGeo && pontosGeo.length > 0 && (
-              <Polyline coordinates={[{ latitude: coleta.lat, longitude: coleta.lng }, ...pontosGeo.map(p => ({ latitude: p.lat, longitude: p.lng }))]} strokeColor={C.azulP} strokeWidth={3} lineDashPattern={[6, 6]} />
             ))}
           </MapView>
         ) : (
