@@ -282,19 +282,41 @@ export default function Home() {
                     </View>
                   </View>
                   {!!e.cliente_nome && <Text style={s.rCliente}>🏢 {e.cliente_nome}</Text>}
+                  {emRotaStatus && <Text style={s.rProgresso}>{concluidos} de {pontos.length} entregas concluídas</Text>}
+
+                  {/* Coleta */}
                   <View style={s.rRoute}>
                     <View style={s.rPt}>
-                      <View style={[s.pin, { backgroundColor: emRotaStatus ? C.azulV : C.navy900 }]}><Text style={s.pinTxt}>{emRotaStatus ? '⬡' : 'C'}</Text></View>
+                      <View style={[s.pin, { backgroundColor: C.navy900 }]}><Text style={s.pinTxt}>C</Text></View>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.rPtMain} numberOfLines={1}>
-                          {emRotaStatus ? `${concluidos} de ${pontos.length} entregas concluídas` : 'Ir até o ponto de coleta'}
-                        </Text>
-                        <Text style={s.rPtSub} numberOfLines={1}>
-                          {emRotaStatus ? `Próx.: ${(pontos.find(p => !(p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em)) || {}).endereco || '—'}` : e.coleta_endereco}
-                        </Text>
+                        <Text style={s.rPtMain} numberOfLines={1}>Coleta{e.coleta_nome ? ` · ${e.coleta_nome}` : ''}</Text>
+                        <Text style={s.rPtSub} numberOfLines={2}>{e.coleta_endereco}</Text>
                       </View>
                     </View>
+
+                    {/* Todos os destinos */}
+                    {pontos.map((p, i) => {
+                      const feito = p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
+                      return (
+                        <View key={p.id || i} style={s.rPt}>
+                          <View style={[s.pin, { backgroundColor: feito ? C.ok : (i === pontos.length - 1 ? C.ok : C.azulP), opacity: feito ? 0.55 : 1 }]}>
+                            <Text style={s.pinTxt}>{feito ? '✓' : i + 1}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[s.rPtMain, feito && s.rFeito]} numberOfLines={1}>
+                              {pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega'}{p.nome_fantasia ? ` · ${p.nome_fantasia}` : ''}
+                            </Text>
+                            <Text style={[s.rPtSub, feito && s.rFeito]} numberOfLines={2}>{p.endereco}</Text>
+                            {!!p.complemento && <Text style={s.rDet}>📌 {p.complemento}</Text>}
+                            {!!p.numero_nf && <Text style={s.rDet}>🧾 NF {p.numero_nf}</Text>}
+                            {!!p.telefone && <Text style={s.rDet}>📞 {p.telefone}</Text>}
+                            {!!p.observacoes && <Text style={s.rDet}>💬 {p.observacoes}</Text>}
+                          </View>
+                        </View>
+                      );
+                    })}
                   </View>
+
                   <View style={[s.mBtn, s.mBtnP]}>
                     <Text style={s.mBtnTxt}>Abrir corrida</Text>
                   </View>
@@ -360,13 +382,16 @@ const s = StyleSheet.create({
   rTopB:     { fontSize: 13, fontWeight: '800', color: C.tinta },
   pill:      { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 3 },
   pillTxt:   { fontSize: 10.5, fontWeight: '700' },
-  rRoute:    { flexDirection: 'column', gap: 9 },
+  rRoute:    { flexDirection: 'column', gap: 12 },
   rCliente:  { fontSize: 12.5, color: '#46637f', fontWeight: '600', marginBottom: 8 },
+  rProgresso:{ fontSize: 11.5, color: '#185FA5', fontWeight: '700', marginBottom: 10 },
   rPt:       { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   pin:       { width: 18, height: 18, borderRadius: 6, justifyContent: 'center', alignItems: 'center', flexShrink: 0, marginTop: 1 },
   pinTxt:    { color: '#fff', fontSize: 8, fontWeight: '800' },
   rPtMain:   { fontSize: 12, color: C.tinta, fontWeight: '600' },
   rPtSub:    { fontSize: 10.5, color: C.tinta3, fontWeight: '600', marginTop: 1 },
+  rDet:      { fontSize: 10.5, color: '#46637f', marginTop: 2 },
+  rFeito:    { textDecorationLine: 'line-through', opacity: 0.6 },
   rMeta:     { flexDirection: 'row', gap: 14, marginTop: 13, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.linha, borderStyle: 'dashed' },
   rMetaB:    { fontSize: 14, fontWeight: '800', color: C.tinta },
   rMetaL:    { fontSize: 11, color: C.tinta2, fontWeight: '600', marginTop: 1 },

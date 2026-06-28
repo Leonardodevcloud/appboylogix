@@ -24,6 +24,7 @@ export default function Rota() {
   const [paradas, setParadas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [mapaPronto, setMapaPronto] = useState(false);
+  const [reordenado, setReordenado] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -42,6 +43,7 @@ export default function Rota() {
     if (alvo < 0 || alvo >= novo.length) return;
     [novo[idx], novo[alvo]] = [novo[alvo], novo[idx]];
     setParadas(novo);
+    setReordenado(true);
   }
 
   // Monta a URL do Google Maps com todas as paradas (coleta + entregas na ordem).
@@ -83,9 +85,16 @@ export default function Rota() {
     }
   }
 
-  const linhaRota = [];
-  if (temColeta) linhaRota.push({ latitude: dados.coleta.lat, longitude: dados.coleta.lng });
-  paradas.forEach(p => linhaRota.push({ latitude: p.lat, longitude: p.lng }));
+  // Linha do mapa: usa a geometria real (segue as ruas) vinda do ORS quando a ordem
+  // está como o backend otimizou. Se o motoboy reordenar, cai para a linha reta entre pontos.
+  let linhaRota = [];
+  const temGeometria = Array.isArray(dados.coordenadas) && dados.coordenadas.length > 1;
+  if (temGeometria && !reordenado) {
+    linhaRota = dados.coordenadas.map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+  } else {
+    if (temColeta) linhaRota.push({ latitude: dados.coleta.lat, longitude: dados.coleta.lng });
+    paradas.forEach(p => linhaRota.push({ latitude: p.lat, longitude: p.lng }));
+  }
 
   return (
     <View style={st.root}>
@@ -173,6 +182,7 @@ export default function Rota() {
               <Text style={st.btnSeguirTxt}>Seguir rota no Google Maps</Text>
             </TouchableOpacity>
             <Text style={st.dica}>Abre o Google Maps com todas as paradas na ordem acima. Use as setas para reordenar.</Text>
+            {reordenado && <Text style={st.dicaAlt}>Você alterou a ordem — a linha do mapa é aproximada, mas o Google Maps traçará o caminho real.</Text>}
           </View>
         </ScrollView>
       )}
@@ -214,6 +224,7 @@ const st = StyleSheet.create({
   btnSeguir: { backgroundColor: C.azulP, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 8 },
   btnSeguirTxt: { color: '#fff', fontSize: 15, fontWeight: '800' },
   dica: { fontSize: 11, color: C.tinta3, textAlign: 'center', marginTop: 8, lineHeight: 16 },
+  dicaAlt: { fontSize: 11, color: '#854F0B', textAlign: 'center', marginTop: 6, lineHeight: 16, backgroundColor: '#FAEEDA', padding: 8, borderRadius: 8 },
 
   vazio: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
   vazioIco: { fontSize: 42, marginBottom: 14 },
