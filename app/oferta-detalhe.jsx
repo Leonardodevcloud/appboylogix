@@ -14,10 +14,10 @@ const C = {
 };
 
 // Carrega react-native-maps com segurança (não existe no Expo Go).
-let MapView = null, Marker = null, Polyline = null, PROVIDER_GOOGLE = undefined, mapaDisponivel = false;
+let MapView = null, Marker = null, Polyline = null, UrlTile = null, mapaDisponivel = false;
 try {
   const maps = require('react-native-maps');
-  MapView = maps.default; Marker = maps.Marker; Polyline = maps.Polyline; PROVIDER_GOOGLE = maps.PROVIDER_GOOGLE;
+  MapView = maps.default; Marker = maps.Marker; Polyline = maps.Polyline; UrlTile = maps.UrlTile;
   mapaDisponivel = !!MapView;
 } catch (e) { mapaDisponivel = false; }
 
@@ -71,6 +71,7 @@ export default function OfertaDetalhe() {
   if (!dados) return null;
 
   const { oferta, pontos } = dados;
+  const rotaOrs = (dados.rota || []).map(([lat, lng]) => ({ latitude: Number(lat), longitude: Number(lng) }));
   const coleta = { lat: Number(oferta.coleta_lat), lng: Number(oferta.coleta_lng) };
   const temColetaGeo = !!oferta.coleta_lat && !!oferta.coleta_lng;
   const pontosGeo = (pontos || []).filter(p => p.lat && p.lng).map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
@@ -104,14 +105,19 @@ export default function OfertaDetalhe() {
       <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 110 }}>
         {/* Mapa */}
         {mapaDisponivel && regiao ? (
-          <MapView style={st.mapa} provider={PROVIDER_GOOGLE} initialRegion={regiao}>
+          <MapView style={st.mapa} initialRegion={regiao} mapType="none">
+            {/* Tiles do OpenStreetMap (sem API key do Google) */}
+            <UrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} flipY={false} />
             {temColetaGeo && <Marker coordinate={{ latitude: coleta.lat, longitude: coleta.lng }} title="Coleta" pinColor={C.azulV} />}
             {pontosGeo.map((p, i) => (
               <Marker key={i} coordinate={{ latitude: p.lat, longitude: p.lng }} title={`Entrega ${i + 1}`} pinColor={C.okV} />
             ))}
-            {temColetaGeo && pontosGeo.length > 0 && (
-              <Polyline coordinates={[{ latitude: coleta.lat, longitude: coleta.lng }, ...pontosGeo.map(p => ({ latitude: p.lat, longitude: p.lng }))]} strokeColor={C.azulP} strokeWidth={3} />
-            )}
+            {/* Rota real pelas ruas (ORS). Se não veio, desenha linha reta como fallback. */}
+            {rotaOrs.length > 1 ? (
+              <Polyline coordinates={rotaOrs} strokeColor={C.azulP} strokeWidth={4} />
+            ) : (temColetaGeo && pontosGeo.length > 0 && (
+              <Polyline coordinates={[{ latitude: coleta.lat, longitude: coleta.lng }, ...pontosGeo.map(p => ({ latitude: p.lat, longitude: p.lng }))]} strokeColor={C.azulP} strokeWidth={3} lineDashPattern={[6, 6]} />
+            ))}
           </MapView>
         ) : (
           <View style={st.mapaFallback}>

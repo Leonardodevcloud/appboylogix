@@ -21,7 +21,7 @@
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "COLOQUE_AQUI_SUA_GOOGLE_MAPS_API_KEY_ANDROID"
+          "apiKey": "SUA_KEY_GRATUITA_MAPS_SDK_ANDROID"
         }
       }
     },
