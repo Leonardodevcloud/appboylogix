@@ -10,6 +10,7 @@
   "dependencies": {
     "@react-navigation/native": "^7.0.0",
     "expo": "^54.0.17",
+    "expo-audio": "~1.1.1",
     "expo-camera": "~16.1.11",
     "expo-image-picker": "~16.1.4",
     "expo-linking": "^56.0.14",

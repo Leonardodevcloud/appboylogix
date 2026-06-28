@@ -1,56 +1,51 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert, StatusBar, Vibration,
+  ActivityIndicator, Alert, StatusBar,
 } from 'react-native';
 import { router } from 'expo-router';
 import { api, API_URL, getToken } from '../src/api';
+import { alertaCorrida, pararAlerta } from '../src/utils/alerta';
 
 const C = {
   navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   fundo: '#eef4fb', sup: '#ffffff', linha: '#dde9f5',
-  ok: '#1f9d6b', okV: '#27b67f', erro: '#dc2626',
-  amberBg: '#fef3c7', amberTx: '#854f0b', erroBg: '#fcebeb', erroTx: '#a32d2d',
+  ok: '#1f9d6b', okV: '#27b67f',
 };
 
 function reais(cent) {
   if (cent == null) return '—';
   return 'R$ ' + (cent / 100).toFixed(2).replace('.', ',');
 }
-function mmss(seg) {
-  if (seg < 0) seg = 0;
-  const m = Math.floor(seg / 60), s = seg % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
+function curto(end) {
+  if (!end) return '—';
+  return end.split(',').slice(0, 2).join(',').trim();
 }
 
 export default function Ofertas() {
   const [ofertas, setOfertas] = useState([]);
   const [carregando, setCarregando] = useState(true);
-  const [agora, setAgora] = useState(Date.now());
   const travaRef = useRef(false);
   const wsRef = useRef(null);
+  const qtdAnterior = useRef(0);
 
   async function carregar(primeira = false) {
     try {
       const r = await api.ofertas();
       const lista = r.ofertas || [];
+      if (!primeira && lista.length > qtdAnterior.current) alertaCorrida();
+      if (primeira && lista.length) alertaCorrida();
+      qtdAnterior.current = lista.length;
       setOfertas(lista);
-      if (primeira && lista.length) Vibration.vibrate([0, 300, 150, 300]);
-      // Se não há mais ofertas, volta pra home.
-      if (!lista.length && !primeira) { router.replace('/home'); }
-    } catch (e) { /* mantém o que tinha */ }
+      if (!lista.length && !primeira) router.replace('/home');
+    } catch (e) { /* mantém */ }
     setCarregando(false);
   }
 
   useEffect(() => {
     carregar(true);
-    // Tick do timer (1s).
-    const tick = setInterval(() => setAgora(Date.now()), 1000);
-    // Recarrega a lista periodicamente (caso entre oferta nova ou expire).
     const poll = setInterval(() => carregar(), 8000);
-
-    // WebSocket: oferta nova entra, oferta encerrada sai.
     (async () => {
       try {
         const token = await getToken();
@@ -61,27 +56,33 @@ export default function Ofertas() {
         ws.onmessage = (ev) => {
           try {
             const { evento, dados } = JSON.parse(ev.data);
-            if (evento === 'oferta.nova') { carregar(); Vibration.vibrate(200); }
-            else if (evento === 'oferta.encerrada') { setOfertas(prev => prev.filter(o => o.oferta_id !== dados?.ofertaId)); }
+            if (evento === 'oferta.nova') { carregar(); }
+            else if (evento === 'oferta.encerrada') {
+              setOfertas(prev => {
+                const nova = prev.filter(o => o.oferta_id !== dados?.ofertaId);
+                qtdAnterior.current = nova.length;
+                if (!nova.length) router.replace('/home');
+                return nova;
+              });
+            }
           } catch {}
         };
       } catch {}
     })();
-
-    return () => { clearInterval(tick); clearInterval(poll); try { wsRef.current?.close(); } catch {} };
+    return () => { clearInterval(poll); pararAlerta(); try { wsRef.current?.close(); } catch {} };
   }, []);
 
   async function aceitar(oferta) {
     if (travaRef.current) return;
     travaRef.current = true;
+    pararAlerta();
     try {
       await api.aceitarOferta(oferta.oferta_id);
-      Vibration.vibrate(200);
       router.replace('/home');
     } catch (e) {
       travaRef.current = false;
       Alert.alert('Ops', e.message || 'Não foi possível aceitar essa corrida');
-      carregar(); // atualiza a lista (a corrida pode ter saído)
+      carregar();
     }
   }
 
@@ -93,7 +94,7 @@ export default function Ofertas() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.replace('/home')} style={{ width: 60 }}>
+        <TouchableOpacity onPress={() => { pararAlerta(); router.replace('/home'); }} style={{ width: 64 }}>
           <Text style={st.voltar}>‹ Início</Text>
         </TouchableOpacity>
         <Text style={st.headerTit}>Corridas disponíveis</Text>
@@ -110,31 +111,56 @@ export default function Ofertas() {
         )}
 
         {ofertas.map(o => {
-          const seg = Math.max(0, Math.floor((new Date(o.expira_em).getTime() - agora) / 1000));
-          const urgente = seg <= 20;
           const totalDest = o.qtd_pontos || 1;
           return (
             <View key={o.oferta_id} style={st.card}>
               <View style={st.cardTopo}>
-                <Text style={st.valor}>{reais(o.valor_motoboy_cent)}</Text>
-                <View style={[st.timer, urgente ? { backgroundColor: C.erroBg } : { backgroundColor: C.amberBg }]}>
-                  <Text style={[st.timerTxt, { color: urgente ? C.erroTx : C.amberTx }]}>⏱ {mmss(seg)}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.osLabel}>SERVIÇO</Text>
+                  <Text style={st.osNum}>{o.protocolo}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={st.valorLabel}>Você recebe</Text>
+                  <Text style={st.valor}>{reais(o.valor_motoboy_cent)}</Text>
                 </View>
               </View>
 
-              <View style={st.ponto}>
-                <View style={[st.bolinha, { backgroundColor: C.azulV }]} />
-                <Text style={st.pontoTxt} numberOfLines={1}>{o.coleta_nome || o.coleta_endereco || 'Coleta'}</Text>
-              </View>
-              <View style={st.ponto}>
-                <View style={[st.bolinha, { backgroundColor: C.okV }]} />
-                <Text style={st.pontoTxt} numberOfLines={1}>
-                  {o.primeiro_destino || 'Destino'}{totalDest > 1 ? ` · +${totalDest - 1} parada${totalDest - 1 > 1 ? 's' : ''}` : ''}
-                </Text>
+              <View style={st.metaLinha}>
+                {!!o.cliente_nome && (
+                  <View style={st.metaChip}><Text style={st.metaChipTxt}>🏢 {o.cliente_nome}</Text></View>
+                )}
+                {!!o.primeiro_nf && (
+                  <View style={st.metaChip}><Text style={st.metaChipTxt}>NF {o.primeiro_nf}</Text></View>
+                )}
               </View>
 
-              <View style={st.cardRodape}>
-                <Text style={st.dist}>📍 {o.distancia_km != null ? Number(o.distancia_km).toFixed(1) + ' km' : '—'} · #{o.protocolo}</Text>
+              <View style={st.rota}>
+                <View style={st.ponto}>
+                  <View style={[st.bolinha, { backgroundColor: C.azulV }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={st.pontoLbl}>COLETA</Text>
+                    <Text style={st.pontoTxt} numberOfLines={2}>{o.coleta_nome ? o.coleta_nome + ' · ' : ''}{curto(o.coleta_endereco)}</Text>
+                  </View>
+                </View>
+                <View style={st.traco} />
+                <View style={st.ponto}>
+                  <View style={[st.bolinha, { backgroundColor: C.okV }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={st.pontoLbl}>{totalDest > 1 ? `ENTREGA · ${totalDest} pontos` : 'ENTREGA'}</Text>
+                    <Text style={st.pontoTxt} numberOfLines={2}>{curto(o.primeiro_destino)}{totalDest > 1 ? ` · +${totalDest - 1}` : ''}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={st.distLinha}>
+                <Text style={st.dist}>📍 {o.distancia_km != null ? Number(o.distancia_km).toFixed(1) + ' km até a coleta' : '—'}</Text>
+                {o.rota_km != null && <Text style={st.dist}>🛣 {Number(o.rota_km).toFixed(1)} km de rota</Text>}
+              </View>
+
+              <View style={st.acoes}>
+                <TouchableOpacity style={st.btnDetalhes} onPress={() => router.push({ pathname: '/oferta-detalhe', params: { oferta_id: o.oferta_id } })} activeOpacity={0.8}>
+                  <Text style={st.btnDetalhesTxt}>Ver detalhes</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={st.btnAceitar} onPress={() => aceitar(o)} activeOpacity={0.85}>
                   <Text style={st.btnAceitarTxt}>Aceitar</Text>
                 </TouchableOpacity>
@@ -143,7 +169,7 @@ export default function Ofertas() {
           );
         })}
 
-        {!!ofertas.length && <Text style={st.rodapeLimite}>Aceite as que conseguir cumprir. O limite por corrida depende da sua disponibilidade.</Text>}
+        {!!ofertas.length && <Text style={st.rodapeLimite}>As corridas ficam disponíveis até alguém aceitar. Aceite as que conseguir cumprir.</Text>}
       </ScrollView>
     </View>
   );
@@ -155,8 +181,8 @@ const st = StyleSheet.create({
   header: { backgroundColor: C.navy900, paddingTop: 54, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   voltar: { color: C.azulC, fontSize: 14, fontWeight: '700' },
   headerTit: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  contador: { width: 60, alignItems: 'flex-end' },
-  contadorTxt: { color: '#fff', fontSize: 15, fontWeight: '800', backgroundColor: C.azulP, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 20, overflow: 'hidden' },
+  contador: { width: 64, alignItems: 'flex-end' },
+  contadorTxt: { color: '#fff', fontSize: 14, fontWeight: '800', backgroundColor: C.azulP, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 20, overflow: 'hidden' },
 
   body: { flex: 1 },
   vazio: { alignItems: 'center', paddingTop: 70 },
@@ -165,18 +191,30 @@ const st = StyleSheet.create({
   vazioSub: { fontSize: 13.5, color: C.tinta2, marginTop: 6, textAlign: 'center' },
 
   card: { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 16, padding: 15, marginBottom: 12 },
-  cardTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  valor: { color: C.okV, fontSize: 26, fontWeight: '900' },
-  timer: { paddingVertical: 4, paddingHorizontal: 11, borderRadius: 20 },
-  timerTxt: { fontSize: 13, fontWeight: '800' },
+  cardTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  osLabel: { fontSize: 10, fontWeight: '800', color: C.tinta3, letterSpacing: 1 },
+  osNum: { fontSize: 20, fontWeight: '900', color: C.navy900, marginTop: 1 },
+  valorLabel: { fontSize: 10, color: C.tinta3, fontWeight: '600' },
+  valor: { color: C.okV, fontSize: 22, fontWeight: '900' },
 
-  ponto: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 7 },
-  bolinha: { width: 10, height: 10, borderRadius: 5 },
-  pontoTxt: { fontSize: 13.5, color: C.tinta2, flex: 1 },
+  metaLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  metaChip: { backgroundColor: '#eef4fb', borderRadius: 7, paddingVertical: 4, paddingHorizontal: 9 },
+  metaChipTxt: { fontSize: 12, color: C.tinta2, fontWeight: '600' },
 
-  cardRodape: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  dist: { fontSize: 12, color: C.tinta3 },
-  btnAceitar: { backgroundColor: C.okV, paddingVertical: 9, paddingHorizontal: 26, borderRadius: 11 },
+  rota: { marginBottom: 10 },
+  ponto: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  bolinha: { width: 11, height: 11, borderRadius: 6, marginTop: 3 },
+  traco: { width: 2, height: 16, backgroundColor: '#cdd9e8', marginLeft: 4.5, marginVertical: 2 },
+  pontoLbl: { fontSize: 9.5, fontWeight: '800', color: C.tinta3, letterSpacing: 0.8 },
+  pontoTxt: { fontSize: 13.5, color: C.tinta, fontWeight: '600', marginTop: 1 },
+
+  distLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 13 },
+  dist: { fontSize: 11.5, color: C.tinta3 },
+
+  acoes: { flexDirection: 'row', gap: 10 },
+  btnDetalhes: { flex: 1, borderWidth: 1.5, borderColor: '#cdd9e8', borderRadius: 11, paddingVertical: 11, alignItems: 'center' },
+  btnDetalhesTxt: { color: C.azulP, fontSize: 13.5, fontWeight: '700' },
+  btnAceitar: { flex: 1.3, backgroundColor: C.okV, borderRadius: 11, paddingVertical: 11, alignItems: 'center' },
   btnAceitarTxt: { color: '#fff', fontSize: 14, fontWeight: '800' },
 
   rodapeLimite: { fontSize: 11.5, color: C.tinta3, textAlign: 'center', marginTop: 8, lineHeight: 16 },

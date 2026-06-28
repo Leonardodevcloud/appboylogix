@@ -18,7 +18,12 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "CAMERA"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "COLOQUE_AQUI_SUA_GOOGLE_MAPS_API_KEY_ANDROID"
+        }
+      }
     },
     "ios": {
       "infoPlist": {
@@ -30,7 +35,8 @@
     "plugins": [
       "expo-router",
       "expo-location",
-      "expo-camera"
+      "expo-camera",
+      "expo-audio"
     ],
     "scheme": "logix-motoboy"
   }
