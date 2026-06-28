@@ -312,11 +312,11 @@ export default function Home() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Bottom nav — igual ao prototipo */}
+      {/* Bottom nav */}
       <View style={s.mTab}>
         <View style={[s.mTabItem, s.mTabOn]}><Text style={s.mTabIco}>🏠</Text><Text style={[s.mTabLbl, { color: C.azulP }]}>Início</Text></View>
-        <TouchableOpacity style={s.mTabItem}><Text style={s.mTabIco}>📍</Text><Text style={s.mTabLbl}>Rotas</Text></TouchableOpacity>
-        <TouchableOpacity style={s.mTabItem}><Text style={s.mTabIco}>💰</Text><Text style={s.mTabLbl}>Ganhos</Text></TouchableOpacity>
+        <TouchableOpacity style={s.mTabItem} onPress={() => router.push('/historico')}><Text style={s.mTabIco}>🗂</Text><Text style={s.mTabLbl}>Histórico</Text></TouchableOpacity>
+        <TouchableOpacity style={s.mTabItem} onPress={() => router.push('/ganhos')}><Text style={s.mTabIco}>💰</Text><Text style={s.mTabLbl}>Ganhos</Text></TouchableOpacity>
         <TouchableOpacity style={s.mTabItem} onPress={() => router.push('/perfil')}><Text style={s.mTabIco}>👤</Text><Text style={s.mTabLbl}>Perfil</Text></TouchableOpacity>
       </View>
     </View>
