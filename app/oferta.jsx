@@ -23,6 +23,7 @@ export default function Oferta() {
   const [oferta, setOferta] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [processando, setProcessando] = useState(false);
+  const travaRef = useRef(false); // trava síncrona contra duplo-toque
   const [segundos, setSegundos] = useState(0);
   const pulse = useRef(new Animated.Value(1)).current;
   const timerRef = useRef(null);
@@ -82,7 +83,8 @@ export default function Oferta() {
   }
 
   async function aceitar() {
-    if (processando) return;
+    if (travaRef.current) return;
+    travaRef.current = true;
     setProcessando(true);
     clearInterval(timerRef.current);
     try {
@@ -95,7 +97,8 @@ export default function Oferta() {
   }
 
   async function recusar() {
-    if (processando) return;
+    if (travaRef.current) return;
+    travaRef.current = true;
     setProcessando(true);
     clearInterval(timerRef.current);
     try { await api.recusarOferta(oferta.oferta_id); } catch {}
