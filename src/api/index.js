@@ -89,6 +89,12 @@ export const api = {
   },
 
   async logout() {
+    // Descadastra o push deste aparelho ANTES de limpar o token de auth
+    // (a chamada precisa do Authorization). require lazy evita import circular.
+    try {
+      const { removerPushDoBackend } = require('../push');
+      await removerPushDoBackend();
+    } catch {}
     try { await this.post('/motoboys/auth/logout', {}); } catch {}
     // Para o rastreamento de fundo e limpa a entrega ativa.
     try {

@@ -1,9 +1,40 @@
-import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-// Importa a task de GPS para registrÃƒÂ¡-la no app (defineTask roda no import).
+// Importa a task de GPS para registra-la no app (defineTask roda no import).
 import '../src/tasks/gpsTask';
+import { configurarNotificacoes, aoTocarNotificacao, notificacaoQueAbriuApp } from '../src/push';
+
+// Decide para onde navegar quando o motoboy toca em uma notificacao.
+function navegarPorNotificacao(dados) {
+  if (!dados || !dados.tipo) return;
+  switch (dados.tipo) {
+    case 'oferta':
+      if (dados.ofertaId) router.push('/oferta-detalhe?id=' + dados.ofertaId);
+      else router.push('/ofertas');
+      break;
+    case 'atribuida':
+    case 'atribuida_lote':
+    case 'editada':
+    case 'removida':
+    default:
+      router.push('/home');
+      break;
+  }
+}
 
 export default function Layout() {
+  useEffect(() => {
+    configurarNotificacoes();
+    // App aberto pelo toque na notificacao (estava fechado).
+    notificacaoQueAbriuApp().then((dados) => {
+      if (dados) setTimeout(() => navegarPorNotificacao(dados), 600);
+    });
+    // App ja aberto: toque na notificacao.
+    const limpar = aoTocarNotificacao(navegarPorNotificacao);
+    return limpar;
+  }, []);
+
   return (
     <>
       <StatusBar style="light" />

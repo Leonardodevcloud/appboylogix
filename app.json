@@ -24,7 +24,10 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
       ],
       "config": {
         "googleMaps": {
@@ -44,7 +47,13 @@
       "expo-location",
       "expo-camera",
       "expo-audio",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#185FA5"
+        }
+      ]
     ],
     "scheme": "logix-motoboy",
     "extra": {

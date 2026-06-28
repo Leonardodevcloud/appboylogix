@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Alert, StatusBar, Linking,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { api } from '../src/api';
+import { api, getToken, API_URL } from '../src/api';
 import SheetNavegacao from '../src/componentes/SheetNavegacao';
 
 const C = {
@@ -50,7 +50,40 @@ export default function Corrida() {
   useEffect(() => {
     carregar();
     const t = setInterval(carregar, 20000);
-    return () => clearInterval(t);
+
+    // WebSocket: reage na hora se a central editar ou remover esta corrida.
+    let ws;
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const wsUrl = API_URL.replace(/^http/, 'ws').replace('/api/v1', '') + '/ws?token=' + token;
+        ws = new WebSocket(wsUrl);
+        ws.onmessage = (ev) => {
+          try {
+            const { evento, dados } = JSON.parse(ev.data);
+            if (evento === 'entrega.editada') {
+              if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
+                Alert.alert('Corrida atualizada', 'A central alterou esta corrida. Atualizando os dados.');
+                carregar();
+              }
+            } else if (evento === 'entrega.removida') {
+              if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
+                Alert.alert('Corrida removida', 'Esta corrida foi removida de você pela central.', [
+                  { text: 'OK', onPress: () => router.replace('/home') },
+                ]);
+              } else {
+                carregar();
+              }
+            } else if (evento === 'entrega.atribuida') {
+              carregar();
+            }
+          } catch {}
+        };
+      } catch {}
+    })();
+
+    return () => { clearInterval(t); try { ws?.close(); } catch {} };
   }, []);
 
   async function avancar() {

@@ -6,6 +6,7 @@ import {
 import { router } from 'expo-router';
 import { api } from '../src/api';
 import { useGPS } from '../src/hooks/useGPS';
+import { registrarPush } from '../src/push';
 
 // Paleta exata do protótipo
 const C = {
@@ -95,6 +96,8 @@ export default function Home() {
         if (mc.situacao && mc.situacao !== 'aprovado') { router.replace('/cadastro-status'); return; }
       } catch { /* segue; se o token estiver ruim, o carregar() trata */ }
       carregar();
+      // Registra/atualiza o token de push deste aparelho (nao bloqueia a tela).
+      registrarPush().catch(() => {});
       // Se já houver uma oferta pendente (app abriu depois do disparo), mostra.
       // Conta ofertas disponíveis (badge na home).
       try { const r = await api.ofertas(); setQtdOfertas((r.ofertas || []).length); } catch {}
@@ -119,6 +122,15 @@ export default function Home() {
               api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
             } else if (evento === 'oferta.encerrada') {
               api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
+            } else if (evento === 'entrega.atribuida') {
+              // A central atribuiu uma corrida a este motoboy: recarrega a lista na hora.
+              carregar();
+            } else if (evento === 'entrega.editada') {
+              // A central alterou uma corrida ativa: recarrega para mostrar os novos dados.
+              carregar();
+            } else if (evento === 'entrega.removida') {
+              // A central removeu/transferiu uma corrida: tira da tela na hora.
+              carregar();
             } else if (evento === 'cadastro.reenvio') {
               Alert.alert('Ação necessária', dados?.motivo || 'A central pediu uma correção no seu cadastro.', [
                 { text: 'Ver agora', onPress: () => router.replace('/cadastro-status') },
