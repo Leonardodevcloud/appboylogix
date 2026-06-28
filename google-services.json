@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "166000496599",
+    "project_id": "logix-a5dc8",
+    "storage_bucket": "logix-a5dc8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:166000496599:android:b80ea278aad087078dc592",
+        "android_client_info": {
+          "package_name": "br.com.logix.motoboy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4W31jDvj2XRcJ3ltWHdd1tuEWWXfGFTM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

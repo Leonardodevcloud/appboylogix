@@ -10,6 +10,7 @@
       "backgroundColor": "#042C53"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "package": "br.com.logix.motoboy",
       "versionCode": 1,
       "adaptiveIcon": {
