@@ -7,10 +7,17 @@ export const API_URL = 'https://logix-production-61ae.up.railway.app/api/v1';
 export const EMPRESA_SLUG = marca.slug;
 export const EMPRESA_NOME = marca.nomeExibicao;
 
-// Exportado para a task de background (que não pode usar o objeto `api` com hooks).
+// Cache do token em memoria: evita ler o SecureStore (Keychain/Keystore) a CADA
+// request. Em aparelhos baratos essa leitura custa 100-300ms por chamada e somava
+// atraso em toda acao do app (avancar status, aceitar oferta, posicao, etc).
+// Lemos do disco uma vez; depois servimos da memoria. Sincronizado no login/logout.
+let _tokenCache = null;
 export async function getToken() {
-  return SecureStore.getItemAsync('lx_motoboy_token');
+  if (_tokenCache) return _tokenCache;
+  _tokenCache = await SecureStore.getItemAsync('lx_motoboy_token');
+  return _tokenCache;
 }
+export function setTokenCache(t) { _tokenCache = t || null; }
 
 async function reqInterno(method, path, body, _tentativa = 0) {
   const token = await getToken();
@@ -71,6 +78,7 @@ export const api = {
   async login(telefone, pin) {
     const data = await this.post('/motoboys/auth/login', { telefone, pin });
     await SecureStore.setItemAsync('lx_motoboy_token', data.token);
+    setTokenCache(data.token);
     await SecureStore.setItemAsync('lx_motoboy', JSON.stringify(data.motoboy));
     return data;
   },
@@ -79,6 +87,7 @@ export const api = {
   async loginEmail(email, senha) {
     const data = await this.post('/motoboys/auth/login-email', { slug: EMPRESA_SLUG, email, senha });
     await SecureStore.setItemAsync('lx_motoboy_token', data.token);
+    setTokenCache(data.token);
     await SecureStore.setItemAsync('lx_motoboy', JSON.stringify(data.motoboy));
     return data;
   },
@@ -130,6 +139,7 @@ export const api = {
       await SecureStore.deleteItemAsync('lx_gps_entrega_ativa');
     } catch {}
     await SecureStore.deleteItemAsync('lx_motoboy_token');
+    setTokenCache(null);
     await SecureStore.deleteItemAsync('lx_motoboy');
   },
 

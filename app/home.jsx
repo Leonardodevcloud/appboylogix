@@ -159,8 +159,16 @@ export default function Home() {
   }, []);
 
   async function toggleOnline(val) {
-    try { await api.patch('/motoboys/app/status', { online: val }); setEu(p => ({ ...p, online: val })); }
-    catch (e) { Alert.alert('Erro', e.message); }
+    // Update otimista: o switch se move na hora; a rede roda em segundo plano.
+    // Se a chamada falhar, revertemos o estado e avisamos o motoboy. Antes o
+    // switch ficava travado ate o round-trip terminar (1-4s em rede de rua).
+    setEu(p => ({ ...p, online: val }));
+    try {
+      await api.patch('/motoboys/app/status', { online: val });
+    } catch (e) {
+      setEu(p => ({ ...p, online: !val }));
+      Alert.alert('Erro', e.message);
+    }
   }
 
   async function avancar(entrega) {
