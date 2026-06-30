@@ -14,7 +14,8 @@
       "package": "br.com.logix.motoboy",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#042C53"
+        "backgroundColor": "#042C53",
+        "foregroundImage": "./assets/marca/ig/adaptive-icon.png"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
@@ -30,7 +31,22 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_LOCATION"
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ],
       "config": {
         "googleMaps": {
@@ -61,7 +77,9 @@
         "expo-notifications",
         {
           "color": "#185FA5",
-          "sounds": ["./assets/sons/alerta_corrida.wav"]
+          "sounds": [
+            "./assets/sons/alerta_corrida.wav"
+          ]
         }
       ]
     ],
@@ -72,6 +90,12 @@
         "projectId": "f9ea2287-dc0e-45d6-8f44-85620ee42cf5"
       }
     },
-    "owner": "leonardologix"
+    "owner": "leonardologix",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f9ea2287-dc0e-45d6-8f44-85620ee42cf5"
+    }
   }
 }

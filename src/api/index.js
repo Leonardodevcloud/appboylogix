@@ -1,43 +1,66 @@
 import * as SecureStore from 'expo-secure-store';
+import marca from '../../marca.config';
 
 export const API_URL = 'https://logix-production-61ae.up.railway.app/api/v1';
 
-// Identificador da empresa (white-label). Cada build aponta para sua empresa.
-export const EMPRESA_SLUG = 'ig';
+// Identidade da empresa (white-label) — definida em marca.config.js (1 arquivo por cliente).
+export const EMPRESA_SLUG = marca.slug;
+export const EMPRESA_NOME = marca.nomeExibicao;
 
 // Exportado para a task de background (que não pode usar o objeto `api` com hooks).
 export async function getToken() {
   return SecureStore.getItemAsync('lx_motoboy_token');
 }
 
-async function req(method, path, body, _tentativa = 0) {
+async function reqInterno(method, path, body, _tentativa = 0) {
   const token = await getToken();
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = 'Bearer ' + token;
-  // Timeout de 20s: a primeira conexao (DNS + TLS "a frio") no Android/Expo Go
-  // costuma demorar mais; um teto curto demais aborta requisicoes validas.
+  // Timeout maior na 1a tentativa (o backend/banco podem estar "frios" e levar
+  // alguns segundos para acordar); nas tentativas seguintes o servidor já está
+  // quente, então usamos um teto menor para falhar rápido em queda real.
+  // Timeout maior na 1a tentativa (banco pode estar "frio"); nas seguintes,
+  // teto menor para falhar rápido. Máx 2 retries => pior caso ~30s (antes ~70s+).
+  const TIMEOUT = _tentativa === 0 ? 14000 : 9000;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 20000);
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
   let r;
   try {
     r = await fetch(API_URL + path, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: ctrl.signal });
   } catch (e) {
     clearTimeout(timer);
     // Falha de REDE (conexao fria, abort, queda momentanea): tenta de novo
-    // automaticamente ate 2 vezes, com uma pequena espera. Isso elimina o
-    // padrao "falha na 1a vez, funciona ao atualizar".
-    const ehRede = e.name === 'AbortError' || /network request failed/i.test(e.message || '');
+    // automaticamente ate 2 vezes, com espera progressiva.
+    const ehRede = e.name === 'AbortError' || /network request failed|timeout|fetch/i.test(e.message || '');
     if (ehRede && _tentativa < 2) {
       await new Promise(res => setTimeout(res, 600 * (_tentativa + 1)));
-      return req(method, path, body, _tentativa + 1);
+      return reqInterno(method, path, body, _tentativa + 1);
     }
     throw new Error('Sem conexão. Verifique sua internet e tente novamente.');
   } finally {
     clearTimeout(timer);
   }
   const data = await r.json();
-  if (!r.ok) throw new Error(data.mensagem || data.erro || 'Erro ' + r.status);
+  if (!r.ok) {
+    const err = new Error(data.mensagem || data.erro || 'Erro ' + r.status);
+    err.status = r.status;
+    err.dados = data;
+    throw err;
+  }
   return data;
+}
+
+// Dedup de GET: se o mesmo GET já está em andamento, reaproveita a promessa em vez
+// de disparar outra requisição. Mata as duplicatas que várias telas/o WebSocket
+// causavam (fila, eu, minha-rota chamados em paralelo) sem mexer em cada tela.
+const getEmVoo = new Map();
+function req(method, path, body) {
+  if (method !== 'GET') return reqInterno(method, path, body, 0);
+  const existente = getEmVoo.get(path);
+  if (existente) return existente;
+  const p = reqInterno(method, path, body, 0).finally(() => getEmVoo.delete(path));
+  getEmVoo.set(path, p);
+  return p;
 }
 
 export const api = {
@@ -89,6 +112,8 @@ export const api = {
   },
 
   async logout() {
+    // Encerra o canal de alertas em tempo real.
+    try { require('../realtime/alertas').pararAlertasTempoReal(); } catch {}
     // Descadastra o push deste aparelho ANTES de limpar o token de auth
     // (a chamada precisa do Authorization). require lazy evita import circular.
     try {

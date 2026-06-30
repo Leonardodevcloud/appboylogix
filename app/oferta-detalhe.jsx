@@ -158,10 +158,12 @@ export default function OfertaDetalhe() {
               <Text style={st.osLabel}>SERVIÇO</Text>
               <Text style={st.osNum}>{oferta.protocolo}</Text>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={st.valorLabel}>Você recebe</Text>
-              <Text style={st.valor}>{reais(oferta.valor_motoboy_cent)}</Text>
-            </View>
+            {Number(oferta.valor_motoboy_cent) > 0 && (
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={st.valorLabel}>Você recebe</Text>
+                <Text style={st.valor}>{reais(oferta.valor_motoboy_cent)}</Text>
+              </View>
+            )}
           </View>
 
           <View style={st.chips}>
@@ -212,7 +214,7 @@ export default function OfertaDetalhe() {
       {/* Botão fixo de aceitar */}
       <View style={st.rodapeFixo}>
         <TouchableOpacity style={st.btnAceitar} onPress={aceitar} disabled={aceitando} activeOpacity={0.85}>
-          {aceitando ? <ActivityIndicator color="#fff" /> : <Text style={st.btnAceitarTxt}>Aceitar corrida · {reais(oferta.valor_motoboy_cent)}</Text>}
+          {aceitando ? <ActivityIndicator color="#fff" /> : <Text style={st.btnAceitarTxt}>{Number(oferta.valor_motoboy_cent) > 0 ? `Aceitar corrida · ${reais(oferta.valor_motoboy_cent)}` : 'Aceitar corrida'}</Text>}
         </TouchableOpacity>
       </View>
     </View>

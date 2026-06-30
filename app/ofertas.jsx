@@ -119,10 +119,12 @@ export default function Ofertas() {
                   <Text style={st.osLabel}>SERVIÇO</Text>
                   <Text style={st.osNum}>{o.protocolo}</Text>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={st.valorLabel}>Você recebe</Text>
-                  <Text style={st.valor}>{reais(o.valor_motoboy_cent)}</Text>
-                </View>
+                {Number(o.valor_motoboy_cent) > 0 && (
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={st.valorLabel}>Você recebe</Text>
+                    <Text style={st.valor}>{reais(o.valor_motoboy_cent)}</Text>
+                  </View>
+                )}
               </View>
 
               <View style={st.metaLinha}>

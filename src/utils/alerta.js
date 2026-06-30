@@ -15,7 +15,7 @@ export async function alertaCorrida() {
     try {
       await setAudioModeAsync({
         playsInSilentMode: true,
-        shouldPlayInBackground: false,
+        shouldPlayInBackground: true,
         interruptionMode: 'mixWithOthers',
       });
     } catch {}

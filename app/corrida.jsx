@@ -15,9 +15,9 @@ const C = {
 };
 
 const STATUS_LABEL = {
-  aguardando_coleta: 'Ir coletar',
-  em_coleta: 'Coletando',
-  em_rota: 'Em rota',
+  aguardando_coleta: 'A caminho da coleta',
+  em_coleta: 'Na coleta',
+  em_rota: 'A caminho da entrega',
 };
 const PROXIMO = { aguardando_coleta: 'em_coleta', em_coleta: 'em_rota' };
 
@@ -41,10 +41,13 @@ export default function Corrida() {
     try {
       const fila = await api.get('/motoboys/app/fila');
       const e = (fila || []).find(x => x.id === params.entrega_id) || (fila || [])[0];
-      if (!e) { router.replace('/home'); return; }
+      if (!e) { router.replace('/home'); return null; }
       setEntrega(e);
+      setCarregando(false);
+      return e;
     } catch (err) { /* mantém */ }
     setCarregando(false);
+    return null;
   }
 
   useEffect(() => {
@@ -91,8 +94,30 @@ export default function Corrida() {
     const prox = PROXIMO[entrega.status];
     if (!prox) return;
     setBusy(true);
-    try { await api.patch(`/motoboys/app/entregas/${entrega.id}/status`, { status: prox }); await carregar(); }
-    catch (e) { Alert.alert('Ops', e.message || 'Não foi possível avançar'); }
+    try {
+      await api.patch(`/motoboys/app/entregas/${entrega.id}/status`, { status: prox });
+      carregar();
+    } catch (e) {
+      // A ação pode ter completado no servidor mesmo com falha de resposta
+      // (rede instável). Re-sincroniza e só avisa se de fato não avançou.
+      const atual = await carregar();
+      const avancou = atual && atual.status !== entrega.status;
+      if (!avancou) Alert.alert('Ops', e.message || 'Não foi possível avançar. Verifique sua conexão e tente de novo.');
+    }
+    setBusy(false);
+  }
+
+  async function chegarEntrega(pontoId) {
+    if (busy || !entrega || !pontoId) return;
+    setBusy(true);
+    try {
+      await api.patch(`/motoboys/app/entregas/${entrega.id}/pontos/${pontoId}/chegada`, {});
+      carregar();
+    } catch (e) {
+      const atual = await carregar();
+      const p = atual && (atual.pontos || []).find(x => x.id === pontoId);
+      if (!(p && p.chegou_em)) Alert.alert('Ops', e.message || 'Não foi possível registrar a chegada. Verifique sua conexão e tente de novo.');
+    }
     setBusy(false);
   }
 
@@ -116,6 +141,12 @@ export default function Corrida() {
   const concluidos = pontos.filter(p => p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em).length;
   const totalPontos = pontos.length;
   const proxPonto = pontos.find(p => !(p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em));
+  // Etapa atual explícita (passo 1..4) para deixar claro onde o motoboy está.
+  let passoN = 1, etapaTxt = 'A caminho da coleta';
+  if (entrega.status === 'aguardando_coleta') { passoN = 1; etapaTxt = 'A caminho da coleta'; }
+  else if (entrega.status === 'em_coleta')    { passoN = 2; etapaTxt = 'Na coleta'; }
+  else if (proxPonto && !proxPonto.chegou_em) { passoN = 3; etapaTxt = 'A caminho da entrega'; }
+  else if (proxPonto)                          { passoN = 4; etapaTxt = 'Na entrega'; }
 
   return (
     <View style={st.root}>
@@ -133,7 +164,7 @@ export default function Corrida() {
         <Text style={st.osNum}>{entrega.protocolo}</Text>
         {!!entrega.cliente_nome && <Text style={st.cliente}>🏢 {entrega.cliente_nome}</Text>}
         <View style={st.resumoStats}>
-          <View><Text style={st.statB}>{reais(entrega.valor_motoboy_cent)}</Text><Text style={st.statL}>valor</Text></View>
+          {Number(entrega.valor_motoboy_cent) > 0 && <View><Text style={st.statB}>{reais(entrega.valor_motoboy_cent)}</Text><Text style={st.statL}>valor</Text></View>}
           <View><Text style={st.statB}>{concluidos} de {totalPontos}</Text><Text style={st.statL}>entregas</Text></View>
           {Number.isFinite(Number(entrega.distancia_km)) && Number(entrega.distancia_km) > 0 && <View><Text style={st.statB}>{Number(entrega.distancia_km).toFixed(1)} km</Text><Text style={st.statL}>rota</Text></View>}
         </View>
@@ -153,7 +184,8 @@ export default function Corrida() {
               <Text style={[st.etapaTit, jaColetou ? st.txtOk : st.txtAtual]}>Coleta {jaColetou ? '' : '· agora'}</Text>
               <Text style={st.etapaNome}>{entrega.coleta_nome || 'Ponto de coleta'}</Text>
               <Text style={st.etapaEnd}>{entrega.coleta_endereco}</Text>
-              {jaColetou && !!entrega.iniciada_em && <Text style={st.etapaHora}>Coletado às {hora(entrega.iniciada_em)}</Text>}
+              {!!entrega.chegada_coleta_em && <Text style={st.etapaHora}>Cheguei às {hora(entrega.chegada_coleta_em)}</Text>}
+              {jaColetou && !!entrega.iniciada_em && <Text style={st.etapaHora}>Coletei às {hora(entrega.iniciada_em)}</Text>}
               {!jaColetou && (
                 <View style={st.acoesPonto}>
                   <TouchableOpacity style={st.btnNav} onPress={() => navegar(entrega.coleta_lat, entrega.coleta_lng, entrega.coleta_endereco)}>
@@ -187,6 +219,7 @@ export default function Corrida() {
                   {!!p.numero_nf && <Text style={[st.etapaInfo, !feito && !atual && st.txtFuturo]}>🧾 NF {p.numero_nf}</Text>}
                   {!!p.telefone && <Text style={[st.etapaInfo, !feito && !atual && st.txtFuturo]}>📞 {p.telefone}</Text>}
                   {!!p.observacoes && <Text style={[st.etapaObs, !feito && !atual && st.txtFuturoObs]}>💬 {p.observacoes}</Text>}
+                  {!!p.chegou_em && <Text style={st.etapaHora}>Cheguei às {hora(p.chegou_em)}</Text>}
                   {feito && !!p.finalizado_em && <Text style={st.etapaHora}>Entregue às {hora(p.finalizado_em)}</Text>}
                   {atual && (
                     <View style={st.acoesPonto}>
@@ -209,21 +242,29 @@ export default function Corrida() {
 
       {/* Ação principal da etapa */}
       <View style={st.rodape}>
-        {!jaColetou ? (
-          entrega.status === 'aguardando_coleta' ? (
-            <TouchableOpacity style={st.btnPrincipal} onPress={avancar} disabled={busy} activeOpacity={0.85}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnPrincipalTxt}>Cheguei na coleta</Text>}
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={st.btnPrincipal} onPress={avancar} disabled={busy} activeOpacity={0.85}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnPrincipalTxt}>Coletei — iniciar entregas</Text>}
-            </TouchableOpacity>
-          )
+        {proxPonto && (
+          <View style={st.etapaBarra}>
+            <Text style={st.etapaBarraPasso}>Passo {passoN} de 4</Text>
+            <Text style={st.etapaBarraTxt}>{etapaTxt}{totalPontos > 1 && passoN >= 3 ? ` · entrega ${concluidos + 1}/${totalPontos}` : ''}</Text>
+          </View>
+        )}
+        {entrega.status === 'aguardando_coleta' ? (
+          <TouchableOpacity style={st.btnPrincipal} onPress={avancar} disabled={busy} activeOpacity={0.85}>
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnPrincipalTxt}>Cheguei na coleta</Text>}
+          </TouchableOpacity>
+        ) : entrega.status === 'em_coleta' ? (
+          <TouchableOpacity style={st.btnPrincipal} onPress={avancar} disabled={busy} activeOpacity={0.85}>
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnPrincipalTxt}>Finalizei a coleta</Text>}
+          </TouchableOpacity>
+        ) : proxPonto && !proxPonto.chegou_em ? (
+          <TouchableOpacity style={[st.btnPrincipal, st.btnEntrega]} onPress={() => chegarEntrega(proxPonto.id)} disabled={busy} activeOpacity={0.85}>
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnPrincipalTxt}>Cheguei na entrega</Text>}
+          </TouchableOpacity>
         ) : proxPonto ? (
-          <TouchableOpacity style={st.btnPrincipal}
+          <TouchableOpacity style={[st.btnPrincipal, st.btnFinalizar]}
             onPress={() => router.push({ pathname: '/concluir', params: { entregaId: entrega.id, pontoId: proxPonto.id, endereco: proxPonto.endereco, numero: concluidos + 1, total: totalPontos } })}
             activeOpacity={0.85}>
-            <Text style={st.btnPrincipalTxt}>Cheguei — confirmar entrega {totalPontos > 1 ? concluidos + 1 : ''}</Text>
+            <Text style={st.btnPrincipalTxt}>Finalizei a entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>
           </TouchableOpacity>
         ) : (
           <View style={[st.btnPrincipal, { backgroundColor: C.ok }]}>
@@ -287,6 +328,11 @@ const st = StyleSheet.create({
   btnTelTxt: { color: C.azulP, fontSize: 12.5, fontWeight: '700' },
 
   rodape: { padding: 16, paddingBottom: 28, backgroundColor: C.fundo, borderTopWidth: 1, borderTopColor: C.linha },
-  btnPrincipal: { backgroundColor: C.okV, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  etapaBarra: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
+  etapaBarraPasso: { fontSize: 11, fontWeight: '800', color: C.tinta3, letterSpacing: 0.3 },
+  etapaBarraTxt: { fontSize: 13, fontWeight: '800', color: C.azulP },
+  btnPrincipal: { backgroundColor: C.azulP, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  btnFinalizar: { backgroundColor: C.ok },
+  btnEntrega: { backgroundColor: C.azulV },
   btnPrincipalTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

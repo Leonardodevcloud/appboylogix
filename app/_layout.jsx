@@ -3,7 +3,7 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 // Importa a task de GPS para registra-la no app (defineTask roda no import).
 import '../src/tasks/gpsTask';
-import { configurarNotificacoes, aoTocarNotificacao, notificacaoQueAbriuApp } from '../src/push';
+import { configurarNotificacoes, aoTocarNotificacao, aoReceberNotificacao, notificacaoQueAbriuApp } from '../src/push';
 
 // Decide para onde navegar quando o motoboy toca em uma notificacao.
 function navegarPorNotificacao(dados) {
@@ -32,7 +32,9 @@ export default function Layout() {
     });
     // App ja aberto: toque na notificacao.
     const limpar = aoTocarNotificacao(navegarPorNotificacao);
-    return limpar;
+    // App vivo: toca o alerta interno (som+vibracao garantidos) ao receber push.
+    const limparReceber = aoReceberNotificacao();
+    return () => { limpar(); limparReceber(); };
   }, []);
 
   return (

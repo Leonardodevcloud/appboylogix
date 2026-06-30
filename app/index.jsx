@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native';
 import { router } from 'expo-router';
-import { api } from '../src/api';
+import { api, EMPRESA_NOME } from '../src/api';
 
 export default function Login() {
-  const [modo, setModo] = useState('email');  // 'email' | 'pin'
-  const [telefone, setTelefone] = useState('');
-  const [pin, setPin]           = useState('');
   const [email, setEmail]       = useState('');
   const [senha, setSenha]       = useState('');
   const [carregando, setCarregando] = useState(true);
@@ -22,24 +19,16 @@ export default function Login() {
 
   async function entrar() {
     setErro('');
-    if (modo === 'email') {
-      if (!email.trim() || !senha.trim()) { setErro('Preencha e-mail e senha'); return; }
-      setEnviando(true);
-      try { await api.loginEmail(email.trim(), senha); router.replace('/home'); }
-      catch (e) { setErro(e.message); }
-      setEnviando(false);
-    } else {
-      if (!telefone.trim() || !pin.trim()) { setErro('Preencha telefone e PIN'); return; }
-      setEnviando(true);
-      try { await api.login(telefone.replace(/\D/g, ''), pin); router.replace('/home'); }
-      catch (e) { setErro(e.message); }
-      setEnviando(false);
-    }
+    if (!email.trim() || !senha.trim()) { setErro('Preencha e-mail e senha'); return; }
+    setEnviando(true);
+    try { await api.loginEmail(email.trim(), senha); router.replace('/home'); }
+    catch (e) { setErro(e.message); }
+    setEnviando(false);
   }
 
   if (carregando) return (
     <View style={s.splash}>
-      <View style={s.logoBox}><Text style={s.logoTxt}>LX</Text></View>
+      <Image source={require('../assets/marca/logo.png')} style={s.logoImg} resizeMode="contain" />
       <ActivityIndicator color="#378ADD" size="large" style={{ marginTop: 24 }} />
     </View>
   );
@@ -47,75 +36,37 @@ export default function Login() {
   return (
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-        {/* Hero */}
+        {/* Marca da empresa (white-label) */}
         <View style={s.hero}>
-          <View style={s.heroLines}>
-            <View style={[s.line, { width: 78 }]} />
-            <View style={[s.line, { width: 120 }]} />
-            <View style={[s.line, { width: 54 }]} />
-          </View>
-          <View style={s.logoBox}><Text style={s.logoTxt}>LX</Text></View>
-          <Text style={s.heroTitle}>Sua entrega,{'\n'}na velocidade certa.</Text>
-          <Text style={s.heroSub}>Plataforma de gestão de entregas com rastreamento em tempo real.</Text>
-          <View style={s.heroFeats}>
-            <View style={s.feat}><View style={s.featDot} /><Text style={s.featTxt}>GPS em tempo real</Text></View>
-            <View style={s.feat}><View style={s.featDot} /><Text style={s.featTxt}>Protocolos digitais</Text></View>
-          </View>
+          <Image source={require('../assets/marca/logo.png')} style={s.logoImg} resizeMode="contain" />
+          <Text style={s.empresaNome}>{EMPRESA_NOME}</Text>
         </View>
 
         {/* Form */}
         <View style={s.form}>
-          <Text style={s.formTitle}>Entrar no app</Text>
-          <Text style={s.formSub}>Use seu telefone e PIN fornecido pelo operador</Text>
+          <Text style={s.formTitle}>Entrar</Text>
+          <Text style={s.formSub}>Acesse com seu e-mail e senha.</Text>
 
-          {modo === 'email' ? (
-            <>
-              <Text style={s.label}>E-mail</Text>
-              <TextInput
-                style={s.inp}
-                placeholder="seu@email.com"
-                placeholderTextColor="#94A3B8"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
-              <Text style={[s.label, { marginTop: 16 }]}>Senha</Text>
-              <TextInput
-                style={s.inp}
-                placeholder="Sua senha"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry
-                value={senha}
-                onChangeText={setSenha}
-                onSubmitEditing={entrar}
-              />
-            </>
-          ) : (
-            <>
-              <Text style={s.label}>Telefone</Text>
-              <TextInput
-                style={s.inp}
-                placeholder="(71) 99999-9999"
-                placeholderTextColor="#94A3B8"
-                keyboardType="phone-pad"
-                value={telefone}
-                onChangeText={setTelefone}
-              />
-              <Text style={[s.label, { marginTop: 16 }]}>PIN</Text>
-              <TextInput
-                style={[s.inp, { letterSpacing: 10, textAlign: 'center', fontSize: 20 }]}
-                placeholder="• • • • • •"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry
-                keyboardType="numeric"
-                maxLength={8}
-                value={pin}
-                onChangeText={setPin}
-                onSubmitEditing={entrar}
-              />
-            </>
-          )}
+          <Text style={s.label}>E-mail</Text>
+          <TextInput
+            style={s.inp}
+            placeholder="seu@email.com"
+            placeholderTextColor="#94A3B8"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <Text style={[s.label, { marginTop: 16 }]}>Senha</Text>
+          <TextInput
+            style={s.inp}
+            placeholder="Sua senha"
+            placeholderTextColor="#94A3B8"
+            secureTextEntry
+            value={senha}
+            onChangeText={setSenha}
+            onSubmitEditing={entrar}
+          />
 
           {!!erro && (
             <View style={s.erroBox}>
@@ -126,11 +77,7 @@ export default function Login() {
           <TouchableOpacity style={[s.btn, enviando && s.btnDisabled]} onPress={entrar} disabled={enviando} activeOpacity={0.85}>
             {enviando
               ? <ActivityIndicator color="#fff" />
-              : <Text style={s.btnTxt}>Entrar na plataforma</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => { setErro(''); setModo(modo === 'email' ? 'pin' : 'email'); }} style={{ marginTop: 16, alignItems: 'center' }}>
-            <Text style={s.alterna}>{modo === 'email' ? 'Entrar com telefone e PIN' : 'Entrar com e-mail e senha'}</Text>
+              : <Text style={s.btnTxt}>Entrar</Text>}
           </TouchableOpacity>
 
           <View style={s.divisor}>
@@ -154,17 +101,11 @@ const s = StyleSheet.create({
   root:       { flex: 1, backgroundColor: NAV },
   splash:     { flex: 1, backgroundColor: NAV, justifyContent: 'center', alignItems: 'center' },
   scroll:     { flexGrow: 1 },
-  hero:       { backgroundColor: NAV, padding: 32, paddingTop: 64, paddingBottom: 40, position: 'relative', overflow: 'hidden' },
-  heroLines:  { position: 'absolute', top: 52, right: 32, alignItems: 'flex-end', gap: 7 },
-  line:       { height: 3, borderRadius: 2, backgroundColor: AZUL_VIVO, opacity: 0.5 },
-  logoBox:    { width: 52, height: 52, borderRadius: 14, backgroundColor: AZUL, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  logoTxt:    { color: '#E6F1FB', fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
-  heroTitle:  { color: '#fff', fontSize: 28, fontWeight: '800', lineHeight: 34, letterSpacing: -0.5, marginBottom: 12 },
-  heroSub:    { color: '#B5D4F4', fontSize: 14, lineHeight: 22, fontWeight: '500', marginBottom: 20 },
-  heroFeats:  { flexDirection: 'row', gap: 20 },
-  feat:       { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  featDot:    { width: 6, height: 6, borderRadius: 3, backgroundColor: AZUL_VIVO },
-  featTxt:    { color: '#B5D4F4', fontSize: 12, fontWeight: '600' },
+  hero:       { backgroundColor: NAV, padding: 32, paddingTop: 72, paddingBottom: 44, alignItems: 'center' },
+  logoBox:    { width: 72, height: 72, borderRadius: 20, backgroundColor: AZUL, justifyContent: 'center', alignItems: 'center', marginBottom: 18 },
+  logoImg:    { width: 96, height: 96, marginBottom: 16 },
+  logoTxt:    { color: '#E6F1FB', fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
+  empresaNome:{ color: '#fff', fontSize: 22, fontWeight: '800', letterSpacing: -0.3, textAlign: 'center' },
   form:       { flex: 1, backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingTop: 32 },
   formTitle:  { fontSize: 22, fontWeight: '800', color: '#0F172A', letterSpacing: -0.4, marginBottom: 6 },
   formSub:    { fontSize: 13.5, color: '#64748B', marginBottom: 24, lineHeight: 20 },
@@ -175,7 +116,6 @@ const s = StyleSheet.create({
   btn:        { backgroundColor: AZUL, borderRadius: 14, padding: 15, marginTop: 20, alignItems: 'center' },
   btnDisabled:{ opacity: 0.6 },
   btnTxt:     { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
-  alterna:    { color: '#378ADD', fontSize: 13.5, fontWeight: '700' },
   divisor:    { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 18 },
   divisorLinha: { flex: 1, height: 1, backgroundColor: '#dde9f5' },
   divisorTxt: { color: '#8ba5bc', fontSize: 12, fontWeight: '600' },

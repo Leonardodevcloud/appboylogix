@@ -157,17 +157,6 @@ export default function Perfil() {
 
         <Text style={st.aviso}>Para alterar seus dados, fale com o operador da central.</Text>
 
-        <TouchableOpacity
-          style={{ marginTop: 18, padding: 14, alignItems: 'center', borderRadius: 13, borderWidth: 1.5, borderColor: '#185FA5', backgroundColor: '#eaf2fb' }}
-          activeOpacity={0.8}
-          onPress={async () => {
-            const { testarNotificacaoLocal } = require('../src/push');
-            await testarNotificacaoLocal();
-            Alert.alert('Teste enviado', 'Em 1 segundo deve chegar uma notificação. Veja se tocou e vibrou.');
-          }}>
-          <Text style={{ color: '#185FA5', fontSize: 14, fontWeight: '700' }}>🔔 Testar notificação (som/vibração)</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity style={st.btnSair} onPress={sair} activeOpacity={0.8}>
           <Text style={st.btnSairTxt}>Sair da conta</Text>
         </TouchableOpacity>

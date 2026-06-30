@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Alert, ActivityIndicator, Image, StatusBar,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { api } from '../src/api';
+import { api, getToken, API_URL } from '../src/api';
 
 const C = {
   navy900: '#042C53', azul: '#185FA5', azulC: '#B5D4F4',
@@ -26,6 +28,16 @@ export default function ConcluirScreen() {
   const [observacao, setObservacao] = useState('');
   const [fotos, setFotos]           = useState([]);
   const [enviando, setEnviando]     = useState(false);
+  // Fluxo de geofence/liberação:
+  //   bloqueio = null               -> tudo normal
+  //   bloqueio = { distancia_m, raio_m, mensagem }  -> fora do raio, pode solicitar
+  //   liberSolicitada = true        -> pedido enviado, aguardando central
+  //   liberado = true               -> central liberou, pode marcar
+  const [bloqueio, setBloqueio]           = useState(null);
+  const [liberSolicitada, setLiberSolic]  = useState(false);
+  const [liberado, setLiberado]           = useState(false);
+  const [solicitando, setSolicitando]     = useState(false);
+  const wsRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -40,6 +52,68 @@ export default function ConcluirScreen() {
     })();
   }, []);
 
+  // Ouve em tempo real a liberação deste ponto pela central.
+  useEffect(() => {
+    if (!pontoId) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token || !vivo) return;
+        const wsUrl = API_URL.replace(/^http/, 'ws').replace('/api/v1', '') + '/ws?token=' + token;
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+        ws.onmessage = (ev) => {
+          try {
+            const m = JSON.parse(ev.data);
+            if (m.evento === 'ponto.liberado' && String(m.dados?.pontoId) === String(pontoId)) {
+              setLiberado(true); setBloqueio(null); setLiberSolic(false);
+              Alert.alert('Ponto liberado', 'A central liberou a marcação. Você já pode confirmar.');
+            }
+          } catch {}
+        };
+      } catch {}
+    })();
+    return () => { vivo = false; try { wsRef.current?.close(); } catch {} };
+  }, [pontoId]);
+
+  async function obterLocalizacao() {
+    try {
+      const perm = await Location.getForegroundPermissionsAsync();
+      if (!perm.granted) {
+        const pedido = await Location.requestForegroundPermissionsAsync();
+        if (!pedido.granted) return null;
+      }
+      // 1) Última posição conhecida (instantânea). Aceita qualquer idade —
+      //    o app já reporta GPS a cada 15s, então costuma estar fresca.
+      const ultima = await Location.getLastKnownPositionAsync();
+      if (ultima?.coords) return { lat: ultima.coords.latitude, lng: ultima.coords.longitude };
+      // 2) Posição atual, mas com teto de 4s para não travar a tela. Se estourar,
+      //    manda null e o backend usa a última posição do rastreamento.
+      const atual = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise((resolve) => setTimeout(() => resolve(null), 4000)),
+      ]);
+      if (atual?.coords) return { lat: atual.coords.latitude, lng: atual.coords.longitude };
+    } catch {}
+    return null;
+  }
+
+  async function solicitarLiberacao() {
+    setSolicitando(true);
+    try {
+      await api.post(`/motoboys/app/entregas/${entregaId}/pontos/${pontoId}/solicitar-liberacao`, {
+        motivo: observacao.trim() || null,
+      });
+      setLiberSolic(true);
+      Alert.alert('Solicitação enviada', 'A central foi avisada. Assim que liberarem, você poderá marcar este ponto.');
+    } catch (e) {
+      Alert.alert('Erro', e?.message || 'Não foi possível solicitar a liberação.');
+    } finally {
+      setSolicitando(false);
+    }
+  }
+
   const ehInsucesso = ocSel && ocSel.tipo === 'insucesso';
   const geraRetorno = ehInsucesso && ocSel.comportamento === 'retorno';
 
@@ -51,11 +125,19 @@ export default function ConcluirScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.6, base64: true, exif: false,
+      // Sem base64 aqui: o resize abaixo gera o base64 já reduzido.
+      quality: 1, exif: false,
     });
     if (!result.canceled && result.assets?.[0]) {
       const asset = result.assets[0];
-      setFotos(prev => [...prev, { uri: asset.uri, base64: asset.base64, tipo: asset.mimeType || 'image/jpeg' }]);
+      // Redimensiona para no máx. 1280px de largura e recomprime — derruba a foto
+      // de ~2-3MB para ~150-250KB, deixando o upload rápido mesmo em 4G fraco.
+      const reduzida = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 1280 } }],
+        { compress: 0.6, base64: true, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      setFotos(prev => [...prev, { uri: reduzida.uri, base64: reduzida.base64, tipo: 'image/jpeg' }]);
     }
   }
 
@@ -75,11 +157,15 @@ export default function ConcluirScreen() {
         ? `/motoboys/app/entregas/${entregaId}/pontos/${pontoId}/concluir`
         : `/motoboys/app/entregas/${entregaId}/concluir-sem-ponto`;
 
+      // Posição atual para a validação de raio (geofence) na central.
+      const loc = pontoId ? await obterLocalizacao() : null;
+
       const resp = await api.post(endpoint, {
         ocorrencia_id: ocSel.id,
         recebedor:  ehInsucesso ? null : recebedor.trim(),
         observacao: observacao.trim() || null,
         fotos_urls,
+        ...(loc ? { lat: loc.lat, lng: loc.lng } : {}),
       });
 
       const titulo = geraRetorno ? 'Retorno registrado' : (ehInsucesso ? 'Ocorrência registrada' : 'Entregue!');
@@ -88,7 +174,18 @@ export default function ConcluirScreen() {
         : 'Protocolo registrado com sucesso.';
       Alert.alert(titulo, msg, [{ text: 'OK', onPress: () => router.replace('/home') }]);
     } catch (err) {
-      if (err?.message?.toLowerCase().includes('network') || err?.status >= 500) {
+      // Fora do raio configurado pela loja: bloqueia e oferece solicitar liberação.
+      // Detecta pelo corpo do erro (err.dados) OU, como reforço, pela mensagem —
+      // assim o card com botão aparece mesmo que o api ainda não recarregue.
+      const foraDoRaio = err?.dados?.erro === 'FORA_DO_RAIO' || /solicitar libera/i.test(err?.message || '');
+      if (foraDoRaio) {
+        setBloqueio({
+          distancia_m: err?.dados?.distancia_m,
+          raio_m: err?.dados?.raio_m,
+          mensagem: err?.dados?.mensagem || err?.message,
+        });
+        setLiberSolic(false);
+      } else if (err?.message?.toLowerCase().includes('network') || err?.status >= 500) {
         Alert.alert('Verifique', 'Possível problema de conexão. Atualize a lista para confirmar se foi registrado.',
           [{ text: 'Voltar', onPress: () => router.replace('/home') }]);
       } else {
@@ -179,6 +276,33 @@ export default function ConcluirScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Bloqueio por raio (geofence) */}
+        {bloqueio && !liberado && (
+          <View style={s.geoCard}>
+            <Text style={s.geoTit}>📍 Você está fora do ponto</Text>
+            <Text style={s.geoTxt}>
+              {bloqueio.distancia_m != null
+                ? `Você está a ${bloqueio.distancia_m}m do local e precisa estar a até ${bloqueio.raio_m}m para marcar esta entrega.`
+                : (bloqueio.mensagem || 'Você está fora do raio permitido para marcar esta entrega.')}
+            </Text>
+            {!liberSolicitada ? (
+              <TouchableOpacity style={s.geoBtn} onPress={solicitarLiberacao} disabled={solicitando} activeOpacity={0.85}>
+                {solicitando ? <ActivityIndicator color="#fff" /> : <Text style={s.geoBtnTxt}>Solicitar liberação de ponto</Text>}
+              </TouchableOpacity>
+            ) : (
+              <View style={s.geoAguard}>
+                <Text style={s.geoAguardTxt}>⏳ Solicitação enviada. Aguardando a central liberar…</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {liberado && (
+          <View style={s.geoOk}>
+            <Text style={s.geoOkTxt}>✓ Ponto liberado pela central. Pode confirmar a entrega.</Text>
+          </View>
+        )}
+
         <TouchableOpacity style={[s.btnConcluir, ehInsucesso && s.btnConcluirErro, enviando && s.btnDisabled]}
           onPress={concluir} disabled={enviando}>
           {enviando ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{botaoTxt}</Text>}
@@ -224,6 +348,15 @@ const s = StyleSheet.create({
   addFotoIco:     { fontSize: 28, color: C.azul },
   addFotoTxt:     { fontSize: 11, color: C.azul, fontWeight: '600' },
   btnConcluir:    { marginTop: 28, backgroundColor: C.okBorda, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
+  geoCard:        { marginTop: 24, backgroundColor: '#fff7ed', borderWidth: 1.5, borderColor: '#fdba74', borderRadius: 14, padding: 16 },
+  geoTit:         { fontSize: 15, fontWeight: '800', color: '#9a3412', marginBottom: 6 },
+  geoTxt:         { fontSize: 13.5, color: '#9a3412', lineHeight: 19, marginBottom: 14 },
+  geoBtn:         { backgroundColor: '#ea580c', borderRadius: 11, paddingVertical: 14, alignItems: 'center' },
+  geoBtnTxt:      { color: '#fff', fontSize: 14.5, fontWeight: '800' },
+  geoAguard:      { backgroundColor: '#fff', borderRadius: 11, paddingVertical: 13, alignItems: 'center', borderWidth: 1, borderColor: '#fdba74' },
+  geoAguardTxt:   { color: '#9a3412', fontSize: 13, fontWeight: '700' },
+  geoOk:          { marginTop: 24, backgroundColor: C.okBg, borderWidth: 1.5, borderColor: C.okBorda, borderRadius: 14, padding: 14 },
+  geoOkTxt:       { color: '#0f6e56', fontSize: 13.5, fontWeight: '700', textAlign: 'center' },
   btnConcluirErro:{ backgroundColor: C.erro },
   btnDisabled:    { opacity: 0.6 },
   btnTxt:         { color: '#fff', fontSize: 16, fontWeight: '800' },

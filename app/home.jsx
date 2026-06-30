@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  RefreshControl, Alert, Switch, ActivityIndicator, StatusBar
+  RefreshControl, Alert, Switch, ActivityIndicator, StatusBar,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { api } from '../src/api';
 import { useGPS } from '../src/hooks/useGPS';
 import { registrarPush } from '../src/push';
+import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
 
 // Paleta exata do protótipo
 const C = {
@@ -65,6 +67,7 @@ function Av({ nome, size = 38 }) {
 export default function Home() {
   const [eu, setEu]       = useState(null);
   const [fila, setFila]   = useState([]);
+  const [ordemRota, setOrdemRota] = useState([]); // entrega_ids na ordem otimizada
   const [qtdOfertas, setQtdOfertas] = useState(0);
   const [refresh, setRef] = useState(false);
   const [busy, setBusy]   = useState({});
@@ -78,6 +81,13 @@ export default function Home() {
     try {
       const [me, entregas] = await Promise.all([api.get('/motoboys/app/eu'), api.get('/motoboys/app/fila')]);
       setEu(me); setFila(entregas);
+      // Ordem otimizada das corridas ativas (mesma rota do "Ver minha rota").
+      // Não bloqueia a tela: ordena assim que chegar; se falhar, mantém a ordem natural.
+      api.get('/motoboys/app/minha-rota').then(r => {
+        const ordem = [];
+        (r.paradas || []).forEach(p => { if (p.entrega_id && !ordem.includes(p.entrega_id)) ordem.push(p.entrega_id); });
+        setOrdemRota(ordem);
+      }).catch(() => {});
     } catch (e) {
       // Qualquer falha ao carregar os dados do motoboy (token expirado/inválido,
       // sessão perdida) volta para o login. Não depende de casar texto da mensagem.
@@ -98,6 +108,8 @@ export default function Home() {
       carregar();
       // Registra/atualiza o token de push deste aparelho (nao bloqueia a tela).
       registrarPush().catch(() => {});
+      // Canal de alertas em tempo real (som+vibracao a prova de MIUI).
+      iniciarAlertasTempoReal();
       // Se já houver uma oferta pendente (app abriu depois do disparo), mostra.
       // Conta ofertas disponíveis (badge na home).
       try { const r = await api.ofertas(); setQtdOfertas((r.ofertas || []).length); } catch {}
@@ -170,7 +182,7 @@ export default function Home() {
   if (!eu) return (
     <View style={s.splash}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
-      <View style={s.logoBox}><Text style={s.logoTxt}>LX</Text></View>
+      <Image source={require('../assets/marca/logo.png')} style={s.logoImg} resizeMode="contain" />
       <ActivityIndicator color={C.azulV} size="large" style={{ marginTop: 20 }} />
     </View>
   );
@@ -178,6 +190,15 @@ export default function Home() {
   const novas    = fila.filter(e => e.status === 'aguardando_atribuicao');
   const emColeta = fila.filter(e => ['aguardando_coleta','em_coleta'].includes(e.status));
   const emRota   = fila.filter(e => e.status === 'em_rota');
+  // Corridas ativas ordenadas pela rota otimizada (1ª, 2ª, 3ª…).
+  const ativas = [...emColeta, ...emRota];
+  const ativasOrdenadas = ordemRota.length
+    ? [...ativas].sort((a, b) => {
+        const ia = ordemRota.indexOf(a.id); const ib = ordemRota.indexOf(b.id);
+        return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
+      })
+    : ativas;
+  const temOrdem = ordemRota.length > 0 && ativas.length > 1;
 
   return (
     <View style={s.root}>
@@ -274,13 +295,13 @@ export default function Home() {
           <>
             <View style={[s.mSec, { marginTop: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
               <Text style={s.mSecTxt}>Corrida ativa</Text>
-              {[...emColeta, ...emRota].length > 1 && (
+              {ativas.length > 1 && (
                 <TouchableOpacity onPress={() => router.push('/rota')} style={s.btnRota} activeOpacity={0.8}>
                   <Text style={s.btnRotaTxt}>🗺 Ver minha rota</Text>
                 </TouchableOpacity>
               )}
             </View>
-            {[...emColeta, ...emRota].map(e => {
+            {ativasOrdenadas.map((e, idx) => {
               const pontos = e.pontos || [];
               const concluidos = pontos.filter(p => p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em).length;
               const emRotaStatus = e.status === 'em_rota';
@@ -288,7 +309,10 @@ export default function Home() {
                 <TouchableOpacity key={e.id} style={s.ride} activeOpacity={0.85}
                   onPress={() => router.push({ pathname: '/corrida', params: { entrega_id: e.id } })}>
                   <View style={s.rTop}>
-                    <Text style={s.rTopB}>{e.protocolo}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {temOrdem && <View style={s.ordemSelo}><Text style={s.ordemSeloTxt}>{idx + 1}ª</Text></View>}
+                      <Text style={s.rTopB}>{e.protocolo}</Text>
+                    </View>
                     <View style={[s.pill, { backgroundColor: emRotaStatus ? C.azulV + '22' : C.warnBg }]}>
                       <Text style={[s.pillTxt, { color: emRotaStatus ? C.azulP : C.warn }]}>{STATUS_LABEL[e.status]}</Text>
                     </View>
@@ -366,6 +390,7 @@ const s = StyleSheet.create({
   root:      { flex: 1, backgroundColor: C.fundo },
   splash:    { flex: 1, backgroundColor: C.navy900, justifyContent: 'center', alignItems: 'center' },
   logoBox:   { width: 52, height: 52, borderRadius: 14, backgroundColor: C.azulP, justifyContent: 'center', alignItems: 'center' },
+  logoImg:   { width: 72, height: 72, marginBottom: 8 },
   logoTxt:   { color: C.azulC, fontSize: 22, fontWeight: '800' },
   av:        { justifyContent: 'center', alignItems: 'center' },
   avTxt:     { color: '#fff', fontWeight: '800' },
@@ -392,6 +417,8 @@ const s = StyleSheet.create({
   rideNew:   { borderColor: C.azulV, shadowColor: C.azulV, shadowOpacity: 0.12, shadowRadius: 6, elevation: 4 },
   rTop:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 },
   rTopB:     { fontSize: 13, fontWeight: '800', color: C.tinta },
+  ordemSelo:    { backgroundColor: '#185FA5', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, minWidth: 26, alignItems: 'center' },
+  ordemSeloTxt: { color: '#fff', fontSize: 12, fontWeight: '800' },
   pill:      { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 3 },
   pillTxt:   { fontSize: 10.5, fontWeight: '700' },
   rRoute:    { flexDirection: 'column', gap: 12 },

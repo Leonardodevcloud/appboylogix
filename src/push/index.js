@@ -12,6 +12,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { api, getToken, API_URL } from '../api';
+import { alertaCorrida } from '../utils/alerta';
 
 // Canal de notificação. IMPORTANTE: as configs de um canal travam após a 1a
 // criação no Android — se precisar mudar som/vibração, troque o ID (sufixo _vN).
@@ -137,6 +138,17 @@ export async function testarNotificacaoLocal() {
     console.log('[push] teste local:', e?.message);
     return false;
   }
+}
+
+// Quando uma notificação CHEGA com o app vivo (foreground/background ativo),
+// dispara o alerta INTERNO (expo-audio + Vibration) — caminho que funciona
+// mesmo em aparelhos que silenciam o canal (ex.: MIUI/Xiaomi). Não cobre o
+// app totalmente encerrado (aí só o canal do sistema toca).
+export function aoReceberNotificacao() {
+  const sub = Notifications.addNotificationReceivedListener(() => {
+    try { alertaCorrida(); } catch {}
+  });
+  return () => sub.remove();
 }
 
 // Registra o callback de toque na notificacao. Retorna funcao de cleanup.

@@ -74,9 +74,13 @@ export function useGPS(entregaId, ativoExtra = false) {
         }
       }
 
-      // FOREGROUND com setInterval: roda SEMPRE que o app está aberto.
-      // É o que garante o envio no Expo Go (onde background não funciona) e
-      // também cobre o app aberto numa build real.
+      // FOREGROUND: só roda quando o BACKGROUND não está ativo. Em build real com
+      // permissão de fundo, o background já reporta em foreground+fechado — rodar os
+      // dois duplicaria o /posicao. O foreground vira fallback (Expo Go ou bg negado).
+      if (modoBg.current) {
+        if (!cancelado) console.log('[GPS] usando só background (sem duplicar foreground)');
+        return;
+      }
       const reportar = async () => {
         try {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
