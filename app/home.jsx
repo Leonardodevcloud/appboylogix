@@ -162,15 +162,15 @@ export default function Home() {
   }, []);
 
   async function toggleOnline(val) {
-    // Update otimista: o switch se move na hora; a rede roda em segundo plano.
-    // Se falhar, revertemos e avisamos. Antes o switch ficava travado ate o
-    // round-trip terminar (1-4s em rede de rua).
+    // Otimista: o switch mexe na hora. Se falhar, reverte em SILÊNCIO — é ação de
+    // baixo risco e o próximo poll (30s) re-sincroniza o estado real. Nada de modal
+    // bloqueante "Sem conexão" na cara do motoboy (a causa raiz — keep-alive curto
+    // do servidor fechando a conexão ociosa — foi corrigida no backend).
     setEu(p => ({ ...p, online: val }));
     try {
       await api.patch('/motoboys/app/status', { online: val });
     } catch (e) {
       setEu(p => ({ ...p, online: !val }));
-      Alert.alert('Erro', e.message);
     }
   }
 
