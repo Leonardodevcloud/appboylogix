@@ -160,8 +160,8 @@ export default function Home() {
 
   async function toggleOnline(val) {
     // Update otimista: o switch se move na hora; a rede roda em segundo plano.
-    // Se a chamada falhar, revertemos o estado e avisamos o motoboy. Antes o
-    // switch ficava travado ate o round-trip terminar (1-4s em rede de rua).
+    // Se falhar, revertemos e avisamos. Antes o switch ficava travado ate o
+    // round-trip terminar (1-4s em rede de rua).
     setEu(p => ({ ...p, online: val }));
     try {
       await api.patch('/motoboys/app/status', { online: val });

@@ -8,9 +8,8 @@ export const EMPRESA_SLUG = marca.slug;
 export const EMPRESA_NOME = marca.nomeExibicao;
 
 // Cache do token em memoria: evita ler o SecureStore (Keychain/Keystore) a CADA
-// request. Em aparelhos baratos essa leitura custa 100-300ms por chamada e somava
-// atraso em toda acao do app (avancar status, aceitar oferta, posicao, etc).
-// Lemos do disco uma vez; depois servimos da memoria. Sincronizado no login/logout.
+// request. Em aparelhos baratos essa leitura custa 100-300ms e somava atraso em
+// toda acao. Lemos do disco uma vez; depois servimos da memoria.
 let _tokenCache = null;
 export async function getToken() {
   if (_tokenCache) return _tokenCache;
@@ -23,23 +22,24 @@ async function reqInterno(method, path, body, _tentativa = 0) {
   const token = await getToken();
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = 'Bearer ' + token;
-  // Timeout maior na 1a tentativa (o backend/banco podem estar "frios" e levar
-  // alguns segundos para acordar); nas tentativas seguintes o servidor já está
-  // quente, então usamos um teto menor para falhar rápido em queda real.
-  // Timeout maior na 1a tentativa (banco pode estar "frio"); nas seguintes,
-  // teto menor para falhar rápido. Máx 2 retries => pior caso ~30s (antes ~70s+).
-  const TIMEOUT = _tentativa === 0 ? 14000 : 9000;
+  const payload = body ? JSON.stringify(body) : undefined;
+  // Timeout escala com o tamanho do corpo: uploads (foto em base64) precisam de
+  // mais tempo em 4G fraco, senao dao FALSO timeout mesmo tendo dado certo no
+  // servidor. Requisicao leve = teto curto (falha rapido em queda real).
+  const ehUpload = payload && payload.length > 40000;
+  const TIMEOUT = ehUpload ? 30000 : (_tentativa === 0 ? 14000 : 9000);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
   let r;
   try {
-    r = await fetch(API_URL + path, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: ctrl.signal });
+    r = await fetch(API_URL + path, { method, headers, body: payload, signal: ctrl.signal });
   } catch (e) {
     clearTimeout(timer);
-    // Falha de REDE (conexao fria, abort, queda momentanea): tenta de novo
-    // automaticamente ate 2 vezes, com espera progressiva.
     const ehRede = e.name === 'AbortError' || /network request failed|timeout|fetch/i.test(e.message || '');
-    if (ehRede && _tentativa < 2) {
+    // Retry AUTOMATICO so para GET (idempotente). POST/PATCH mudam estado —
+    // reenviar por baixo dos panos pode DUPLICAR (ex.: concluir 2x). Escritas
+    // falham direto e a tela decide o que fazer, sem reenvio silencioso.
+    if (ehRede && method === 'GET' && _tentativa < 2) {
       await new Promise(res => setTimeout(res, 600 * (_tentativa + 1)));
       return reqInterno(method, path, body, _tentativa + 1);
     }
@@ -47,14 +47,17 @@ async function reqInterno(method, path, body, _tentativa = 0) {
   } finally {
     clearTimeout(timer);
   }
-  const data = await r.json();
+  // A resposta pode NAO ser JSON (ex.: 502/504 do gateway com pagina HTML sob
+  // carga). Nao deixamos o r.json() estourar com erro criptico pro motoboy.
+  let data = null;
+  try { data = await r.json(); } catch { data = null; }
   if (!r.ok) {
-    const err = new Error(data.mensagem || data.erro || 'Erro ' + r.status);
+    const err = new Error((data && (data.mensagem || data.erro)) || 'Erro ' + r.status);
     err.status = r.status;
-    err.dados = data;
+    err.dados = data || {};
     throw err;
   }
-  return data;
+  return data || {};
 }
 
 // Dedup de GET: se o mesmo GET já está em andamento, reaproveita a promessa em vez
