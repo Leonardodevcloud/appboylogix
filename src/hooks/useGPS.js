@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 import { GPS_TASK, setEntregaAtiva } from '../tasks/gpsTask';
 import { api } from '../api';
+import { garantirDisclosureLocalizacao } from '../utils/disclosure';
 
 // Ativa o rastreamento GPS quando o motoboy está ONLINE (esperando corrida) ou
 // com uma ENTREGA ativa. Sem isso, o backend não tem a posição e o motoboy não
@@ -40,11 +41,16 @@ export function useGPS(entregaId, ativoExtra = false) {
       // Guarda a entrega ativa para a task de background saber o que reportar
       await setEntregaAtiva(entregaId);
 
-      // Tenta permissão de fundo
+      // Permissão de fundo — precedida do AVISO CLARO exigido pela Google Play
+      // (o que é coletado, que roda com o app fechado e pra quê). Só pedimos a
+      // permissão de sistema se o motoboy aceitar o aviso.
       let bgOk = false;
       try {
-        const bg = await Location.requestBackgroundPermissionsAsync();
-        bgOk = bg.status === 'granted';
+        const consentiu = await garantirDisclosureLocalizacao();
+        if (consentiu) {
+          const bg = await Location.requestBackgroundPermissionsAsync();
+          bgOk = bg.status === 'granted';
+        }
       } catch { bgOk = false; }
 
       // Tenta iniciar updates em BACKGROUND (só funciona em dev/prod build; no Expo Go
