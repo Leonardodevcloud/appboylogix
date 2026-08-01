@@ -1,10 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   RefreshControl, Alert, Switch, ActivityIndicator, StatusBar, Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { api } from '../src/api';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
+
+// Versão do app + id do update OTA (pra confirmar na hora qual build está rodando).
+const VERSAO_APP = Constants.expoConfig?.version || '?';
+const ID_UPDATE = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'base';
+const CANAL = Updates.channel || 'dev';
 
 const C = {
   navy900: '#042C53', navy800: '#0a3a66',
@@ -66,10 +73,16 @@ export default function Perfil() {
     catch (e) { setP(prev => ({ ...prev, online: !val })); }
   }
 
+  const saindoRef = useRef(false);
   function sair() {
     Alert.alert('Sair', 'Encerrar sessão?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: async () => { await api.logout(); router.replace('/'); } },
+      { text: 'Sair', style: 'destructive', onPress: async () => {
+        if (saindoRef.current) return;   // trava: um toque só (evitava 3 logouts)
+        saindoRef.current = true;
+        try { await api.logout(); router.replace('/'); }
+        catch { saindoRef.current = false; }
+      } },
     ]);
   }
 
@@ -163,6 +176,8 @@ export default function Perfil() {
         <TouchableOpacity style={st.btnSair} onPress={sair} activeOpacity={0.8}>
           <Text style={st.btnSairTxt}>Sair da conta</Text>
         </TouchableOpacity>
+
+        <Text style={st.versao}>v{VERSAO_APP} · {ID_UPDATE} · {CANAL}</Text>
       </ScrollView>
 
       {/* Bottom nav */}
@@ -232,6 +247,7 @@ const st = StyleSheet.create({
   aviso: { fontSize: 11.5, color: C.tinta3, textAlign: 'center', marginTop: 14, paddingHorizontal: 20, lineHeight: 17 },
   btnSair: { marginTop: 18, padding: 15, alignItems: 'center', borderRadius: 13, borderWidth: 1.5, borderColor: C.erroBg, backgroundColor: C.erroBg },
   btnSairTxt: { color: C.erro, fontSize: 14, fontWeight: '700' },
+  versao: { textAlign: 'center', color: C.tinta3, fontSize: 11, marginTop: 14 },
 
   tab: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.sup, borderTopWidth: 1, borderTopColor: C.linha, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 11, paddingBottom: 28 },
   tabItem: { alignItems: 'center', gap: 3 },

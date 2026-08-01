@@ -42,7 +42,9 @@ async function reqInterno(method, path, body, _tentativa = 0) {
     // deixam de virar "Sem conexão" na cara do motoboy (o servidor está saudável,
     // era o app que desistia rápido demais). status/aceitar/posição são
     // idempotentes no backend, então reenviar não duplica nada.
-    const escritaSegura = method !== 'GET' && !path.includes('/concluir');
+    // Retry seguro em escrita, EXCETO conclusão (reenvia foto) e logout (reenviar
+    // é inútil — você já está saindo — e gerava 3 logouts seguidos no servidor).
+    const escritaSegura = method !== 'GET' && !path.includes('/concluir') && !path.includes('/auth/logout');
     if (ehRede && (method === 'GET' || escritaSegura) && _tentativa < 2) {
       await new Promise(res => setTimeout(res, 600 * (_tentativa + 1)));
       return reqInterno(method, path, body, _tentativa + 1);

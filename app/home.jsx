@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   RefreshControl, Alert, Switch, ActivityIndicator, StatusBar,
@@ -183,10 +183,16 @@ export default function Home() {
     setBusy(p => ({ ...p, [entrega.id]: false }));
   }
 
+  const saindoRef = useRef(false);
   async function sair() {
     Alert.alert('Sair', 'Encerrar sessão?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: async () => { await api.logout(); router.replace('/'); } },
+      { text: 'Sair', style: 'destructive', onPress: async () => {
+        if (saindoRef.current) return;   // trava: um toque só (evitava 3 logouts)
+        saindoRef.current = true;
+        try { await api.logout(); router.replace('/'); }
+        catch { saindoRef.current = false; }
+      } },
     ]);
   }
 
