@@ -36,10 +36,14 @@ async function reqInterno(method, path, body, _tentativa = 0) {
   } catch (e) {
     clearTimeout(timer);
     const ehRede = e.name === 'AbortError' || /network request failed|timeout|fetch/i.test(e.message || '');
-    // Retry AUTOMATICO so para GET (idempotente). POST/PATCH mudam estado —
-    // reenviar por baixo dos panos pode DUPLICAR (ex.: concluir 2x). Escritas
-    // falham direto e a tela decide o que fazer, sem reenvio silencioso.
-    if (ehRede && method === 'GET' && _tentativa < 2) {
+    // Retry em queda momentânea: GET sempre (idempotente). Escritas TAMBÉM —
+    // exceto a conclusão, que reenvia foto e só é 100% segura de repetir com a
+    // idempotência do backend. Isso devolve a resiliência: micro-quedas de rede
+    // deixam de virar "Sem conexão" na cara do motoboy (o servidor está saudável,
+    // era o app que desistia rápido demais). status/aceitar/posição são
+    // idempotentes no backend, então reenviar não duplica nada.
+    const escritaSegura = method !== 'GET' && !path.includes('/concluir');
+    if (ehRede && (method === 'GET' || escritaSegura) && _tentativa < 2) {
       await new Promise(res => setTimeout(res, 600 * (_tentativa + 1)));
       return reqInterno(method, path, body, _tentativa + 1);
     }
