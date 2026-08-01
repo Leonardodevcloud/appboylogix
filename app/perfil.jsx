@@ -53,14 +53,17 @@ export default function Perfil() {
 
   const carregar = useCallback(async () => {
     try { setP(await api.get('/motoboys/app/perfil')); }
-    catch (e) { console.log('[PERFIL] erro:', e?.message); await api.logout(); router.replace('/'); }
+    catch (e) { console.log('[PERFIL] erro:', e?.message); if (e?.status === 401) { await api.logout(); router.replace('/'); } }
   }, []);
 
   useEffect(() => { carregar(); }, []);
 
   async function toggleOnline(val) {
-    try { await api.patch('/motoboys/app/status', { online: val }); setP(prev => ({ ...prev, online: val })); }
-    catch (e) { Alert.alert('Erro', e.message); }
+    // Otimista: o switch mexe na hora; a rede roda atrás. Se falhar, reverte em
+    // silêncio (sem modal de erro) — a queda de rede já é reenviada pelo api.
+    setP(prev => ({ ...prev, online: val }));
+    try { await api.patch('/motoboys/app/status', { online: val }); }
+    catch (e) { setP(prev => ({ ...prev, online: !val })); }
   }
 
   function sair() {

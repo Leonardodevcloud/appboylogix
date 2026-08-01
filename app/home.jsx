@@ -92,8 +92,11 @@ export default function Home() {
       // Qualquer falha ao carregar os dados do motoboy (token expirado/inválido,
       // sessão perdida) volta para o login. Não depende de casar texto da mensagem.
       console.log('[HOME] erro ao carregar:', e?.message);
-      await api.logout();
-      router.replace('/');
+      // Só desloga em falha de AUTENTICAÇÃO real (401). Uma queda de rede/timeout
+      // no polling NÃO pode deslogar o motoboy no meio do turno — apenas mantém os
+      // dados atuais na tela. (Este carregar roda a cada 30s e, como o app é um
+      // Stack, continua rodando por baixo quando o motoboy está em Ganhos/Perfil.)
+      if (e?.status === 401) { await api.logout(); router.replace('/'); }
     }
   }, []);
 
