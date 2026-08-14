@@ -125,8 +125,10 @@ export default function ConcluirScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      // Sem base64 aqui: o resize abaixo gera o base64 já reduzido.
-      quality: 1, exif: false,
+      // Captura já em qualidade média: o resize abaixo gera o base64 reduzido, e
+      // capturar em qualidade máxima (foto de 5-10MB) pressiona a memória e podia
+      // fazer o Android matar o app ao voltar da câmera em aparelhos fracos.
+      quality: 0.6, exif: false,
     });
     if (!result.canceled && result.assets?.[0]) {
       const asset = result.assets[0];
@@ -185,9 +187,11 @@ export default function ConcluirScreen() {
           mensagem: err?.dados?.mensagem || err?.message,
         });
         setLiberSolic(false);
-      } else if (err?.message?.toLowerCase().includes('network') || err?.status >= 500) {
-        Alert.alert('Verifique', 'Possível problema de conexão. Atualize a lista para confirmar se foi registrado.',
-          [{ text: 'Voltar', onPress: () => router.replace('/home') }]);
+      } else if (/sem conex|network/i.test(err?.message || '') || err?.status >= 500) {
+        // NÃO volta para a home: ficar nesta tela preserva a foto e os dados
+        // preenchidos. O motoboy só toca em "Confirmar" de novo — e o api já
+        // repete sozinho (o backend é idempotente), então costuma ir de primeira.
+        Alert.alert('Falha ao enviar', 'A conexão oscilou. Sua foto e os dados continuam aqui — toque em "Confirmar entrega" novamente.');
       } else {
         Alert.alert('Erro', err?.message || 'Não foi possível registrar.');
       }

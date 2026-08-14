@@ -28,6 +28,12 @@ async function reqInterno(method, path, body, _tentativa = 0) {
   // servidor. Requisicao leve = teto curto (falha rapido em queda real).
   const ehUpload = payload && payload.length > 40000;
   const TIMEOUT = ehUpload ? 30000 : (_tentativa === 0 ? 14000 : 9000);
+  // Pode repetir: GET (idempotente) e escritas idempotentes no backend. Excluímos
+  // só o logout (repetir é inútil e gerava logouts repetidos). O /concluir É
+  // idempotente no backend (se o ponto já foi concluído, ele responde jaConcluido
+  // sem recriar foto/retorno), então PODE repetir — é justamente a ação que mais
+  // sofre com micro-queda de rede no upload da foto.
+  const podeRepetir = method === 'GET' || !path.includes('/auth/logout');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
   let r;
@@ -36,22 +42,20 @@ async function reqInterno(method, path, body, _tentativa = 0) {
   } catch (e) {
     clearTimeout(timer);
     const ehRede = e.name === 'AbortError' || /network request failed|timeout|fetch/i.test(e.message || '');
-    // Retry em queda momentânea: GET sempre (idempotente). Escritas TAMBÉM —
-    // exceto a conclusão, que reenvia foto e só é 100% segura de repetir com a
-    // idempotência do backend. Isso devolve a resiliência: micro-quedas de rede
-    // deixam de virar "Sem conexão" na cara do motoboy (o servidor está saudável,
-    // era o app que desistia rápido demais). status/aceitar/posição são
-    // idempotentes no backend, então reenviar não duplica nada.
-    // Retry seguro em escrita, EXCETO conclusão (reenvia foto) e logout (reenviar
-    // é inútil — você já está saindo — e gerava 3 logouts seguidos no servidor).
-    const escritaSegura = method !== 'GET' && !path.includes('/concluir') && !path.includes('/auth/logout');
-    if (ehRede && (method === 'GET' || escritaSegura) && _tentativa < 2) {
+    if (ehRede && podeRepetir && _tentativa < 2) {
       await new Promise(res => setTimeout(res, 600 * (_tentativa + 1)));
       return reqInterno(method, path, body, _tentativa + 1);
     }
     throw new Error('Sem conexão. Verifique sua internet e tente novamente.');
   } finally {
     clearTimeout(timer);
+  }
+  // Erro de gateway/servidor (502/503/504) — cold start ou pico de carga. Repetir
+  // após um instante costuma resolver, e evita "erro" na cara do motoboy quando o
+  // servidor apenas piscou. Seguro porque o backend é idempotente nessas rotas.
+  if (!r.ok && r.status >= 500 && podeRepetir && _tentativa < 2) {
+    await new Promise(res => setTimeout(res, 700 * (_tentativa + 1)));
+    return reqInterno(method, path, body, _tentativa + 1);
   }
   // A resposta pode NAO ser JSON (ex.: 502/504 do gateway com pagina HTML sob
   // carga). Nao deixamos o r.json() estourar com erro criptico pro motoboy.
