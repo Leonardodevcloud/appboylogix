@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   RefreshControl, Alert, Switch, ActivityIndicator, StatusBar,
-  Image,
+  Image, AppState,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { api } from '../src/api';
 import { useGPS } from '../src/hooks/useGPS';
@@ -119,6 +120,28 @@ export default function Home() {
     })();
     const t = setInterval(carregar, 30_000);
 
+    // Ao voltar do background: re-sincroniza. Em background o GPS de foreground
+    // congela e a central pode ver o motoboy como "sem sinal". Ao reabrir, a gente
+    // atualiza a tela, re-afirma o online e manda uma posição fresca — assim ele
+    // volta a aparecer "ao vivo" na hora, sem precisar reiniciar o app.
+    const subApp = AppState.addEventListener('change', async (estado) => {
+      if (estado !== 'active') return;
+      carregar();
+      try {
+        const me = await api.get('/motoboys/app/eu').catch(() => null);
+        if (me && me.online) {
+          api.patch('/motoboys/app/status', { online: true }).catch(() => {});
+          try {
+            const perm = await Location.getForegroundPermissionsAsync();
+            if (perm.status === 'granted') {
+              const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+              api.post('/motoboys/app/posicao', { lat: loc.coords.latitude, lng: loc.coords.longitude }).catch(() => {});
+            }
+          } catch {}
+        }
+      } catch {}
+    });
+
     // WebSocket: se a central solicitar reenvio enquanto o app está aberto,
     // mostra o aviso e redireciona para a correção (bloqueio).
     let ws;
@@ -158,7 +181,7 @@ export default function Home() {
       } catch {}
     })();
 
-    return () => { clearInterval(t); try { ws?.close(); } catch {} };
+    return () => { clearInterval(t); try { subApp.remove(); } catch {} try { ws?.close(); } catch {} };
   }, []);
 
   async function toggleOnline(val) {

@@ -31,7 +31,16 @@ export default function Aceitar() {
       Alert.alert('Corrida aceita!', 'Vá até o ponto de coleta.', [
         { text: 'OK', onPress: () => router.back() }
       ]);
-    } catch (e) { Alert.alert('Erro', e.message); }
+    } catch (e) {
+      const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
+      if (conexao) {
+        // O backend é idempotente: se já tiver aceitado, tocar de novo devolve
+        // sucesso. Então não assusta o motoboy com "Erro" — orienta a repetir.
+        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Aceitar" de novo — é seguro. Se já tiver aceitado, a corrida aparece nas suas corridas.');
+      } else {
+        Alert.alert('Erro', e.message);
+      }
+    }
     setAceitando(false);
   }
 

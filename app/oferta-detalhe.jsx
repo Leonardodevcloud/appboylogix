@@ -62,7 +62,12 @@ export default function OfertaDetalhe() {
       router.replace('/home');
     } catch (e) {
       setAceitando(false);
-      Alert.alert('Ops', e.message || 'Não foi possível aceitar essa corrida', [{ text: 'OK', onPress: () => router.replace('/ofertas') }]);
+      const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
+      if (conexao) {
+        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Aceitar" de novo — é seguro (se já tiver aceitado, a corrida aparece nas suas corridas).');
+      } else {
+        Alert.alert('Ops', e.message || 'Não foi possível aceitar essa corrida', [{ text: 'OK', onPress: () => router.replace('/ofertas') }]);
+      }
     }
   }
 
