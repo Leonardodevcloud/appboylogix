@@ -5,7 +5,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "eas-build-pre-install": "node scripts/set-marca.js",
+    "marca": "node scripts/set-marca.js"
   },
   "dependencies": {
     "@react-navigation/native": "^7.0.0",
