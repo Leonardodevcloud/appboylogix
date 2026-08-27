@@ -58,8 +58,11 @@ export default function OfertaDetalhe() {
     if (aceitando) return;
     setAceitando(true);
     try {
-      await api.aceitarOferta(params.oferta_id);
-      router.replace('/home');
+      const r = await api.aceitarOferta(params.oferta_id);
+      // Vai direto pra tela da corrida pra já começar a rota — sem passar pela
+      // home e ter que reabrir a corrida na mão.
+      if (r && r.entregaId) router.replace({ pathname: '/corrida', params: { entrega_id: r.entregaId } });
+      else router.replace('/home');
     } catch (e) {
       setAceitando(false);
       const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;

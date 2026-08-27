@@ -62,7 +62,13 @@ async function reqInterno(method, path, body, _tentativa = 0) {
   let data = null;
   try { data = await r.json(); } catch { data = null; }
   if (!r.ok) {
-    const err = new Error((data && (data.mensagem || data.erro)) || 'Erro ' + r.status);
+    const msgPadrao = {
+      401: 'Sua sessão expirou. Entre novamente.',
+      403: 'Você não tem permissão para isso.',
+      404: 'Não encontrado.',
+      409: 'Essa corrida já foi aceita ou atualizada. Atualize a tela.',
+    };
+    const err = new Error((data && (data.mensagem || data.erro)) || msgPadrao[r.status] || ('Erro ' + r.status));
     err.status = r.status;
     err.dados = data || {};
     throw err;

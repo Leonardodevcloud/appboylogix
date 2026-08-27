@@ -32,7 +32,8 @@
         "googleMaps": {
           "apiKey": "AIzaSyA5_0AHF2PbkcS50z4NLLoxALg8uuAjk2Q"
         }
-      }
+      },
+      "largeHeap": true
     },
     "ios": {
       "infoPlist": {
