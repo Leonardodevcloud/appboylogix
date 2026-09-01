@@ -1,6 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import * as Location from 'expo-location';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Application from 'expo-application';
 
 // Aviso PROEMINENTE de uso de localização, exigido pela Google Play ANTES de
 // pedir a permissão de localização em segundo plano. Precisa: (1) dizer que
@@ -69,6 +71,7 @@ export async function garantirLocalizacaoSempre() {
   let bg = await Location.getBackgroundPermissionsAsync();
   if (bg.status !== 'granted') bg = await Location.requestBackgroundPermissionsAsync();
   if (bg.status !== 'granted') { avisarPermissaoSempre(); return false; }
+  await pedirIsencaoBateria();
   return true;
 }
 
@@ -76,4 +79,20 @@ export async function garantirLocalizacaoSempre() {
 export async function temLocalizacaoSempre() {
   try { const bg = await Location.getBackgroundPermissionsAsync(); return bg.status === 'granted'; }
   catch (e) { return false; }
+}
+
+// Pede ao Android para NÃO otimizar a bateria do app (senão o SO mata o serviço de
+// localização em 2º plano). Mostra o diálogo do sistema uma única vez.
+const KEY_BAT = 'lx_isencao_bateria_v1';
+export async function pedirIsencaoBateria() {
+  if (Platform.OS !== 'android') return;
+  try { if (await SecureStore.getItemAsync(KEY_BAT)) return; } catch {}
+  try {
+    await IntentLauncher.startActivityAsync('android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', {
+      data: 'package:' + Application.applicationId,
+    });
+    try { await SecureStore.setItemAsync(KEY_BAT, '1'); } catch {}
+  } catch (e) {
+    try { await IntentLauncher.startActivityAsync('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS'); } catch (e2) {}
+  }
 }
