@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { api, getToken, API_URL } from '../src/api';
@@ -28,6 +29,8 @@ export default function ConcluirScreen() {
   const [observacao, setObservacao] = useState('');
   const [fotos, setFotos]           = useState([]);
   const [enviando, setEnviando]     = useState(false);
+  const shotRef = useRef(null);
+  const [aCarimbar, setACarimbar]   = useState(null); // { uri, w, h, l1, l2 } durante a composição
   // Fluxo de geofence/liberação:
   //   bloqueio = null               -> tudo normal
   //   bloqueio = { distancia_m, raio_m, mensagem }  -> fora do raio, pode solicitar
@@ -125,22 +128,39 @@ export default function ConcluirScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      // Captura já em qualidade média: o resize abaixo gera o base64 reduzido, e
-      // capturar em qualidade máxima (foto de 5-10MB) pressiona a memória e podia
-      // fazer o Android matar o app ao voltar da câmera em aparelhos fracos.
       quality: 0.6, exif: false,
     });
-    if (!result.canceled && result.assets?.[0]) {
-      const asset = result.assets[0];
-      // Redimensiona para no máx. 1280px de largura e recomprime — derruba a foto
-      // de ~2-3MB para ~150-250KB, deixando o upload rápido mesmo em 4G fraco.
-      const reduzida = await ImageManipulator.manipulateAsync(
-        asset.uri,
-        [{ resize: { width: 1280 } }],
-        { compress: 0.6, base64: true, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      setFotos(prev => [...prev, { uri: reduzida.uri, base64: reduzida.base64, tipo: 'image/jpeg' }]);
-    }
+    if (result.canceled || !result.assets?.[0]) return;
+
+    // 1) Reduz a foto (leve) — é a base que vai receber o carimbo.
+    const base = await ImageManipulator.manipulateAsync(
+      result.assets[0].uri, [{ resize: { width: 1080 } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+    );
+
+    // 2) Data/hora e coordenada DO MOMENTO da captura.
+    const loc = await obterLocalizacao();
+    const agora = new Date().toLocaleString('pt-BR', {
+      timeZone: 'America/Bahia', day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+    const coord = loc ? `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}` : 'GPS indisponivel';
+    const w = base.width || 1080;
+    const h = base.height || 1440;
+
+    // 3) Monta a view (foto + carimbo) fora da tela e "fotografa" ela.
+    setACarimbar({ uri: base.uri, w, h, l1: agora, l2: coord });
+    await new Promise((r) => setTimeout(r, 400));
+    let carimbada = base.uri;
+    try { carimbada = await captureRef(shotRef, { format: 'jpg', quality: 0.7, result: 'tmpfile' }); } catch (e) {}
+    setACarimbar(null);
+
+    // 4) Comprime o resultado final + base64 pro upload.
+    const finalImg = await ImageManipulator.manipulateAsync(
+      carimbada, [{ resize: { width: 1280 } }],
+      { compress: 0.6, base64: true, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    setFotos((prev) => [...prev, { uri: finalImg.uri, base64: finalImg.base64, tipo: 'image/jpeg' }]);
   }
 
   function removerFoto(idx) {
@@ -204,6 +224,16 @@ export default function ConcluirScreen() {
 
   return (
     <View style={s.root}>
+      {aCarimbar && (
+        <ViewShot ref={shotRef} options={{ format: 'jpg', quality: 0.7 }}
+          style={{ position: 'absolute', left: -100000, top: 0, width: aCarimbar.w, height: aCarimbar.h }}>
+          <Image source={{ uri: aCarimbar.uri }} style={{ width: aCarimbar.w, height: aCarimbar.h }} />
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(4,20,40,0.74)', paddingVertical: 16, paddingHorizontal: 20 }}>
+            <Text style={{ color: '#fff', fontSize: 30, fontWeight: '800' }}>{aCarimbar.l1}</Text>
+            <Text style={{ color: '#cfe0f2', fontSize: 26, fontWeight: '600', marginTop: 4 }}>{aCarimbar.l2}</Text>
+          </View>
+        </ViewShot>
+      )}
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       {/* Header com voltar */}
       <View style={s.header}>
