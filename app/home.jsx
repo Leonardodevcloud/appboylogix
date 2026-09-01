@@ -8,6 +8,7 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { api } from '../src/api';
 import { useGPS } from '../src/hooks/useGPS';
+import { garantirLocalizacaoSempre, temLocalizacaoSempre } from '../src/utils/disclosure';
 import { registrarPush } from '../src/push';
 import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
 
@@ -130,6 +131,12 @@ export default function Home() {
       try {
         const me = await api.get('/motoboys/app/eu').catch(() => null);
         if (me && me.online) {
+          if (!(await temLocalizacaoSempre())) {
+            // Permissão de fundo foi revogada nas configurações: cai offline.
+            setEu(p => ({ ...p, online: false }));
+            api.patch('/motoboys/app/status', { online: false }).catch(() => {});
+            return;
+          }
           api.patch('/motoboys/app/status', { online: true }).catch(() => {});
           try {
             const perm = await Location.getForegroundPermissionsAsync();
@@ -185,10 +192,13 @@ export default function Home() {
   }, []);
 
   async function toggleOnline(val) {
-    // Otimista: o switch mexe na hora. Se falhar, reverte em SILÊNCIO — é ação de
-    // baixo risco e o próximo poll (30s) re-sincroniza o estado real. Nada de modal
-    // bloqueante "Sem conexão" na cara do motoboy (a causa raiz — keep-alive curto
-    // do servidor fechando a conexão ociosa — foi corrigida no backend).
+    // Localização "o tempo todo" é OBRIGATÓRIA para ficar online. Sem ela, o app
+    // não rastreia com o celular fechado (perde corridas e não registra trajeto).
+    if (val) {
+      const ok = await garantirLocalizacaoSempre();
+      if (!ok) { setEu(p => ({ ...p, online: false })); return; }
+    }
+    // Otimista: o switch mexe na hora. Se falhar, reverte em SILÊNCIO.
     setEu(p => ({ ...p, online: val }));
     try {
       await api.patch('/motoboys/app/status', { online: val });
