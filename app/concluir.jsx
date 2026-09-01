@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, ActivityIndicator, Image, StatusBar,
+  StyleSheet, Alert, ActivityIndicator, Image, StatusBar, PixelRatio,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -121,46 +121,66 @@ export default function ConcluirScreen() {
   const geraRetorno = ehInsucesso && ocSel.comportamento === 'retorno';
 
   async function tirarFoto() {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permissão necessária', 'Autorize o acesso à câmera nas configurações.');
-      return;
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permissão necessária', 'Autorize o acesso à câmera nas configurações.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.6, exif: false,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      // 1) Reduz a foto (leve) — é a base que vai receber o carimbo.
+      const base = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri, [{ resize: { width: 1080 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      // 2) Data/hora e coordenada DO MOMENTO da captura.
+      const loc = await obterLocalizacao();
+      const agora = new Date().toLocaleString('pt-BR', {
+        timeZone: 'America/Bahia', day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+      });
+      const coord = loc ? `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}` : 'GPS indisponivel';
+
+      // 3) Tamanho da CAPTURA em DP, limitado pela densidade da tela.
+      //    O ViewShot é rasterizado no tamanho (DP × densidade). Antes usávamos a
+      //    largura real da foto (1080) como DP → num aparelho 2.75x virava um bitmap
+      //    de ~2970px + a imagem original decodificada, estourando a memória e
+      //    fechando o app. Fixando a SAÍDA em ~1080px (dividindo pela densidade),
+      //    o bitmap fica pequeno e igual em todo aparelho.
+      const wReal = base.width || 1080;
+      const hReal = base.height || 1440;
+      const SAIDA_PX = 1080;                          // largura final desejada, em pixels
+      const densidade = PixelRatio.get() || 2;
+      const wDp = Math.round(SAIDA_PX / densidade);   // captura ~1080px independente do device
+      const hDp = Math.round(wDp * (hReal / wReal));
+      // Fontes do carimbo proporcionais à largura da folha.
+      const f1 = Math.max(11, Math.round(wDp * 0.062));
+      const f2 = Math.max(10, Math.round(wDp * 0.052));
+
+      // 4) Monta a view (foto + carimbo) fora da tela e "fotografa" ela.
+      setACarimbar({ uri: base.uri, w: wDp, h: hDp, l1: agora, l2: coord, f1, f2 });
+      await new Promise((r) => setTimeout(r, 400));
+      let carimbada = base.uri;
+      try { carimbada = await captureRef(shotRef, { format: 'jpg', quality: 0.7, result: 'tmpfile' }); } catch (e) {}
+      setACarimbar(null);
+
+      // 5) Comprime o resultado final + base64 pro upload (sem upscale).
+      const finalImg = await ImageManipulator.manipulateAsync(
+        carimbada, [{ resize: { width: SAIDA_PX } }],
+        { compress: 0.6, base64: true, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      setFotos((prev) => [...prev, { uri: finalImg.uri, base64: finalImg.base64, tipo: 'image/jpeg' }]);
+    } catch (e) {
+      // Nunca deixa uma exceção da câmera/processamento derrubar o app.
+      setACarimbar(null);
+      Alert.alert('Não consegui processar a foto', 'Tente tirar novamente. Se continuar, feche e abra o app.');
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.6, exif: false,
-    });
-    if (result.canceled || !result.assets?.[0]) return;
-
-    // 1) Reduz a foto (leve) — é a base que vai receber o carimbo.
-    const base = await ImageManipulator.manipulateAsync(
-      result.assets[0].uri, [{ resize: { width: 1080 } }],
-      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-    );
-
-    // 2) Data/hora e coordenada DO MOMENTO da captura.
-    const loc = await obterLocalizacao();
-    const agora = new Date().toLocaleString('pt-BR', {
-      timeZone: 'America/Bahia', day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-    });
-    const coord = loc ? `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}` : 'GPS indisponivel';
-    const w = base.width || 1080;
-    const h = base.height || 1440;
-
-    // 3) Monta a view (foto + carimbo) fora da tela e "fotografa" ela.
-    setACarimbar({ uri: base.uri, w, h, l1: agora, l2: coord });
-    await new Promise((r) => setTimeout(r, 400));
-    let carimbada = base.uri;
-    try { carimbada = await captureRef(shotRef, { format: 'jpg', quality: 0.7, result: 'tmpfile' }); } catch (e) {}
-    setACarimbar(null);
-
-    // 4) Comprime o resultado final + base64 pro upload.
-    const finalImg = await ImageManipulator.manipulateAsync(
-      carimbada, [{ resize: { width: 1280 } }],
-      { compress: 0.6, base64: true, format: ImageManipulator.SaveFormat.JPEG }
-    );
-    setFotos((prev) => [...prev, { uri: finalImg.uri, base64: finalImg.base64, tipo: 'image/jpeg' }]);
   }
 
   function removerFoto(idx) {
@@ -228,9 +248,9 @@ export default function ConcluirScreen() {
         <ViewShot ref={shotRef} options={{ format: 'jpg', quality: 0.7 }}
           style={{ position: 'absolute', left: -100000, top: 0, width: aCarimbar.w, height: aCarimbar.h }}>
           <Image source={{ uri: aCarimbar.uri }} style={{ width: aCarimbar.w, height: aCarimbar.h }} />
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(4,20,40,0.74)', paddingVertical: 16, paddingHorizontal: 20 }}>
-            <Text style={{ color: '#fff', fontSize: 30, fontWeight: '800' }}>{aCarimbar.l1}</Text>
-            <Text style={{ color: '#cfe0f2', fontSize: 26, fontWeight: '600', marginTop: 4 }}>{aCarimbar.l2}</Text>
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(4,20,40,0.74)', paddingVertical: Math.round(aCarimbar.w * 0.03), paddingHorizontal: Math.round(aCarimbar.w * 0.04) }}>
+            <Text style={{ color: '#fff', fontSize: aCarimbar.f1, fontWeight: '800' }}>{aCarimbar.l1}</Text>
+            <Text style={{ color: '#cfe0f2', fontSize: aCarimbar.f2, fontWeight: '600', marginTop: 4 }}>{aCarimbar.l2}</Text>
           </View>
         </ViewShot>
       )}

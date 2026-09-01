@@ -18,7 +18,9 @@ export default function Aceitar() {
 
   useEffect(() => {
     api.get('/motoboys/app/fila').then(fila => {
-      const e = fila.find(x => x.id === entregaId);
+      // entregaId vem como STRING do router; x.id é número no backend. Comparar
+      // com === direto nunca batia e caía em "Entrega não encontrada".
+      const e = (fila || []).find(x => String(x.id) === String(entregaId));
       setEntrega(e || null);
       setLoading(false);
     }).catch(() => setLoading(false));

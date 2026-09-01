@@ -5,11 +5,12 @@ import {
   Image, AppState,
 } from 'react-native';
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
 import { useGPS } from '../src/hooks/useGPS';
 import * as SecureStore from 'expo-secure-store';
 import { garantirLocalizacaoSempre, temLocalizacaoSempre } from '../src/utils/disclosure';
+import { setOnline, assinarOnline } from '../src/state/online';
 import { registrarPush } from '../src/push';
 import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
 
@@ -85,6 +86,8 @@ export default function Home() {
     try {
       const [me, entregas] = await Promise.all([api.get('/motoboys/app/eu'), api.get('/motoboys/app/fila')]);
       setEu(me); setFila(entregas);
+      // Semeia o status compartilhado (mantém home e perfil em sincronia).
+      if (me) setOnline(me.online);
       // Auto-abre a tela guiada se estiver ONLINE mas o GPS parou de enviar há muito tempo.
       if (me && me.online && !avisoRastreio.current) {
         try {
@@ -144,6 +147,7 @@ export default function Home() {
           if (!(await temLocalizacaoSempre())) {
             // Permissão de fundo foi revogada nas configurações: cai offline.
             setEu(p => ({ ...p, online: false }));
+            setOnline(false);
             api.patch('/motoboys/app/status', { online: false }).catch(() => {});
             return;
           }
@@ -201,6 +205,12 @@ export default function Home() {
     return () => { clearInterval(t); try { subApp.remove(); } catch {} try { ws?.close(); } catch {} };
   }, []);
 
+  // Espelha o status compartilhado: se o perfil mudar o online, a home reflete na hora.
+  useEffect(() => assinarOnline((v) => setEu(p => (p ? { ...p, online: v } : p))), []);
+
+  // Ao voltar o foco para a home (ex.: vindo do perfil), re-sincroniza os dados.
+  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+
   async function toggleOnline(val) {
     // Localização "o tempo todo" é OBRIGATÓRIA para ficar online. Sem ela, o app
     // não rastreia com o celular fechado (perde corridas e não registra trajeto).
@@ -208,12 +218,15 @@ export default function Home() {
       const ok = await garantirLocalizacaoSempre();
       if (!ok) { setEu(p => ({ ...p, online: false })); return; }
     }
-    // Otimista: o switch mexe na hora. Se falhar, reverte em SILÊNCIO.
+    // Otimista: o switch mexe na hora (e reflete no perfil via estado compartilhado).
+    // Se falhar, reverte em SILÊNCIO.
     setEu(p => ({ ...p, online: val }));
+    setOnline(val);
     try {
       await api.patch('/motoboys/app/status', { online: val });
     } catch (e) {
       setEu(p => ({ ...p, online: !val }));
+      setOnline(!val);
     }
   }
 

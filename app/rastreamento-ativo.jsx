@@ -15,11 +15,18 @@ async function abrirInfoApp() {
   try { await IntentLauncher.startActivityAsync('android.settings.APPLICATION_DETAILS_SETTINGS', { data: 'package:' + PKG }); }
   catch (e) { try { await Linking.openSettings(); } catch (e2) {} }
 }
-// Abre o pedido de ignorar otimização de bateria; se falhar, cai na lista de otimização; se falhar, info do app.
+// Abre a tela de BATERIA do app. Usamos a INFO do app (que sempre abre e é onde
+// ficam "Sem restrições" e os limites de segundo plano na Samsung).
+//
+// ATENÇÃO: NÃO usar aqui o intent REQUEST_IGNORE_BATTERY_OPTIMIZATIONS. Como o app
+// já pede a isenção de bateria ao ficar online, esse intent NÃO abre tela nenhuma
+// quando a isenção já foi concedida — e o startActivityAsync resolve SEM erro,
+// então o `return` matava os fallbacks e o botão ficava "morto".
 async function abrirBateria() {
-  try { await IntentLauncher.startActivityAsync('android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS', { data: 'package:' + PKG }); return; } catch (e) {}
+  try { await IntentLauncher.startActivityAsync('android.settings.APPLICATION_DETAILS_SETTINGS', { data: 'package:' + PKG }); return; } catch (e) {}
+  // Fallback: lista geral de otimização de bateria (sempre abre uma tela real).
   try { await IntentLauncher.startActivityAsync('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS'); return; } catch (e) {}
-  abrirInfoApp();
+  try { await Linking.openSettings(); } catch (e2) {}
 }
 // Xiaomi/MIUI: tenta abrir o gerenciador de início automático; se falhar, info do app.
 async function abrirAutostartXiaomi() {

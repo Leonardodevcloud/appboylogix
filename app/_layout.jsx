@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 // Importa a task de GPS para registra-la no app (defineTask roda no import).
 import '../src/tasks/gpsTask';
 import { configurarNotificacoes, aoTocarNotificacao, aoReceberNotificacao, notificacaoQueAbriuApp } from '../src/push';
+import AvisoHost from '../src/componentes/AvisoHost';
+import ErroBoundary from '../src/componentes/ErroBoundary';
 
 // Decide para onde navegar quando o motoboy toca em uma notificacao.
 function navegarPorNotificacao(dados) {
@@ -38,9 +40,11 @@ export default function Layout() {
   }, []);
 
   return (
-    <>
+    <ErroBoundary>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }} />
-    </>
+      {/* Modal nativo do app (avisos de permissão etc.) — renderizado uma vez, por cima de tudo. */}
+      <AvisoHost />
+    </ErroBoundary>
   );
 }

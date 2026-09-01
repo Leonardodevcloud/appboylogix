@@ -3,10 +3,12 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   RefreshControl, Alert, Switch, ActivityIndicator, StatusBar, Image,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+import { garantirLocalizacaoSempre } from '../src/utils/disclosure';
+import { setOnline, assinarOnline } from '../src/state/online';
 
 // Versão do app + id do update OTA (pra confirmar na hora qual build está rodando).
 const VERSAO_APP = Constants.expoConfig?.version || '?';
@@ -59,18 +61,35 @@ export default function Perfil() {
   const [refresh, setRef] = useState(false);
 
   const carregar = useCallback(async () => {
-    try { setP(await api.get('/motoboys/app/perfil')); }
+    try {
+      const perfil = await api.get('/motoboys/app/perfil');
+      setP(perfil);
+      if (perfil) setOnline(perfil.online);
+    }
     catch (e) { console.log('[PERFIL] erro:', e?.message); if (e?.status === 401) { await api.logout(); router.replace('/'); } }
   }, []);
 
   useEffect(() => { carregar(); }, []);
 
+  // Espelha o status compartilhado (mudou na home → reflete aqui, e vice-versa).
+  useEffect(() => assinarOnline((v) => setP(prev => (prev ? { ...prev, online: v } : prev))), []);
+
+  // Re-sincroniza ao focar a tela.
+  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+
   async function toggleOnline(val) {
-    // Otimista: o switch mexe na hora; a rede roda atrás. Se falhar, reverte em
-    // silêncio (sem modal de erro) — a queda de rede já é reenviada pelo api.
+    // Ficar online EXIGE a localização "o tempo todo" — mesma regra da home.
+    // Sem isso, o motoboy ficava "online" sem rastreio e a home o derrubava de
+    // volta (o efeito de ligar/desligar sozinho).
+    if (val) {
+      const ok = await garantirLocalizacaoSempre();
+      if (!ok) { setP(prev => (prev ? { ...prev, online: false } : prev)); setOnline(false); return; }
+    }
+    // Otimista: o switch mexe na hora e reflete na home via estado compartilhado.
     setP(prev => ({ ...prev, online: val }));
+    setOnline(val);
     try { await api.patch('/motoboys/app/status', { online: val }); }
-    catch (e) { setP(prev => ({ ...prev, online: !val })); }
+    catch (e) { setP(prev => ({ ...prev, online: !val })); setOnline(!val); }
   }
 
   const saindoRef = useRef(false);
