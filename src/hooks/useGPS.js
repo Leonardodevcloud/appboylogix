@@ -61,9 +61,9 @@ export function useGPS(entregaId, ativoExtra = false) {
           const jaRodando = await Location.hasStartedLocationUpdatesAsync(GPS_TASK).catch(() => false);
           if (!jaRodando) {
             await Location.startLocationUpdatesAsync(GPS_TASK, {
-              accuracy: Location.Accuracy.Balanced,
-              timeInterval: 15000,        // a cada 15s
-              distanceInterval: 30,       // ou a cada 30m
+              accuracy: Location.Accuracy.High,
+              timeInterval: 8000,         // a cada 8s (traçado mais detalhado)
+              distanceInterval: 15,       // ou a cada 15m
               pausesUpdatesAutomatically: false,
               showsBackgroundLocationIndicator: true,
               foregroundService: {
@@ -89,7 +89,7 @@ export function useGPS(entregaId, ativoExtra = false) {
       }
       const reportar = async () => {
         try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
           const { latitude, longitude } = loc.coords;
           await api.post('/motoboys/app/posicao', { lat: latitude, lng: longitude, entrega_id: entregaId || undefined });
           console.log('[GPS fg] enviado', latitude.toFixed(5), longitude.toFixed(5));
@@ -97,7 +97,7 @@ export function useGPS(entregaId, ativoExtra = false) {
       };
       reportar();
       if (fgInterval.current) clearInterval(fgInterval.current);
-      fgInterval.current = setInterval(reportar, 15000);
+      fgInterval.current = setInterval(reportar, 8000);
     }
 
     iniciar();
