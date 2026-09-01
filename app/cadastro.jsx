@@ -26,7 +26,7 @@ const DOCS = [
 export default function Cadastro() {
   const [carregando, setCarregando] = useState(true);
   const [ctx, setCtx] = useState(null);       // { empresa, modalidades, campos }
-  const [etapa, setEtapa] = useState(0);       // 0=modalidade 1=dados 2=endereco 3=docs
+  const [etapa, setEtapa] = useState(0);       // 0=modalidade 1=dados 2=endereco 3=bancario 4=docs
   const [enviando, setEnviando] = useState(false);
 
   const [form, setForm] = useState({
@@ -34,6 +34,8 @@ export default function Cadastro() {
     nome_completo: '', cpf: '', data_nascimento: '', telefone_principal: '', telefone_emergencia: '',
     email: '', senha: '',
     cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '',
+    pix_tipo: 'cpf', pix_chave: '', titular_nome: '', titular_doc: '',
+    banco_codigo: '', banco_nome: '', agencia: '', conta: '', conta_tipo: 'corrente',
   });
   const [docs, setDocs] = useState({}); // { tipo: dataUri }
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -105,6 +107,11 @@ export default function Cadastro() {
       return null;
     }
     if (etapa === 3) {
+      // Dados bancários são OPCIONAIS — só valida formato leve se preenchido.
+      if (form.pix_chave.trim() && !form.pix_tipo) return 'Escolha o tipo da chave Pix';
+      return null;
+    }
+    if (etapa === 4) {
       for (const d of DOCS) { if (ctx.campos[d.flag] !== false && !docs[d.tipo]) return `Envie: ${d.rotulo}`; }
       return null;
     }
@@ -114,7 +121,7 @@ export default function Cadastro() {
   function avancar() {
     const err = validarEtapa();
     if (err) { Alert.alert('Atenção', err); return; }
-    if (etapa < 3) setEtapa(etapa + 1);
+    if (etapa < 4) setEtapa(etapa + 1);
     else enviar();
   }
 
@@ -152,7 +159,7 @@ export default function Cadastro() {
     );
   }
 
-  const titulos = ['Modalidade', 'Seus dados', 'Endereço', 'Documentos'];
+  const titulos = ['Modalidade', 'Seus dados', 'Endereço', 'Dados bancários', 'Documentos'];
 
   return (
     <View style={st.root}>
@@ -167,9 +174,9 @@ export default function Cadastro() {
           <View style={{ width: 60 }} />
         </View>
         <View style={st.progresso}>
-          {[0, 1, 2, 3].map(i => <View key={i} style={[st.progItem, { backgroundColor: i <= etapa ? C.azulV : C.navy800 }]} />)}
+          {[0, 1, 2, 3, 4].map(i => <View key={i} style={[st.progItem, { backgroundColor: i <= etapa ? C.azulV : C.navy800 }]} />)}
         </View>
-        <Text style={st.etapaLabel}>Etapa {etapa + 1} de 4 · {titulos[etapa]}</Text>
+        <Text style={st.etapaLabel}>Etapa {etapa + 1} de 5 · {titulos[etapa]}</Text>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -229,6 +236,51 @@ export default function Cadastro() {
 
           {etapa === 3 && (
             <View>
+              <Text style={st.secTit}>Onde você recebe</Text>
+              <Text style={st.secSub}>É a conta que a central usa para pagar seus repasses. Você pode preencher agora ou depois, no seu perfil.</Text>
+
+              <Text style={st.label}>Tipo de chave Pix</Text>
+              <Segmento
+                opcoes={[['cpf', 'CPF'], ['cnpj', 'CNPJ'], ['email', 'E-mail'], ['telefone', 'Telefone'], ['aleatoria', 'Aleatória']]}
+                valor={form.pix_tipo} onEscolher={v => set('pix_tipo', v)} />
+              <View style={{ height: 12 }} />
+              <Campo label="Chave Pix" value={form.pix_chave} onChangeText={t => set('pix_chave', t)} autoCapitalize="none" />
+
+              <TouchableOpacity style={st.chkline} activeOpacity={0.8}
+                onPress={() => setForm(f => ({ ...f, titular_nome: f.nome_completo || f.titular_nome, titular_doc: f.cpf || f.titular_doc }))}>
+                <View style={st.chk}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>✓</Text></View>
+                <Text style={st.chkTxt}>A conta é minha (usar meu nome e CPF do cadastro)</Text>
+              </TouchableOpacity>
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1.4 }}><Campo label="Titular da conta" value={form.titular_nome} onChangeText={t => set('titular_nome', t)} /></View>
+                <View style={{ flex: 1 }}><Campo label="CPF/CNPJ do titular" value={form.titular_doc} onChangeText={t => set('titular_doc', t)} keyboardType="numeric" /></View>
+              </View>
+
+              <View style={st.divisor}><View style={st.divLinha} /><Text style={st.divTxt}>Dados bancários — opcional (TED)</Text><View style={st.divLinha} /></View>
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}><Campo label="Banco (código)" value={form.banco_codigo} onChangeText={t => set('banco_codigo', t)} keyboardType="numeric" placeholder="260" /></View>
+                <View style={{ flex: 2 }}><Campo label="Nome do banco" value={form.banco_nome} onChangeText={t => set('banco_nome', t)} placeholder="Nubank" /></View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}><Campo label="Agência" value={form.agencia} onChangeText={t => set('agencia', t)} keyboardType="numeric" /></View>
+                <View style={{ flex: 1.4 }}><Campo label="Conta c/ dígito" value={form.conta} onChangeText={t => set('conta', t)} keyboardType="numeric" placeholder="00000-0" /></View>
+              </View>
+              <Text style={st.label}>Tipo de conta</Text>
+              <Segmento
+                opcoes={[['corrente', 'Corrente'], ['poupanca', 'Poupança']]}
+                valor={form.conta_tipo} onEscolher={v => set('conta_tipo', v)} />
+
+              <View style={st.infoBox}>
+                <Text style={{ fontSize: 15 }}>🔒</Text>
+                <Text style={st.infoTxt}>Usamos esses dados só para pagar seus repasses. Você pode alterar depois no seu perfil.</Text>
+              </View>
+            </View>
+          )}
+
+          {etapa === 4 && (
+            <View>
               <Text style={st.secTit}>Envie seus documentos</Text>
               <Text style={st.secSub}>A selfie é só pela câmera. Os demais você pode enviar da galeria.</Text>
               {DOCS.filter(d => ctx.campos[d.flag] !== false).map(d => {
@@ -263,7 +315,7 @@ export default function Cadastro() {
 
         <View style={st.footer}>
           <TouchableOpacity style={[st.btnAvancar, enviando && { opacity: 0.6 }]} onPress={avancar} disabled={enviando} activeOpacity={0.85}>
-            {enviando ? <ActivityIndicator color="#fff" /> : <Text style={st.btnAvancarTxt}>{etapa < 3 ? 'Continuar' : 'Enviar cadastro'}</Text>}
+            {enviando ? <ActivityIndicator color="#fff" /> : <Text style={st.btnAvancarTxt}>{etapa < 4 ? 'Continuar' : 'Enviar cadastro'}</Text>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -276,6 +328,21 @@ function Campo({ label, obrig, ...props }) {
     <View style={{ marginBottom: 14 }}>
       <Text style={st.label}>{label}{obrig && <Text style={{ color: C.erro }}> *</Text>}</Text>
       <TextInput style={st.input} placeholderTextColor={C.tinta3} {...props} />
+    </View>
+  );
+}
+
+function Segmento({ opcoes, valor, onEscolher }) {
+  return (
+    <View style={st.seg}>
+      {opcoes.map(([v, rot]) => {
+        const on = valor === v;
+        return (
+          <TouchableOpacity key={v} activeOpacity={0.8} onPress={() => onEscolher(v)} style={[st.segItem, on && st.segItemOn]}>
+            <Text style={[st.segTxt, on && st.segTxtOn]}>{rot}</Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
@@ -315,6 +382,20 @@ const st = StyleSheet.create({
   label: { fontSize: 12.5, fontWeight: '700', color: C.tinta2, marginBottom: 6 },
   input: { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.tinta },
   dicaCep: { fontSize: 11.5, color: C.tinta3, marginTop: -8, marginBottom: 14, lineHeight: 16 },
+
+  seg: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  segItem: { paddingVertical: 8, paddingHorizontal: 13, borderRadius: 9, borderWidth: 1, borderColor: C.linha, backgroundColor: C.sup },
+  segItemOn: { borderColor: C.azulV, backgroundColor: '#eaf3fc' },
+  segTxt: { fontSize: 12.5, fontWeight: '700', color: C.tinta2 },
+  segTxtOn: { color: C.azulP },
+  chkline: { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: C.sup2, borderWidth: 1, borderColor: C.linha, borderRadius: 11, padding: 11, marginTop: 14, marginBottom: 14 },
+  chk: { width: 20, height: 20, borderRadius: 6, backgroundColor: C.azulP, alignItems: 'center', justifyContent: 'center' },
+  chkTxt: { flex: 1, fontSize: 12, color: C.tinta, fontWeight: '600' },
+  divisor: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 10 },
+  divLinha: { flex: 1, height: 1, backgroundColor: C.linha },
+  divTxt: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase', color: C.tinta3 },
+  infoBox: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', backgroundColor: '#eef6ff', borderWidth: 1, borderColor: '#cfe3fb', borderRadius: 11, padding: 11, marginTop: 14 },
+  infoTxt: { flex: 1, fontSize: 11.5, color: '#1f4b78', lineHeight: 17 },
 
   docCard: { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 14, padding: 14, marginBottom: 12 },
   docThumb: { width: 54, height: 54, borderRadius: 10, backgroundColor: C.sup2 },

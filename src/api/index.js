@@ -139,6 +139,11 @@ export const api = {
     return this.post('/motoboys/app/reenviar-cadastro', dados);
   },
 
+  // ── Perfil / dados do próprio motoboy ──
+  async perfil() { return this.get('/motoboys/app/perfil'); },
+  async atualizarMeusDados(dados) { return this.patch('/motoboys/app/meus-dados', dados); },
+  async enviarDocumento(tipo, arquivo) { return this.post('/motoboys/app/documentos', { tipo, arquivo }); },
+
   async logout() {
     // Encerra o canal de alertas em tempo real.
     try { require('../realtime/alertas').pararAlertasTempoReal(); } catch {}
