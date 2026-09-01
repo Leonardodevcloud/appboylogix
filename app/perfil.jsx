@@ -124,6 +124,14 @@ export default function Perfil() {
         contentContainerStyle={{ paddingBottom: 110 }}
         refreshControl={<RefreshControl refreshing={refresh} onRefresh={async () => { setRef(true); await carregar(); setRef(false); }} tintColor={C.azulV} />}
       >
+        <TouchableOpacity onPress={() => router.push('/rastreamento-ativo')} style={{ margin:14, backgroundColor:'#EAF1F9', borderRadius:14, padding:14, flexDirection:'row', alignItems:'center', gap:12 }}>
+          <Text style={{ fontSize:22 }}>📍</Text>
+          <View style={{ flex:1 }}>
+            <Text style={{ fontSize:14.5, fontWeight:'800', color:'#0F2740' }}>Rastreamento sempre ativo</Text>
+            <Text style={{ fontSize:12, color:'#486485', marginTop:2 }}>Garanta que seu celular não bloqueia o app em segundo plano</Text>
+          </View>
+          <Text style={{ fontSize:18, color:'#185FA5' }}>›</Text>
+        </TouchableOpacity>
         {/* Disponibilidade */}
         <View style={st.card}>
           <View style={st.rowBetween}>

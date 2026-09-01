@@ -8,6 +8,7 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { api } from '../src/api';
 import { useGPS } from '../src/hooks/useGPS';
+import * as SecureStore from 'expo-secure-store';
 import { garantirLocalizacaoSempre, temLocalizacaoSempre } from '../src/utils/disclosure';
 import { registrarPush } from '../src/push';
 import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
@@ -73,6 +74,7 @@ export default function Home() {
   const [qtdOfertas, setQtdOfertas] = useState(0);
   const [refresh, setRef] = useState(false);
   const [busy, setBusy]   = useState({});
+  const avisoRastreio = useRef(false);
 
   useGPS(
     fila.find(e => ['aguardando_coleta','em_coleta','em_rota'].includes(e.status))?.id || null,
@@ -83,6 +85,14 @@ export default function Home() {
     try {
       const [me, entregas] = await Promise.all([api.get('/motoboys/app/eu'), api.get('/motoboys/app/fila')]);
       setEu(me); setFila(entregas);
+      // Auto-abre a tela guiada se estiver ONLINE mas o GPS parou de enviar há muito tempo.
+      if (me && me.online && !avisoRastreio.current) {
+        try {
+          const iso = await SecureStore.getItemAsync('lx_ultima_posicao_em');
+          const paradoMuito = !iso || (Date.now() - new Date(iso).getTime()) > 180000; // 3 min sem enviar
+          if (paradoMuito) { avisoRastreio.current = true; router.push('/rastreamento-ativo'); }
+        } catch (e) {}
+      }
       // Ordem otimizada das corridas ativas (mesma rota do "Ver minha rota").
       // Não bloqueia a tela: ordena assim que chegar; se falhar, mantém a ordem natural.
       api.get('/motoboys/app/minha-rota').then(r => {

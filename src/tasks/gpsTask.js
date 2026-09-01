@@ -29,6 +29,8 @@ async function enviarPosicao(lat, lng) {
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       body: JSON.stringify({ lat, lng, entrega_id: entregaId || undefined }),
     });
+    // Marca o último envio — a tela "Rastreamento sempre ativo" usa isso pra saber se está funcionando.
+    try { await SecureStore.setItemAsync('lx_ultima_posicao_em', new Date().toISOString()); } catch (e3) {}
   } catch (e) {
     // Em background, falhas de rede são silenciosas — tenta de novo no próximo ciclo.
     console.log('[GPS bg] falha ao enviar:', e?.message);
