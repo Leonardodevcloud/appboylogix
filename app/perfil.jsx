@@ -156,7 +156,7 @@ export default function Perfil() {
         <Text style={st.secLbl}>Mais</Text>
         <View style={st.menu}>
           <Item ico="💳" tt="Carteira e saques" sub="Repasses e Pix" breve />
-          <Item ico="🏆" tt="Score e metas" breve />
+          <Item ico="🏆" tt="Score e metas" sub="Seu nível e pontuação" onPress={() => router.push('/score')} />
           <Item ico="🎁" tt="Indique e ganhe" breve />
         </View>
 

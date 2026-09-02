@@ -141,6 +141,7 @@ export const api = {
 
   // ── Perfil / dados do próprio motoboy ──
   async perfil() { return this.get('/motoboys/app/perfil'); },
+  async meuScore() { return this.get('/score/app/meu-score'); },
   async atualizarMeusDados(dados) { return this.patch('/motoboys/app/meus-dados', dados); },
   async enviarDocumento(tipo, arquivo) { return this.post('/motoboys/app/documentos', { tipo, arquivo }); },
 
