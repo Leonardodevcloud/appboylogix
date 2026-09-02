@@ -6,6 +6,7 @@ import '../src/tasks/gpsTask';
 import { configurarNotificacoes, aoTocarNotificacao, aoReceberNotificacao, notificacaoQueAbriuApp } from '../src/push';
 import AvisoHost from '../src/componentes/AvisoHost';
 import ErroBoundary from '../src/componentes/ErroBoundary';
+import BannerHost from '../src/componentes/BannerHost';
 import { carregarPrefs } from '../src/state/prefsAlerta';
 
 // Decide para onde navegar quando o motoboy toca em uma notificacao.
@@ -49,6 +50,8 @@ export default function Layout() {
       <Stack screenOptions={{ headerShown: false }} />
       {/* Modal nativo do app (avisos de permissão etc.) — renderizado uma vez, por cima de tudo. */}
       <AvisoHost />
+      {/* Banner animado de notificação (nova corrida, atribuída, editada, removida, ponto liberado). */}
+      <BannerHost />
     </ErroBoundary>
   );
 }

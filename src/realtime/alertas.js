@@ -12,6 +12,19 @@
 
 import { getToken, API_URL } from '../api';
 import { alertaCorrida } from '../utils/alerta';
+import { mostrarBanner } from '../state/banner';
+
+// Mapeia o evento da central para o banner in-app (ícone/cor/texto/rota).
+function bannerDoEvento(evento) {
+  switch (evento) {
+    case 'oferta.nova':       return { tipo: 'oferta',    titulo: 'Nova corrida disponível!', sub: 'Toque para ver e aceitar', rota: '/ofertas' };
+    case 'entrega.atribuida': return { tipo: 'atribuida', titulo: 'Corrida atribuída a você', sub: 'Toque para abrir', rota: '/home' };
+    case 'entrega.editada':   return { tipo: 'editada',   titulo: 'Corrida atualizada', sub: 'A central alterou uma corrida', rota: '/home' };
+    case 'entrega.removida':  return { tipo: 'removida',  titulo: 'Corrida removida', sub: 'A central removeu uma corrida', rota: '/home' };
+    case 'ponto.liberado':    return { tipo: 'ponto',     titulo: 'Ponto liberado', sub: 'Você já pode marcar a entrega', rota: '/home' };
+    default: return null;
+  }
+}
 
 let ws = null;
 let ativo = false;
@@ -55,7 +68,11 @@ async function abrir() {
     ws.onmessage = (ev) => {
       try {
         const { evento } = JSON.parse(ev.data);
-        if (EVENTOS_ALERTA.has(evento)) dispararAlerta();
+        if (EVENTOS_ALERTA.has(evento)) {
+          dispararAlerta();
+          const b = bannerDoEvento(evento);
+          if (b) mostrarBanner(b);
+        }
       } catch {}
     };
 
