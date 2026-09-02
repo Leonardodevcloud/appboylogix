@@ -6,6 +6,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as Application from 'expo-application';
 import * as SecureStore from 'expo-secure-store';
 import * as Device from 'expo-device';
+import { backgroundAtivo, garantirUpdatesBackground } from '../src/tasks/gpsTask';
 
 const COR = { navy: '#042C53', azul: '#185FA5', ok: '#1F9D6B', erro: '#D0584F', aten: '#C98A1A', tinta: '#0F2740', tinta2: '#486485', tinta3: '#8AA2BE', linha: '#E6EDF5', fundo: '#EEF3F9' };
 const PKG = Application.applicationId || '';
@@ -67,11 +68,13 @@ function guiaDaMarca(marca) {
 
 export default function RastreamentoAtivo() {
   const [bgOk, setBgOk] = useState(null);
+  const [servico, setServico] = useState(null); // serviço de background rodando?
   const [ultimaMs, setUltimaMs] = useState(null); // ms desde o último envio de GPS
   const guia = guiaDaMarca(Device.manufacturer || Device.brand);
 
   const checar = useCallback(async () => {
     try { const bg = await Location.getBackgroundPermissionsAsync(); setBgOk(bg.status === 'granted'); } catch { setBgOk(false); }
+    try { setServico(await backgroundAtivo()); } catch { setServico(false); }
     try { const iso = await SecureStore.getItemAsync('lx_ultima_posicao_em'); setUltimaMs(iso ? (Date.now() - new Date(iso).getTime()) : null); } catch { setUltimaMs(null); }
   }, []);
 
@@ -103,6 +106,17 @@ export default function RastreamentoAtivo() {
         </View>
 
         <View style={st.marca}><Text style={st.marcaTxt}>📱 Ajustes para {guia.nome}</Text></View>
+
+        {/* Diagnóstico do serviço em segundo plano */}
+        <View style={st.diag}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={[st.diagDot, { backgroundColor: servico ? COR.ok : COR.erro }]} />
+            <Text style={st.diagTxt}>Serviço em segundo plano: <Text style={{ fontWeight: '800', color: servico ? '#0f6e56' : '#a23c34' }}>{servico == null ? '…' : (servico ? 'ativo' : 'parado')}</Text></Text>
+          </View>
+          <TouchableOpacity onPress={async () => { await garantirUpdatesBackground(false); setTimeout(checar, 800); }}>
+            <Text style={st.diagBtn}>Reativar</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={st.intro}>
           Pra você receber corridas e não perder o rastreio com a tela apagada, o {guia.nome} precisa liberar o app.
           {'\n'}Importante: isso é DIFERENTE de "otimização de bateria" — mesmo com ela desligada, o aparelho tem outras travas que precisam ser ajustadas abaixo.
@@ -153,6 +167,10 @@ const st = StyleSheet.create({
   ss: { fontSize: 12, color: COR.tinta2, marginTop: 2 },
   marca: { alignSelf: 'flex-start', backgroundColor: '#EAF1F9', borderRadius: 20, paddingVertical: 4, paddingHorizontal: 11, marginBottom: 12 },
   marcaTxt: { color: COR.azul, fontWeight: '800', fontSize: 11.5 },
+  diag: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderWidth: 1, borderColor: COR.linha, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 13, marginBottom: 12 },
+  diagDot: { width: 9, height: 9, borderRadius: 5 },
+  diagTxt: { fontSize: 12.5, color: COR.tinta2 },
+  diagBtn: { fontSize: 12.5, fontWeight: '800', color: COR.azul },
   intro: { fontSize: 13, color: COR.tinta2, lineHeight: 19, marginBottom: 14 },
   passo: { backgroundColor: '#fff', borderWidth: 1, borderColor: COR.linha, borderRadius: 14, padding: 15, marginBottom: 12 },
   num: { width: 24, height: 24, borderRadius: 12, backgroundColor: COR.navy, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },

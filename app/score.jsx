@@ -13,16 +13,19 @@ const C = {
 };
 // Emoji de nível só ilustrativo (app é informal); o painel usa a biblioteca SVG.
 const SELO = { Bronze: '🥉', Prata: '🥈', Ouro: '🥇', Diamante: '💎' };
+const SELO_POS = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 export default function Score() {
   const [d, setD] = useState(null);
   const [missoes, setMissoes] = useState([]);
+  const [ranking, setRanking] = useState(null);
   const [refresh, setRef] = useState(false);
 
   const carregar = useCallback(async () => {
     try { setD(await api.meuScore()); }
     catch (e) { if (e?.status === 401) { await api.logout(); router.replace('/'); } else setD({ erro: true }); }
     try { const r = await api.minhasMissoes(); setMissoes(r.missoes || []); } catch {}
+    try { setRanking(await api.ranking()); } catch {}
   }, []);
 
   useEffect(() => { carregar(); }, []);
@@ -130,6 +133,25 @@ export default function Score() {
               </>
             )}
 
+            {/* Ranking da semana */}
+            {ranking && ranking.top && ranking.top.length > 0 && (
+              <>
+                <Text style={st.secLbl}>Ranking da semana</Text>
+                <View style={st.box}>
+                  {ranking.top.map((r, i) => (
+                    <View key={i} style={[st.rankRow, i === ranking.top.length - 1 && { borderBottomWidth: 0 }, r.eu && st.rankEu]}>
+                      <Text style={st.rankPos}>{r.posicao <= 3 ? (SELO_POS[r.posicao]) : r.posicao + 'º'}</Text>
+                      <Text style={[st.rankNome, r.eu && { color: C.azulP, fontWeight: '800' }]} numberOfLines={1}>{r.eu ? 'Você' : r.nome}</Text>
+                      <Text style={st.rankPts}>{r.pontos}</Text>
+                    </View>
+                  ))}
+                </View>
+                {ranking.eu && ranking.eu.posicao > 10 && (
+                  <Text style={st.rankVoce}>Sua posição: {ranking.eu.posicao}º · {ranking.eu.pontos} pts</Text>
+                )}
+              </>
+            )}
+
             <View style={st.tip}>
               <Text style={{ fontSize: 15 }}>🎯</Text>
               <Text style={st.tipTxt}>O ranking entre entregadores chega em breve. Continue entregando com qualidade que seu nível sobe e as missões liberam bônus.</Text>
@@ -182,4 +204,11 @@ const st = StyleSheet.create({
   mFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   mProg: { fontSize: 11, color: C.tinta3, fontWeight: '600' },
   mEstado: { fontSize: 11, fontWeight: '800' },
+
+  rankRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.linha },
+  rankEu: { backgroundColor: '#f5faff', marginHorizontal: -13, paddingHorizontal: 13 },
+  rankPos: { width: 30, fontSize: 13, fontWeight: '800', color: C.tinta2, textAlign: 'center' },
+  rankNome: { flex: 1, fontSize: 13, fontWeight: '700', color: C.tinta },
+  rankPts: { fontSize: 13, fontWeight: '800', color: C.azulP },
+  rankVoce: { textAlign: 'center', fontSize: 11.5, color: C.tinta2, fontWeight: '700', marginTop: 8 },
 });

@@ -1,15 +1,14 @@
 import { useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
-import { Platform } from 'react-native';
-import { GPS_TASK, setEntregaAtiva } from '../tasks/gpsTask';
+import { AppState } from 'react-native';
+import { GPS_TASK, setEntregaAtiva, garantirUpdatesBackground, pararUpdatesBackground } from '../tasks/gpsTask';
 import { api } from '../api';
 import { garantirDisclosureLocalizacao } from '../utils/disclosure';
 
 // Ativa o rastreamento GPS quando o motoboy está ONLINE (esperando corrida) ou
-// com uma ENTREGA ativa. Sem isso, o backend não tem a posição e o motoboy não
-// recebe ofertas. Tenta BACKGROUND (app fechado); se não houver suporte (Expo Go),
-// cai para FOREGROUND com setInterval.
-// Parâmetros: entregaId (string|null) e ativoExtra (bool) — rastrear mesmo sem entrega.
+// com uma ENTREGA ativa. Prioriza BACKGROUND (funciona com o app fechado / tela
+// apagada via foreground service); se o fundo não estiver disponível (Expo Go ou
+// permissão negada), cai para FOREGROUND com setInterval.
 export function useGPS(entregaId, ativoExtra = false) {
   const fgInterval = useRef(null);
   const modoBg = useRef(false);
@@ -19,80 +18,51 @@ export function useGPS(entregaId, ativoExtra = false) {
     let cancelado = false;
 
     async function parar() {
-      // Para foreground
       if (fgInterval.current) { clearInterval(fgInterval.current); fgInterval.current = null; }
-      // Para background
-      try {
-        if (modoBg.current) {
-          const rodando = await Location.hasStartedLocationUpdatesAsync(GPS_TASK).catch(() => false);
-          if (rodando) await Location.stopLocationUpdatesAsync(GPS_TASK);
-        }
-      } catch {}
+      if (modoBg.current) await pararUpdatesBackground();
+      modoBg.current = false;
       await setEntregaAtiva(null);
     }
 
     async function iniciar() {
       if (!ativo) { await parar(); return; }
 
-      // Permissão de primeiro plano (obrigatória)
-      const fg = await Location.requestForegroundPermissionsAsync();
+      // Permissão de primeiro plano (obrigatória).
+      let fg = await Location.getForegroundPermissionsAsync();
+      if (fg.status !== 'granted') fg = await Location.requestForegroundPermissionsAsync();
       if (fg.status !== 'granted') { console.warn('[GPS] permissão foreground negada'); return; }
 
-      // Guarda a entrega ativa para a task de background saber o que reportar
+      // Guarda a entrega ativa para a task de background saber o que reportar.
       await setEntregaAtiva(entregaId);
 
-      // Permissão de fundo — precedida do AVISO CLARO exigido pela Google Play
-      // (o que é coletado, que roda com o app fechado e pra quê). Só pedimos a
-      // permissão de sistema se o motoboy aceitar o aviso.
-      let bgOk = false;
-      try {
-        const consentiu = await garantirDisclosureLocalizacao();
-        if (consentiu) {
-          const bg = await Location.requestBackgroundPermissionsAsync();
-          bgOk = bg.status === 'granted';
-        }
-      } catch { bgOk = false; }
-
-      // Tenta iniciar updates em BACKGROUND (só funciona em dev/prod build; no Expo Go
-      // não envia nada). É um COMPLEMENTO para quando o app está fechado — não substitui
-      // o foreground, que roda sempre que o app está aberto (garante envio no Expo Go).
-      if (bgOk) {
+      // Permissão de fundo — só pede (com o aviso da Play) se ainda não tiver.
+      let bg = await Location.getBackgroundPermissionsAsync();
+      if (bg.status !== 'granted') {
         try {
-          const jaRodando = await Location.hasStartedLocationUpdatesAsync(GPS_TASK).catch(() => false);
-          if (!jaRodando) {
-            await Location.startLocationUpdatesAsync(GPS_TASK, {
-              accuracy: Location.Accuracy.High,   // GPS real: mais confiável em 2º plano que Balanced
-              timeInterval: 30000,        // a cada 30s
-              distanceInterval: 0,        // reporta por TEMPO mesmo parado (não depende de mover)
-              pausesUpdatesAutomatically: false,
-              showsBackgroundLocationIndicator: true,
-              foregroundService: {
-                notificationTitle: 'Logix — você está online',
-                notificationBody: 'Compartilhando sua localização para receber corridas.',
-                notificationColor: '#185FA5',
-              },
-            });
-          }
-          modoBg.current = true;
-          if (!cancelado) console.log('[GPS] background ativo (complemento)');
-        } catch (e) {
-          console.log('[GPS] background indisponível:', e?.message);
-        }
+          const consentiu = await garantirDisclosureLocalizacao();
+          if (consentiu) bg = await Location.requestBackgroundPermissionsAsync();
+        } catch {}
       }
 
-      // FOREGROUND: só roda quando o BACKGROUND não está ativo. Em build real com
-      // permissão de fundo, o background já reporta em foreground+fechado — rodar os
-      // dois duplicaria o /posicao. O foreground vira fallback (Expo Go ou bg negado).
+      // (Re)inicia o background SEMPRE que possível — nunca confia num
+      // "hasStarted" antigo, que fica true mesmo com o serviço morto.
+      if (bg.status === 'granted') {
+        modoBg.current = await garantirUpdatesBackground(!!entregaId);
+      }
+
+      // Se o background está de pé, ele já cobre foreground + tela apagada +
+      // app fechado. Não roda o foreground em paralelo (duplicaria o /posicao).
       if (modoBg.current) {
-        if (!cancelado) console.log('[GPS] usando só background (sem duplicar foreground)');
+        if (!cancelado) console.log('[GPS] background ativo');
         return;
       }
+
+      // FOREGROUND (fallback): só vale com o app aberto.
       const reportar = async () => {
         try {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           const { latitude, longitude } = loc.coords;
           await api.post('/motoboys/app/posicao', { lat: latitude, lng: longitude, entrega_id: entregaId || undefined });
-          console.log('[GPS fg] enviado', latitude.toFixed(5), longitude.toFixed(5));
         } catch (e) { console.log('[GPS fg] erro:', e?.message); }
       };
       reportar();
@@ -101,13 +71,17 @@ export function useGPS(entregaId, ativoExtra = false) {
     }
 
     iniciar();
-    // No cleanup, NÃO paramos o background — ele deve sobreviver à navegação entre
-    // telas (home → aceitar → concluir). O background só é parado quando entregaId
-    // vira null (corrida encerrada), tratado dentro de iniciar()/parar().
+
+    // Ao voltar o app para o primeiro plano, re-afirma o rastreamento — se o SO
+    // tiver matado o serviço em segundo plano, isto o revive na hora.
+    const sub = AppState.addEventListener('change', (e) => { if (e === 'active' && ativo) iniciar(); });
+
+    // No cleanup NÃO paramos o background (ele deve sobreviver à navegação entre
+    // telas). Só paramos o foreground preso a esta montagem.
     return () => {
       cancelado = true;
-      // Para apenas o foreground (preso a esta montagem). O background persiste.
       if (fgInterval.current) { clearInterval(fgInterval.current); fgInterval.current = null; }
+      try { sub.remove(); } catch {}
     };
   }, [entregaId, ativo]);
 }

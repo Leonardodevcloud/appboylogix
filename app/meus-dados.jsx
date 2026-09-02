@@ -83,14 +83,28 @@ export default function MeusDados() {
 
   async function salvarPessoal() {
     setSalvando(true);
-    try { await api.atualizarMeusDados({ telefone_principal: f.telefone_principal, telefone_emergencia: f.telefone_emergencia }); setEditPessoal(false); await carregar(); }
-    catch (e) { Alert.alert('Erro', e?.message || 'Não foi possível salvar.'); }
+    const payload = { telefone_principal: f.telefone_principal, telefone_emergencia: f.telefone_emergencia };
+    try { await api.atualizarMeusDados(payload); setEditPessoal(false); await carregar(); }
+    catch (e) {
+      const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
+      if (conexao) {
+        try { const p = await api.perfil(); if ((p.telefone_principal || '').replace(/\D/g, '') === (payload.telefone_principal || '').replace(/\D/g, '')) { setEditPessoal(false); await carregar(); setSalvando(false); return; } } catch {}
+        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro.');
+      } else Alert.alert('Erro', e?.message || 'Não foi possível salvar.');
+    }
     setSalvando(false);
   }
   async function salvarEndereco() {
     setSalvando(true);
-    try { await api.atualizarMeusDados({ cep: f.cep, logradouro: f.logradouro, numero: f.numero, complemento: f.complemento, bairro: f.bairro, cidade: f.cidade, estado: f.estado }); setEditEndereco(false); await carregar(); }
-    catch (e) { Alert.alert('Erro', e?.message || 'Não foi possível salvar.'); }
+    const payload = { cep: f.cep, logradouro: f.logradouro, numero: f.numero, complemento: f.complemento, bairro: f.bairro, cidade: f.cidade, estado: f.estado };
+    try { await api.atualizarMeusDados(payload); setEditEndereco(false); await carregar(); }
+    catch (e) {
+      const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
+      if (conexao) {
+        try { const p = await api.perfil(); if ((p.cidade || '') === (payload.cidade || '') && (p.logradouro || '') === (payload.logradouro || '')) { setEditEndereco(false); await carregar(); setSalvando(false); return; } } catch {}
+        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro.');
+      } else Alert.alert('Erro', e?.message || 'Não foi possível salvar.');
+    }
     setSalvando(false);
   }
 

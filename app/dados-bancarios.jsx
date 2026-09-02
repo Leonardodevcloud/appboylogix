@@ -61,13 +61,28 @@ export default function DadosBancarios() {
 
   async function salvar() {
     setSalvando(true);
+    const payload = {
+      pix_tipo: f.pix_tipo, pix_chave: f.pix_chave, titular_nome: f.titular_nome, titular_doc: f.titular_doc,
+      banco_codigo: f.banco_codigo, banco_nome: f.banco_nome, agencia: f.agencia, conta: f.conta, conta_tipo: f.conta_tipo,
+    };
+    const sucesso = () => Alert.alert('Pronto', 'Dados bancários atualizados. A central foi avisada.', [{ text: 'OK', onPress: () => router.back() }]);
     try {
-      await api.atualizarMeusDados({
-        pix_tipo: f.pix_tipo, pix_chave: f.pix_chave, titular_nome: f.titular_nome, titular_doc: f.titular_doc,
-        banco_codigo: f.banco_codigo, banco_nome: f.banco_nome, agencia: f.agencia, conta: f.conta, conta_tipo: f.conta_tipo,
-      });
-      Alert.alert('Pronto', 'Dados bancários atualizados. A central foi avisada.', [{ text: 'OK', onPress: () => router.back() }]);
-    } catch (e) { Alert.alert('Erro', e?.message || 'Não foi possível salvar.'); }
+      await api.atualizarMeusDados(payload);
+      sucesso();
+    } catch (e) {
+      const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
+      if (conexao) {
+        // A resposta pode ter se perdido MESMO tendo salvo (PATCH é idempotente).
+        // Confere no servidor antes de assustar o motoboy com "Erro".
+        try {
+          const p = await api.perfil();
+          if ((p.pix_chave || '') === (payload.pix_chave || '').trim()) { sucesso(); setSalvando(false); return; }
+        } catch {}
+        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro, não duplica.');
+      } else {
+        Alert.alert('Erro', e?.message || 'Não foi possível salvar.');
+      }
+    }
     setSalvando(false);
   }
 

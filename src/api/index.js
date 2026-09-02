@@ -143,6 +143,7 @@ export const api = {
   async perfil() { return this.get('/motoboys/app/perfil'); },
   async meuScore() { return this.get('/score/app/meu-score'); },
   async minhasMissoes() { return this.get('/score/app/missoes'); },
+  async ranking() { return this.get('/score/app/ranking'); },
   async atualizarMeusDados(dados) { return this.patch('/motoboys/app/meus-dados', dados); },
   async enviarDocumento(tipo, arquivo) { return this.post('/motoboys/app/documentos', { tipo, arquivo }); },
 
