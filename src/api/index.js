@@ -145,6 +145,14 @@ export const api = {
   async minhasMissoes() { return this.get('/score/app/missoes'); },
   async ranking() { return this.get('/score/app/ranking'); },
   async atualizarMeusDados(dados) { return this.patch('/motoboys/app/meus-dados', dados); },
+  async extras() { return this.get('/motoboys/app/extras'); },
+
+  // ── Chat interno ──
+  async chatConversas() { return this.get('/chat/app/conversas'); },
+  async chatNaoLidas() { return this.get('/chat/app/nao-lidas'); },
+  async chatAbrir(entregaId, tipo) { return this.post('/chat/app/abrir', { entregaId, tipo }); },
+  async chatMensagens(convId) { return this.get('/chat/app/conversas/' + convId + '/mensagens'); },
+  async chatEnviar(convId, payload) { return this.post('/chat/app/conversas/' + convId + '/mensagens', payload); },
   async enviarDocumento(tipo, arquivo) { return this.post('/motoboys/app/documentos', { tipo, arquivo }); },
 
   async logout() {

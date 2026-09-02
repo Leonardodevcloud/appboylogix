@@ -75,6 +75,7 @@ export default function Home() {
   const [qtdOfertas, setQtdOfertas] = useState(0);
   const [refresh, setRef] = useState(false);
   const [busy, setBusy]   = useState({});
+  const [chat, setChat]   = useState({ ativo: false, total: 0 });
   const avisoRastreio = useRef(false);
 
   useGPS(
@@ -208,6 +209,15 @@ export default function Home() {
   // Espelha o status compartilhado: se o perfil mudar o online, a home reflete na hora.
   useEffect(() => assinarOnline((v) => setEu(p => (p ? { ...p, online: v } : p))), []);
 
+  // Badge de chat (não lidas). Só mostra o 💬 se o módulo chat estiver ativo.
+  useEffect(() => {
+    let vivo = true;
+    const puxar = async () => { try { const r = await api.chatNaoLidas(); if (vivo) setChat({ ativo: !!r.ativo, total: r.total || 0 }); } catch {} };
+    puxar();
+    const t = setInterval(puxar, 15000);
+    return () => { vivo = false; clearInterval(t); };
+  }, []);
+
   // Ao voltar o foco para a home (ex.: vindo do perfil), re-sincroniza os dados.
   useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
 
@@ -284,6 +294,16 @@ export default function Home() {
           <Text style={s.helloB}>{eu.nome_completo.split(' ')[0]} 👋</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {chat.ativo && (
+            <TouchableOpacity onPress={() => router.push('/mensagens')} activeOpacity={0.7} style={{ position: 'relative', paddingHorizontal: 2 }}>
+              <Text style={{ fontSize: 22 }}>💬</Text>
+              {chat.total > 0 && (
+                <View style={{ position: 'absolute', top: -4, right: -6, backgroundColor: C.roxo || '#7C3AED', borderRadius: 99, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{chat.total > 9 ? '9+' : chat.total}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
           <Switch value={eu.online} onValueChange={toggleOnline}
             trackColor={{ false: '#cbd5e1', true: C.ok }} thumbColor="#fff"
             ios_backgroundColor="#cbd5e1" />
@@ -426,8 +446,16 @@ export default function Home() {
                     })}
                   </View>
 
-                  <View style={[s.mBtn, s.mBtnP]}>
-                    <Text style={s.mBtnTxt}>Abrir corrida</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                    <View style={[s.mBtn, s.mBtnP, { flex: 1, marginTop: 0 }]}>
+                      <Text style={s.mBtnTxt}>Abrir corrida</Text>
+                    </View>
+                    {chat.ativo && (
+                      <TouchableOpacity style={s.mBtnChat} activeOpacity={0.85}
+                        onPress={() => router.push({ pathname: '/chat', params: { entregaId: e.id, protocolo: e.protocolo } })}>
+                        <Text style={{ fontSize: 18 }}>💬</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -512,6 +540,7 @@ const s = StyleSheet.create({
   mBtnSec:   { backgroundColor: C.sup2, borderWidth: 1.5, borderColor: C.azulV },
   mBtnBusy:  { opacity: 0.5 },
   mBtnTxt:   { fontWeight: '800', fontSize: 14, color: '#fff' },
+  mBtnChat:  { width: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eaf3fc', borderWidth: 1.5, borderColor: C.azulV },
   vazio:     { alignItems: 'center', paddingVertical: 48 },
   vaziIco:   { fontSize: 44, marginBottom: 12 },
   vaziTxt:   { fontSize: 16, fontWeight: '700', color: C.tinta2 },
