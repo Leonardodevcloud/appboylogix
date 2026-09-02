@@ -132,7 +132,7 @@ export default function Chat() {
         {carregando ? (
           <View style={st.center}><ActivityIndicator color={C.azulV} /></View>
         ) : erroLoja ? (
-          <View style={st.center}><Text style={{ color: C.tinta2, textAlign: 'center', padding: 30 }}>Esta corrida não tem loja solicitante para conversar.</Text></View>
+          <View style={st.center}><Text style={{ color: C.tinta2, textAlign: 'center', padding: 30 }}>O chat direto com a loja não está disponível nesta corrida. Use o Suporte.</Text></View>
         ) : (
           <ScrollView ref={scrollRef} style={st.msgs} contentContainerStyle={{ padding: 14, gap: 8 }}>
             {msgs.length === 0 && <Text style={st.vazio}>Nenhuma mensagem ainda. Diga oi 👋</Text>}
