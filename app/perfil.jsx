@@ -149,7 +149,7 @@ export default function Perfil() {
         <Text style={st.secLbl}>Operação</Text>
         <View style={st.menu}>
           <Item ico="📡" tt="Rastreamento sempre ativo" sub="Evita que o celular bloqueie o app" badge="ação" onPress={() => router.push('/rastreamento-ativo')} />
-          <Item ico="🔔" tt="Notificações e som" breve />
+          <Item ico="🔔" tt="Notificações e som" sub="Alerta, vibração e som de corrida" onPress={() => router.push('/notificacoes')} />
         </View>
 
         {/* Mais */}

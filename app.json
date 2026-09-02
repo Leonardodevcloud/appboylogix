@@ -60,7 +60,7 @@
         {
           "color": "#185FA5",
           "sounds": [
-            "./assets/sons/alerta_corrida.wav"
+            "./assets/sons/lx_subida.wav"
           ]
         }
       ],

@@ -16,7 +16,7 @@ import { alertaCorrida } from '../utils/alerta';
 
 // Canal de notificação. IMPORTANTE: as configs de um canal travam após a 1a
 // criação no Android — se precisar mudar som/vibração, troque o ID (sufixo _vN).
-const CANAL_ID = 'corridas_v3';
+const CANAL_ID = 'corridas_v4';
 
 // Foreground: quando o app esta aberto, ainda assim exibe banner + toca som.
 export function configurarNotificacoes() {
@@ -39,7 +39,7 @@ export async function criarCanalAndroid() {
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 300, 200, 300],
       lightColor: '#185FA5',
-      sound: 'alerta_corrida.wav',
+      sound: 'lx_subida.wav',
       enableVibrate: true,
       enableLights: true,
       bypassDnd: false,

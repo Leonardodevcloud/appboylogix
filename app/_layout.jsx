@@ -6,6 +6,7 @@ import '../src/tasks/gpsTask';
 import { configurarNotificacoes, aoTocarNotificacao, aoReceberNotificacao, notificacaoQueAbriuApp } from '../src/push';
 import AvisoHost from '../src/componentes/AvisoHost';
 import ErroBoundary from '../src/componentes/ErroBoundary';
+import { carregarPrefs } from '../src/state/prefsAlerta';
 
 // Decide para onde navegar quando o motoboy toca em uma notificacao.
 function navegarPorNotificacao(dados) {
@@ -27,6 +28,9 @@ function navegarPorNotificacao(dados) {
 
 export default function Layout() {
   useEffect(() => {
+    // Carrega as preferências de alerta (som/vibração/som escolhido) cedo,
+    // para o primeiro alerta já sair certo.
+    carregarPrefs();
     configurarNotificacoes();
     // App aberto pelo toque na notificacao (estava fechado).
     notificacaoQueAbriuApp().then((dados) => {
