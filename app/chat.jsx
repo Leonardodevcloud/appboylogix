@@ -38,12 +38,13 @@ export default function Chat() {
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erroLoja, setErroLoja] = useState(false);
+  const [encerrada, setEncerrada] = useState(false);
   const scrollRef = useRef(null);
   const timer = useRef(null);
 
   const carregarMsgs = useCallback(async (id) => {
     if (!id) return;
-    try { const r = await api.chatMensagens(id); setMsgs(r.mensagens || []); setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60); } catch {}
+    try { const r = await api.chatMensagens(id); setMsgs(r.mensagens || []); if (r.conversa) setEncerrada(r.conversa.status === 'encerrada'); setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60); } catch {}
   }, []);
 
   const abrir = useCallback(async (t) => {
@@ -98,6 +99,7 @@ export default function Chat() {
   }
 
   function Bolha({ m }) {
+    if (m.tipo === 'sistema') return <View style={st.sysWrap}><Text style={st.sysTxt}>{m.texto}</Text></View>;
     const meu = m.autor_tipo === 'motoboy';
     return (
       <View style={[st.b, meu ? st.bOut : st.bIn]}>
@@ -141,12 +143,14 @@ export default function Chat() {
         )}
 
         {!carregando && !erroLoja && (
-          <View style={st.comp}>
-            <TouchableOpacity style={st.cIco} onPress={enviarFoto} disabled={enviando}><Text style={st.cIcoTxt}>📎</Text></TouchableOpacity>
-            <TouchableOpacity style={st.cIco} onPress={enviarLocal} disabled={enviando}><Text style={st.cIcoTxt}>📍</Text></TouchableOpacity>
-            <TextInput style={st.compIn} value={texto} onChangeText={setTexto} placeholder="Mensagem…" placeholderTextColor={C.tinta3} multiline />
-            <TouchableOpacity style={st.cSend} onPress={enviarTexto}>{enviando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={st.cSendTxt}>➤</Text>}</TouchableOpacity>
-          </View>
+          encerrada
+            ? <View style={st.encBar}><Text style={st.encTxt}>Conversa encerrada — a corrida foi finalizada.</Text></View>
+            : <View style={st.comp}>
+                <TouchableOpacity style={st.cIco} onPress={enviarFoto} disabled={enviando}><Text style={st.cIcoTxt}>📎</Text></TouchableOpacity>
+                <TouchableOpacity style={st.cIco} onPress={enviarLocal} disabled={enviando}><Text style={st.cIcoTxt}>📍</Text></TouchableOpacity>
+                <TextInput style={st.compIn} value={texto} onChangeText={setTexto} placeholder="Mensagem…" placeholderTextColor={C.tinta3} multiline />
+                <TouchableOpacity style={st.cSend} onPress={enviarTexto}>{enviando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={st.cSendTxt}>➤</Text>}</TouchableOpacity>
+              </View>
         )}
       </KeyboardAvoidingView>
     </View>
@@ -182,4 +186,8 @@ const st = StyleSheet.create({
   compIn: { flex: 1, backgroundColor: C.fundo, borderWidth: 1, borderColor: C.linha, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, fontSize: 13.5, color: C.tinta, maxHeight: 100 },
   cSend: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.azulP, alignItems: 'center', justifyContent: 'center' },
   cSendTxt: { color: '#fff', fontSize: 16 },
+  sysWrap: { alignSelf: 'center', backgroundColor: '#dfe7f1', borderRadius: 99, paddingVertical: 4, paddingHorizontal: 12, marginVertical: 2 },
+  sysTxt: { fontSize: 10.5, fontWeight: '700', color: C.tinta2 },
+  encBar: { padding: 14, paddingBottom: 26, backgroundColor: '#eef2f7', borderTopWidth: 1, borderTopColor: C.linha, alignItems: 'center' },
+  encTxt: { fontSize: 12, fontWeight: '700', color: C.tinta2 },
 });
