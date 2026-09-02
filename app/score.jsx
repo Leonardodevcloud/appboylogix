@@ -16,11 +16,13 @@ const SELO = { Bronze: '🥉', Prata: '🥈', Ouro: '🥇', Diamante: '💎' };
 
 export default function Score() {
   const [d, setD] = useState(null);
+  const [missoes, setMissoes] = useState([]);
   const [refresh, setRef] = useState(false);
 
   const carregar = useCallback(async () => {
     try { setD(await api.meuScore()); }
     catch (e) { if (e?.status === 401) { await api.logout(); router.replace('/'); } else setD({ erro: true }); }
+    try { const r = await api.minhasMissoes(); setMissoes(r.missoes || []); } catch {}
   }, []);
 
   useEffect(() => { carregar(); }, []);
@@ -82,6 +84,30 @@ export default function Score() {
               </View>
             </View>
 
+            {/* Missões */}
+            {missoes.length > 0 && (
+              <>
+                <Text style={st.secLbl}>Missões pra você</Text>
+                {missoes.map((m) => (
+                  <View key={m.id} style={st.missao}>
+                    <View style={st.mTop}>
+                      <Text style={st.mNome}>{m.nome}</Text>
+                      <Text style={st.mPremio}>{'R$ ' + (Number(m.premio_cent || 0) / 100).toFixed(2).replace('.', ',')}</Text>
+                    </View>
+                    <View style={st.mBar}><View style={[st.mBarFill, { width: `${m.progresso || 0}%` }, m.completo && { backgroundColor: C.ok }]} /></View>
+                    <View style={st.mFoot}>
+                      <Text style={st.mProg}>{m.feitas} de {m.meta} entregas</Text>
+                      {m.jaPago
+                        ? <Text style={[st.mEstado, { color: C.ok }]}>✓ bônus liberado</Text>
+                        : m.completo
+                          ? <Text style={[st.mEstado, { color: C.azulP }]}>meta batida! aguarde a liberação</Text>
+                          : <Text style={st.mProg}>faltam {Math.max(0, m.meta - m.feitas)}</Text>}
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+
             {/* Níveis */}
             {!!(d.niveis && d.niveis.length) && (
               <>
@@ -106,7 +132,7 @@ export default function Score() {
 
             <View style={st.tip}>
               <Text style={{ fontSize: 15 }}>🎯</Text>
-              <Text style={st.tipTxt}>Missões, prêmios e ranking chegam em breve. Continue entregando com qualidade que seu nível sobe.</Text>
+              <Text style={st.tipTxt}>O ranking entre entregadores chega em breve. Continue entregando com qualidade que seu nível sobe e as missões liberam bônus.</Text>
             </View>
           </>
         )}
@@ -146,4 +172,14 @@ const st = StyleSheet.create({
 
   tip: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: '#eef6ff', borderWidth: 1, borderColor: '#cfe3fb', borderRadius: 12, padding: 12, marginTop: 16 },
   tipTxt: { flex: 1, fontSize: 11.5, color: '#1f4b78', lineHeight: 17 },
+
+  missao: { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 14, padding: 13, marginBottom: 10 },
+  mTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
+  mNome: { flex: 1, fontSize: 13.5, fontWeight: '800', color: C.tinta },
+  mPremio: { fontSize: 13, fontWeight: '800', color: C.ok, marginLeft: 8 },
+  mBar: { height: 7, borderRadius: 99, backgroundColor: '#eef2f7', overflow: 'hidden' },
+  mBarFill: { height: '100%', backgroundColor: C.azulP, borderRadius: 99 },
+  mFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
+  mProg: { fontSize: 11, color: C.tinta3, fontWeight: '600' },
+  mEstado: { fontSize: 11, fontWeight: '800' },
 });
