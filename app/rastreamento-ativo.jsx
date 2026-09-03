@@ -91,7 +91,7 @@ export default function RastreamentoAtivo() {
   return (
     <View style={st.root}>
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={st.bk}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/home')}><Text style={st.bk}>←</Text></TouchableOpacity>
         <Text style={st.htitle}>Rastreamento sempre ativo</Text>
       </View>
 
@@ -146,8 +146,8 @@ export default function RastreamentoAtivo() {
       </ScrollView>
 
       <View style={st.rodape}>
-        <TouchableOpacity style={[st.btnTest, { backgroundColor: enviandoOk ? COR.navy : COR.ok }]} onPress={enviandoOk ? () => router.back() : checar}>
-          <Text style={st.btnTestTxt}>{enviandoOk ? 'Tudo certo — voltar' : 'Já ajustei — testar rastreamento'}</Text>
+        <TouchableOpacity style={[st.btnTest, { backgroundColor: enviandoOk ? COR.navy : COR.ok }]} onPress={enviandoOk ? () => router.replace('/home') : checar}>
+          <Text style={st.btnTestTxt}>{enviandoOk ? 'Tudo certo — voltar ao início' : 'Já ajustei — testar rastreamento'}</Text>
         </TouchableOpacity>
       </View>
     </View>

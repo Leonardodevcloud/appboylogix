@@ -43,6 +43,7 @@ export default function Chat() {
   const [erro, setErro] = useState(false);
   const [encerrada, setEncerrada] = useState(false);
   const [estado, setEstado] = useState(null);
+  const [lojaDisp, setLojaDisp] = useState(tipoParam === 'solicitante');
   const scrollRef = useRef(null);
   const timer = useRef(null);
 
@@ -69,6 +70,7 @@ export default function Chat() {
     try {
       const r = await api.chatAbrir(entregaId, t);
       setConvId(r.conversa_id);
+      if (typeof r.loja_disponivel === 'boolean') setLojaDisp(r.loja_disponivel || t === 'solicitante');
       await carregarMsgs(r.conversa_id);
     } catch (e) {
       if (t === 'solicitante' && (e?.status === 403 || /loja/i.test(e?.message || ''))) setErroLoja(true);
@@ -106,9 +108,22 @@ export default function Chat() {
     let id = convId;
     if (!id) { try { const r = await api.chatAbrir(entregaId, tipo); id = r.conversa_id; setConvId(id); } catch { setErro(true); return; } }
     setTexto(''); setEnviando(true);
-    try { await api.chatEnviar(id, { tipo: 'texto', texto: t }); await carregarMsgs(id); }
-    catch (e) { setTexto(t); }
-    finally { setEnviando(false); }
+    // Otimista: mostra a mensagem na hora (some a sensação de delay).
+    const tmp = 'tmp-' + Date.now();
+    setMsgs(prev => [...prev, { id: tmp, autor_tipo: 'motoboy', tipo: 'texto', texto: t, criado_em: new Date().toISOString() }]);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 40);
+    try {
+      await api.chatEnviar(id, { tipo: 'texto', texto: t });
+      await carregarMsgs(id); // substitui a otimista pela real
+    } catch {
+      // Timeout em rede lenta pode ter enviado — confere antes de restaurar o texto.
+      try {
+        const r = await api.chatMensagens(id);
+        const chegou = (r.mensagens || []).some(m => m.autor_tipo === 'motoboy' && (m.texto || '').trim() === t);
+        setMsgs(r.mensagens || []);
+        if (!chegou) setTexto(t);
+      } catch { setMsgs(prev => prev.filter(m => m.id !== tmp)); setTexto(t); }
+    } finally { setEnviando(false); }
   }
   async function enviarFoto() {
     if (!convId) return;
@@ -162,10 +177,12 @@ export default function Chat() {
             {!!protocolo && <Text style={st.hsub}>Corrida {protocolo}</Text>}
           </View>
         </View>
-        <View style={st.seg}>
-          <TouchableOpacity style={[st.segB, tipo === 'suporte' && st.segOn]} onPress={() => setTipo('suporte')}><Text style={[st.segT, tipo === 'suporte' && st.segTOn]}>Suporte</Text></TouchableOpacity>
-          <TouchableOpacity style={[st.segB, tipo === 'solicitante' && st.segOn]} onPress={() => setTipo('solicitante')}><Text style={[st.segT, tipo === 'solicitante' && st.segTOn]}>Loja (solicitante)</Text></TouchableOpacity>
-        </View>
+        {lojaDisp && (
+          <View style={st.seg}>
+            <TouchableOpacity style={[st.segB, tipo === 'suporte' && st.segOn]} onPress={() => setTipo('suporte')}><Text style={[st.segT, tipo === 'suporte' && st.segTOn]}>Suporte</Text></TouchableOpacity>
+            <TouchableOpacity style={[st.segB, tipo === 'solicitante' && st.segOn]} onPress={() => setTipo('solicitante')}><Text style={[st.segT, tipo === 'solicitante' && st.segTOn]}>Loja (solicitante)</Text></TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>

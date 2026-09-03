@@ -14,7 +14,7 @@ export default function Mensagens() {
   const [refresh, setRef] = useState(false);
 
   const carregar = useCallback(async () => {
-    try { const r = await api.chatConversas(); setConvs(r.conversas || []); }
+    try { const r = await api.chatConversas(); setConvs((r.conversas || []).filter(c => c.status !== 'encerrada')); }
     catch (e) { if (e?.status === 401) { await api.logout(); router.replace('/'); } else setConvs([]); }
   }, []);
   useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
