@@ -17,6 +17,10 @@ function navegarPorNotificacao(dados) {
       if (dados.ofertaId) router.push('/oferta-detalhe?id=' + dados.ofertaId);
       else router.push('/ofertas');
       break;
+    case 'chat':
+      if (dados.entregaId) router.push('/chat?entregaId=' + dados.entregaId + '&tipo=' + (dados.chatTipo || 'suporte'));
+      else router.push('/mensagens');
+      break;
     case 'atribuida':
     case 'atribuida_lote':
     case 'editada':

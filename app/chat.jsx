@@ -38,6 +38,7 @@ export default function Chat() {
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erroLoja, setErroLoja] = useState(false);
+  const [erro, setErro] = useState(false);
   const [encerrada, setEncerrada] = useState(false);
   const scrollRef = useRef(null);
   const timer = useRef(null);
@@ -48,14 +49,14 @@ export default function Chat() {
   }, []);
 
   const abrir = useCallback(async (t) => {
-    setCarregando(true); setErroLoja(false); setMsgs([]);
+    setCarregando(true); setErroLoja(false); setErro(false); setMsgs([]); setConvId(null);
     try {
       const r = await api.chatAbrir(entregaId, t);
       setConvId(r.conversa_id);
       await carregarMsgs(r.conversa_id);
     } catch (e) {
-      setConvId(null);
-      if (t === 'solicitante') setErroLoja(true);
+      if (t === 'solicitante' && (e?.status === 403 || /loja/i.test(e?.message || ''))) setErroLoja(true);
+      else setErro(true);
     }
     setCarregando(false);
   }, [entregaId, carregarMsgs]);
@@ -68,9 +69,12 @@ export default function Chat() {
   }, [convId, carregarMsgs]);
 
   async function enviarTexto() {
-    const t = texto.trim(); if (!t || !convId) return;
+    const t = texto.trim(); if (!t) return;
+    let id = convId;
+    if (!id) { try { const r = await api.chatAbrir(entregaId, tipo); id = r.conversa_id; setConvId(id); } catch { setErro(true); return; } }
     setTexto('');
-    try { await api.chatEnviar(convId, { tipo: 'texto', texto: t }); await carregarMsgs(convId); } catch { setTexto(t); }
+    try { await api.chatEnviar(id, { tipo: 'texto', texto: t }); await carregarMsgs(id); }
+    catch (e) { setTexto(t); }
   }
   async function enviarFoto() {
     if (!convId) return;
@@ -130,26 +134,33 @@ export default function Chat() {
         </View>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
         {carregando ? (
           <View style={st.center}><ActivityIndicator color={C.azulV} /></View>
         ) : erroLoja ? (
           <View style={st.center}><Text style={{ color: C.tinta2, textAlign: 'center', padding: 30 }}>O chat direto com a loja não está disponível nesta corrida. Use o Suporte.</Text></View>
+        ) : erro ? (
+          <View style={st.center}>
+            <Text style={{ color: C.tinta2, textAlign: 'center', paddingHorizontal: 30 }}>Não consegui abrir a conversa desta corrida.</Text>
+            <TouchableOpacity style={{ marginTop: 14, backgroundColor: C.azulP, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 22 }} onPress={() => abrir(tipo)}>
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Tentar de novo</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
-          <ScrollView ref={scrollRef} style={st.msgs} contentContainerStyle={{ padding: 14, gap: 8 }}>
+          <ScrollView ref={scrollRef} style={st.msgs} contentContainerStyle={{ padding: 14, gap: 8 }} keyboardShouldPersistTaps="handled">
             {msgs.length === 0 && <Text style={st.vazio}>Nenhuma mensagem ainda. Diga oi 👋</Text>}
             {msgs.map(m => <Bolha key={m.id} m={m} />)}
           </ScrollView>
         )}
 
-        {!carregando && !erroLoja && (
+        {!carregando && !erroLoja && !erro && (
           encerrada
             ? <View style={st.encBar}><Text style={st.encTxt}>Conversa encerrada — a corrida foi finalizada.</Text></View>
             : <View style={st.comp}>
                 <TouchableOpacity style={st.cIco} onPress={enviarFoto} disabled={enviando}><Text style={st.cIcoTxt}>📎</Text></TouchableOpacity>
                 <TouchableOpacity style={st.cIco} onPress={enviarLocal} disabled={enviando}><Text style={st.cIcoTxt}>📍</Text></TouchableOpacity>
                 <TextInput style={st.compIn} value={texto} onChangeText={setTexto} placeholder="Mensagem…" placeholderTextColor={C.tinta3} multiline />
-                <TouchableOpacity style={st.cSend} onPress={enviarTexto}>{enviando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={st.cSendTxt}>➤</Text>}</TouchableOpacity>
+                <TouchableOpacity style={st.cSend} onPress={enviarTexto} disabled={enviando}>{enviando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={st.cSendTxt}>➤</Text>}</TouchableOpacity>
               </View>
         )}
       </KeyboardAvoidingView>
