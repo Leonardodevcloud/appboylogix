@@ -31,7 +31,9 @@ function Texto({ children }) {
 
 export default function Chat() {
   const { entregaId, tipo: tipoParam, protocolo } = useLocalSearchParams();
-  const [tipo, setTipo] = useState(tipoParam === 'solicitante' ? 'solicitante' : 'suporte');
+  // Se veio COM tipo (lista de conversas), usa ele. Se veio SEM tipo (ícone da
+  // corrida), começa null e descobrimos qual conversa daquela corrida tem atividade.
+  const [tipo, setTipo] = useState(tipoParam === 'solicitante' ? 'solicitante' : tipoParam === 'suporte' ? 'suporte' : null);
   const [convId, setConvId] = useState(null);
   const [msgs, setMsgs] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -72,7 +74,24 @@ export default function Chat() {
     setCarregando(false);
   }, [entregaId, carregarMsgs]);
 
-  useEffect(() => { abrir(tipo); }, [tipo]);
+  // Sem tipo (veio da corrida): escolhe a conversa daquela corrida com atividade
+  // mais recente; se não houver nenhuma, cai no Suporte.
+  useEffect(() => {
+    let cancel = false;
+    if (tipo) return; // já tem tipo definido (veio da lista ou o usuário trocou)
+    (async () => {
+      let t = 'suporte';
+      try {
+        const r = await api.chatConversas();
+        const daCorrida = (r.conversas || []).filter(c => String(c.entrega_id) === String(entregaId) && c.ultima_msg_em);
+        if (daCorrida.length) { daCorrida.sort((a, b) => new Date(b.ultima_msg_em || 0) - new Date(a.ultima_msg_em || 0)); t = daCorrida[0].tipo; }
+      } catch {}
+      if (!cancel) setTipo(t);
+    })();
+    return () => { cancel = true; };
+  }, [entregaId, tipo]);
+
+  useEffect(() => { if (tipo) abrir(tipo); }, [tipo, entregaId]);
   useEffect(() => {
     clearInterval(timer.current);
     timer.current = setInterval(() => { if (convId) carregarMsgs(convId); }, 3500);
@@ -136,7 +155,7 @@ export default function Chat() {
         <View style={st.hTop}>
           <TouchableOpacity onPress={() => router.back()}><Text style={st.bk}>←</Text></TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={st.htit}>{tipo === 'suporte' ? 'Suporte' : 'Loja (solicitante)'}</Text>
+            <Text style={st.htit}>{tipo === 'solicitante' ? 'Loja (solicitante)' : tipo === 'suporte' ? 'Suporte' : 'Chat'}</Text>
             {!!protocolo && <Text style={st.hsub}>Corrida {protocolo}</Text>}
           </View>
         </View>
