@@ -147,6 +147,9 @@ export default function Corrida() {
   else if (entrega.status === 'em_coleta')    { passoN = 2; etapaTxt = 'Na coleta'; }
   else if (proxPonto && !proxPonto.chegou_em) { passoN = 3; etapaTxt = 'A caminho da entrega'; }
   else if (proxPonto)                          { passoN = 4; etapaTxt = 'Na entrega'; }
+  if (!proxPonto) { passoN = 4; etapaTxt = 'Concluída'; }
+  const prazoCor = { estourado: { bg: '#fbe8e6', bd: '#f0c4be', tx: '#a23c34' }, iminente: { bg: '#fdeede', bd: '#f2cf9c', tx: '#a35a12' }, atencao: { bg: '#fbf2df', bd: '#f0dca6', tx: '#7a5300' }, no_prazo: { bg: '#e7f6ef', bd: '#b6e3ce', tx: '#0f6e56' } }[entrega.prazo_estado] || { bg: '#eef2f7', bd: '#dde9f5', tx: '#46637f' };
+  const prazoLabel = entrega.prazo_estado === 'estourado' ? 'Prazo estourado' : entrega.prazo_em ? ('Entregar até ' + hora(entrega.prazo_em)) : null;
 
   return (
     <View style={st.root}>
@@ -162,12 +165,23 @@ export default function Corrida() {
         </View>
         <Text style={st.osLabel}>CORRIDA ATIVA</Text>
         <Text style={st.osNum}>{entrega.protocolo}</Text>
-        {!!entrega.cliente_nome && <Text style={st.cliente}>🏢 {entrega.cliente_nome}</Text>}
+        <Text style={st.cliente}>{entrega.cliente_nome ? `🏢 ${entrega.cliente_nome}   ·   ` : ''}🕒 {hora(entrega.criado_em)}</Text>
         <View style={st.resumoStats}>
           {Number(entrega.valor_motoboy_cent) > 0 && <View><Text style={st.statB}>{reais(entrega.valor_motoboy_cent)}</Text><Text style={st.statL}>valor</Text></View>}
           <View><Text style={st.statB}>{concluidos} de {totalPontos}</Text><Text style={st.statL}>entregas</Text></View>
           {Number.isFinite(Number(entrega.distancia_km)) && Number(entrega.distancia_km) > 0 && <View><Text style={st.statB}>{Number(entrega.distancia_km).toFixed(1)} km</Text><Text style={st.statL}>rota</Text></View>}
         </View>
+        {!!prazoLabel && (
+          <View style={[st.prazoChip, { backgroundColor: prazoCor.bg, borderColor: prazoCor.bd }]}>
+            <Text style={[st.prazoTxt, { color: prazoCor.tx }]}>⏱ {prazoLabel}{entrega.prazo_resta_min != null && entrega.prazo_estado !== 'estourado' ? `  ·  faltam ${entrega.prazo_resta_min} min` : ''}</Text>
+          </View>
+        )}
+        <View style={st.progRow}>
+          {[0, 1, 2, 3].map(i => (
+            <View key={i} style={[st.pstep, i < passoN - 1 && st.pstepDone, i === passoN - 1 && st.pstepCur]} />
+          ))}
+        </View>
+        <Text style={st.progTxt}>Passo {Math.min(passoN, 4)} de 4 · {etapaTxt}{totalPontos > 1 && passoN >= 3 && proxPonto ? ` · entrega ${concluidos + 1}/${totalPontos}` : ''}</Text>
       </View>
 
       <ScrollView style={st.body} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
@@ -190,6 +204,9 @@ export default function Corrida() {
                 <View style={st.acoesPonto}>
                   <TouchableOpacity style={st.btnNav} onPress={() => navegar(entrega.coleta_lat, entrega.coleta_lng, entrega.coleta_endereco)}>
                     <Text style={st.btnNavTxt}>➤  Navegar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={st.btnChat} onPress={() => router.push({ pathname: '/chat', params: { entregaId: entrega.id, protocolo: entrega.protocolo } })}>
+                    <Text style={st.btnChatTxt}>💬 Chat</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -231,6 +248,9 @@ export default function Corrida() {
                           <Text style={st.btnTelTxt}>📞 Ligar</Text>
                         </TouchableOpacity>
                       )}
+                      <TouchableOpacity style={st.btnChat} onPress={() => router.push({ pathname: '/chat', params: { entregaId: entrega.id, protocolo: entrega.protocolo } })}>
+                        <Text style={st.btnChatTxt}>💬</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
@@ -290,6 +310,13 @@ const st = StyleSheet.create({
   osLabel: { color: '#9fb8d0', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
   osNum: { color: '#fff', fontSize: 22, fontWeight: '900', marginTop: 1 },
   cliente: { color: C.azulC, fontSize: 13, marginTop: 3, fontWeight: '600' },
+  prazoChip: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 10, paddingVertical: 5, paddingHorizontal: 11, marginTop: 12 },
+  prazoTxt: { fontSize: 12, fontWeight: '800' },
+  progRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
+  pstep: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.18)' },
+  pstepDone: { backgroundColor: C.ok },
+  pstepCur: { backgroundColor: C.azulV },
+  progTxt: { color: '#cfe0f2', fontSize: 10.5, fontWeight: '700', marginTop: 7 },
   resumoStats: { flexDirection: 'row', gap: 20, marginTop: 14 },
   statB: { color: '#fff', fontSize: 16, fontWeight: '800' },
   statL: { color: '#9fb8d0', fontSize: 10, marginTop: 1 },
@@ -326,6 +353,8 @@ const st = StyleSheet.create({
   btnNavTxt: { color: C.azulP, fontSize: 12.5, fontWeight: '700' },
   btnTel: { backgroundColor: '#eef4fb', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 14 },
   btnTelTxt: { color: C.azulP, fontSize: 12.5, fontWeight: '700' },
+  btnChat: { backgroundColor: '#eef4fb', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 14 },
+  btnChatTxt: { color: C.azulP, fontSize: 12.5, fontWeight: '700' },
 
   rodape: { padding: 16, paddingBottom: 28, backgroundColor: C.fundo, borderTopWidth: 1, borderTopColor: C.linha },
   etapaBarra: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
