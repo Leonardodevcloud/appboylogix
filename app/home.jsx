@@ -273,6 +273,23 @@ export default function Home() {
   const novas    = fila.filter(e => e.status === 'aguardando_atribuicao');
   const emColeta = fila.filter(e => ['aguardando_coleta','em_coleta'].includes(e.status));
   const emRota   = fila.filter(e => e.status === 'em_rota');
+  const reais = (c) => (c != null && c !== '') ? 'R$ ' + (Number(c) / 100).toFixed(2).replace('.', ',') : null;
+  const quando = (iso) => {
+    try {
+      const d = new Date(iso), hj = new Date();
+      const h = d.toLocaleTimeString('pt-BR', { timeZone: 'America/Bahia', hour: '2-digit', minute: '2-digit' });
+      const mesmoDia = d.toLocaleDateString('pt-BR', { timeZone: 'America/Bahia' }) === hj.toLocaleDateString('pt-BR', { timeZone: 'America/Bahia' });
+      return h + (mesmoDia ? ' · hoje' : ' · ' + d.toLocaleDateString('pt-BR', { timeZone: 'America/Bahia', day: '2-digit', month: '2-digit' }));
+    } catch { return ''; }
+  };
+  // KPIs (km / valor / paradas) reusados nos dois cards.
+  const Kpis = (e) => (
+    <View style={s.kpiRow}>
+      <View style={s.kpi}><Text style={s.kpiB}>{e.distancia_km ? Number(e.distancia_km).toFixed(1) + ' km' : '—'}</Text><Text style={s.kpiL}>Distância</Text></View>
+      {reais(e.valor_motoboy_cent) ? <View style={s.kpi}><Text style={[s.kpiB, s.kpiVal]}>{reais(e.valor_motoboy_cent)}</Text><Text style={s.kpiL}>Você recebe</Text></View> : null}
+      <View style={s.kpi}><Text style={s.kpiB}>{(e.pontos || []).length || 1}</Text><Text style={s.kpiL}>{((e.pontos || []).length || 1) > 1 ? 'Paradas' : 'Parada'}</Text></View>
+    </View>
+  );
   // Corridas ativas ordenadas pela rota otimizada (1ª, 2ª, 3ª…).
   const ativas = [...emColeta, ...emRota];
   const ativasOrdenadas = ordemRota.length
@@ -345,30 +362,29 @@ export default function Home() {
             {novas.map(e => (
               <View key={e.id} style={[s.ride, s.rideNew]}>
                 <View style={s.rTop}>
-                  <Text style={s.rTopB}>{e.protocolo}</Text>
+                  <Text style={s.protoBig}>{e.protocolo}</Text>
                   <View style={[s.pill, { backgroundColor: C.roxoBg }]}><Text style={[s.pillTxt, { color: C.roxo }]}>Nova</Text></View>
                 </View>
+                <Text style={s.metaLinha}>🕒 {quando(e.criado_em)}{e.cliente_nome ? '   ·   🏢 ' + e.cliente_nome : ''}</Text>
+                {Kpis(e)}
                 <View style={s.rRoute}>
                   <View style={s.rPt}>
                     <View style={[s.pin, { backgroundColor: C.navy900 }]}><Text style={s.pinTxt}>C</Text></View>
                     <View style={{ flex: 1 }}>
-                      <Text style={s.rPtMain} numberOfLines={1}>{e.coleta_endereco}</Text>
                       <Text style={s.rPtSub}>Coleta</Text>
+                      <Text style={s.rPtMain} numberOfLines={1}>{e.coleta_nome ? e.coleta_nome + ' — ' : ''}{e.coleta_endereco}</Text>
                     </View>
                   </View>
-                  {(e.pontos || []).length > 0 && (
-                    <View style={s.rPt}>
-                      <View style={[s.pin, { backgroundColor: C.azulV }]}><Text style={s.pinTxt}>⬡</Text></View>
+                  {(e.pontos || []).map((p, i) => (
+                    <View key={p.id || i} style={s.rPt}>
+                      <View style={[s.pin, { backgroundColor: C.ok }]}><Text style={s.pinTxt}>{i + 1}</Text></View>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.rPtMain}>{e.pontos.length} destino{e.pontos.length > 1 ? 's' : ''}</Text>
-                        <Text style={s.rPtSub}>{e.pontos.map(p => p.nome_fantasia || p.endereco?.split(',')[0]).join(', ')}</Text>
+                        <Text style={s.rPtSub}>{(e.pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega')}</Text>
+                        <Text style={s.rPtMain} numberOfLines={2}>{p.nome_fantasia ? p.nome_fantasia + ' — ' : ''}{p.endereco}</Text>
+                        {!!p.numero_nf && <Text style={s.nfTag}>NF/Pedido {p.numero_nf}</Text>}
                       </View>
                     </View>
-                  )}
-                </View>
-                <View style={s.rMeta}>
-                  {e.distancia_km && <View><Text style={s.rMetaB}>{Number(e.distancia_km).toFixed(1)} km</Text><Text style={s.rMetaL}>Distância</Text></View>}
-                  <View><Text style={s.rMetaB}>{(e.pontos || []).length}</Text><Text style={s.rMetaL}>Paradas</Text></View>
+                  ))}
                 </View>
                 <TouchableOpacity
                   style={[s.mBtn, s.mBtnP, busy[e.id] && s.mBtnBusy]}
@@ -404,13 +420,14 @@ export default function Home() {
                   <View style={s.rTop}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       {temOrdem && <View style={s.ordemSelo}><Text style={s.ordemSeloTxt}>{idx + 1}ª</Text></View>}
-                      <Text style={s.rTopB}>{e.protocolo}</Text>
+                      <Text style={s.protoBig}>{e.protocolo}</Text>
                     </View>
                     <View style={[s.pill, { backgroundColor: emRotaStatus ? C.azulV + '22' : C.warnBg }]}>
                       <Text style={[s.pillTxt, { color: emRotaStatus ? C.azulP : C.warn }]}>{STATUS_LABEL[e.status]}</Text>
                     </View>
                   </View>
-                  {!!e.cliente_nome && <Text style={s.rCliente}>🏢 {e.cliente_nome}</Text>}
+                  <Text style={s.metaLinha}>🕒 {quando(e.criado_em)}{e.cliente_nome ? '   ·   🏢 ' + e.cliente_nome : ''}</Text>
+                  {Kpis(e)}
                   {emRotaStatus && <Text style={s.rProgresso}>{concluidos} de {pontos.length} entregas concluídas</Text>}
 
                   {/* Coleta */}
@@ -518,6 +535,14 @@ const s = StyleSheet.create({
   rideNew:   { borderColor: C.azulV, shadowColor: C.azulV, shadowOpacity: 0.12, shadowRadius: 6, elevation: 4 },
   rTop:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 },
   rTopB:     { fontSize: 13, fontWeight: '800', color: C.tinta },
+  protoBig:  { fontSize: 20, fontWeight: '800', color: C.navy900, letterSpacing: 0.3 },
+  metaLinha: { fontSize: 11.5, color: C.tinta3, fontWeight: '600', marginBottom: 10 },
+  kpiRow:    { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  kpi:       { flex: 1, backgroundColor: C.sup2 || '#f6faff', borderWidth: 1, borderColor: C.linha, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 6, alignItems: 'center' },
+  kpiB:      { fontSize: 15, fontWeight: '800', color: C.tinta },
+  kpiVal:    { color: C.ok },
+  kpiL:      { fontSize: 9, color: C.tinta3, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 1 },
+  nfTag:     { alignSelf: 'flex-start', backgroundColor: '#f1f5fb', borderWidth: 1, borderColor: C.linha, borderRadius: 6, fontSize: 10, fontWeight: '800', color: C.tinta2, paddingVertical: 1, paddingHorizontal: 7, marginTop: 4, overflow: 'hidden' },
   ordemSelo:    { backgroundColor: '#185FA5', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, minWidth: 26, alignItems: 'center' },
   ordemSeloTxt: { color: '#fff', fontSize: 12, fontWeight: '800' },
   pill:      { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 3 },
