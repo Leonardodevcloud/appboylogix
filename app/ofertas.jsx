@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert, StatusBar,
+  ActivityIndicator, Alert, StatusBar, Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { api, API_URL, getToken } from '../src/api';
@@ -22,10 +22,26 @@ function curto(end) {
   if (!end) return '—';
   return end.split(',').slice(0, 2).join(',').trim();
 }
+function abrirMapa(lat, lng, endereco) {
+  const q = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(endereco || '');
+  if (!q) return;
+  Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`).catch(() => {});
+}
 
 export default function Ofertas() {
   const [ofertas, setOfertas] = useState([]);
   const [carregando, setCarregando] = useState(true);
+  const [expandido, setExpandido] = useState(null);   // oferta_id aberto
+  const [detalhes, setDetalhes] = useState({});        // oferta_id -> { pontos, coleta }
+
+  async function alternarExpandir(o) {
+    if (expandido === o.oferta_id) { setExpandido(null); return; }
+    setExpandido(o.oferta_id);
+    if (!detalhes[o.oferta_id]) {
+      try { const r = await api.detalheOferta(o.oferta_id); setDetalhes(d => ({ ...d, [o.oferta_id]: { pontos: r.pontos || [], coleta: r.oferta || {} } })); }
+      catch { /* mantém resumo */ }
+    }
+  }
   const travaRef = useRef(false);
   const wsRef = useRef(null);
   const qtdAnterior = useRef(0);
@@ -136,7 +152,7 @@ export default function Ofertas() {
                 )}
               </View>
 
-              <View style={st.rota}>
+              <TouchableOpacity style={st.rota} activeOpacity={0.7} onPress={() => alternarExpandir(o)}>
                 <View style={st.ponto}>
                   <View style={[st.bolinha, { backgroundColor: C.azulV }]} />
                   <View style={{ flex: 1 }}>
@@ -152,16 +168,40 @@ export default function Ofertas() {
                     <Text style={st.pontoTxt} numberOfLines={2}>{curto(o.primeiro_destino)}{totalDest > 1 ? ` · +${totalDest - 1}` : ''}</Text>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
+
+              {/* Detalhes por parada (expandido) */}
+              {expandido === o.oferta_id && (
+                <View style={st.detBox}>
+                  {!detalhes[o.oferta_id] ? (
+                    <ActivityIndicator color={C.azulV} style={{ marginVertical: 8 }} />
+                  ) : (
+                    (detalhes[o.oferta_id].pontos || []).map((p, i) => (
+                      <View key={p.id || i} style={st.detItem}>
+                        <Text style={st.detOrd}>{(detalhes[o.oferta_id].pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega')}</Text>
+                        <Text style={st.detEnd}>{p.nome_fantasia ? p.nome_fantasia + ' — ' : ''}{p.endereco}</Text>
+                        {!!p.numero_nf && <Text style={st.detNf}>NF/Pedido {p.numero_nf}</Text>}
+                        {!!p.complemento && <Text style={st.detSub}>📌 {p.complemento}</Text>}
+                        {!!p.telefone && <Text style={st.detSub}>📞 {p.telefone}</Text>}
+                        {!!p.observacoes && <Text style={st.detSub}>💬 {p.observacoes}</Text>}
+                      </View>
+                    ))
+                  )}
+                </View>
+              )}
 
               <View style={st.distLinha}>
                 <Text style={st.dist}>📍 {Number.isFinite(Number(o.distancia_km)) ? Number(o.distancia_km).toFixed(1) + ' km até a coleta' : '—'}</Text>
                 {Number.isFinite(Number(o.rota_km)) && Number(o.rota_km) > 0 && <Text style={st.dist}>🛣 {Number(o.rota_km).toFixed(1)} km de rota</Text>}
               </View>
 
+              <TouchableOpacity onPress={() => alternarExpandir(o)} activeOpacity={0.7}>
+                <Text style={st.expandHint}>{expandido === o.oferta_id ? '▴ recolher' : '▾ ver detalhes das paradas'}</Text>
+              </TouchableOpacity>
+
               <View style={st.acoes}>
-                <TouchableOpacity style={st.btnDetalhes} onPress={() => router.push({ pathname: '/oferta-detalhe', params: { oferta_id: o.oferta_id } })} activeOpacity={0.8}>
-                  <Text style={st.btnDetalhesTxt}>Ver detalhes</Text>
+                <TouchableOpacity style={st.btnMapa} onPress={() => abrirMapa(o.coleta_lat, o.coleta_lng, o.coleta_endereco)} activeOpacity={0.8}>
+                  <Text style={st.btnMapaTxt}>🗺</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={st.btnAceitar} onPress={() => aceitar(o)} activeOpacity={0.85}>
                   <Text style={st.btnAceitarTxt}>Aceitar</Text>
@@ -214,6 +254,15 @@ const st = StyleSheet.create({
   dist: { fontSize: 11.5, color: C.tinta3 },
 
   acoes: { flexDirection: 'row', gap: 10 },
+  btnMapa: { width: 52, borderWidth: 1.5, borderColor: C.azulV, borderRadius: 11, paddingVertical: 11, alignItems: 'center' },
+  btnMapaTxt: { fontSize: 18 },
+  expandHint: { textAlign: 'center', fontSize: 11.5, fontWeight: '800', color: C.azulP, paddingVertical: 8 },
+  detBox: { backgroundColor: '#f6faff', borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 10, marginBottom: 8 },
+  detItem: { paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.linha },
+  detOrd: { fontSize: 10, fontWeight: '800', color: C.tinta3, textTransform: 'uppercase' },
+  detEnd: { fontSize: 12.5, fontWeight: '600', color: C.tinta, marginTop: 1 },
+  detNf: { alignSelf: 'flex-start', backgroundColor: '#eef2f7', borderRadius: 6, fontSize: 10, fontWeight: '800', color: C.tinta2, paddingHorizontal: 7, paddingVertical: 1, marginTop: 3, overflow: 'hidden' },
+  detSub: { fontSize: 11, color: C.tinta2, marginTop: 2 },
   btnDetalhes: { flex: 1, borderWidth: 1.5, borderColor: '#cdd9e8', borderRadius: 11, paddingVertical: 11, alignItems: 'center' },
   btnDetalhesTxt: { color: C.azulP, fontSize: 13.5, fontWeight: '700' },
   btnAceitar: { flex: 1.3, backgroundColor: C.okV, borderRadius: 11, paddingVertical: 11, alignItems: 'center' },

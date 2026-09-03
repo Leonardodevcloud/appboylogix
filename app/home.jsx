@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   RefreshControl, Alert, Switch, ActivityIndicator, StatusBar,
-  Image, AppState,
+  Image, AppState, Linking,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
@@ -282,6 +282,10 @@ export default function Home() {
       return h + (mesmoDia ? ' · hoje' : ' · ' + d.toLocaleDateString('pt-BR', { timeZone: 'America/Bahia', day: '2-digit', month: '2-digit' }));
     } catch { return ''; }
   };
+  const abrirMapa = (lat, lng, endereco) => {
+    const q = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(endereco || '');
+    if (q) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`).catch(() => {});
+  };
   // KPIs (km / valor / paradas) reusados nos dois cards.
   const Kpis = (e) => (
     <View style={s.kpiRow}>
@@ -386,13 +390,18 @@ export default function Home() {
                     </View>
                   ))}
                 </View>
-                <TouchableOpacity
-                  style={[s.mBtn, s.mBtnP, busy[e.id] && s.mBtnBusy]}
-                  onPress={() => router.push({ pathname: '/aceitar', params: { entregaId: e.id } })}
-                  activeOpacity={0.85}
-                >
-                  <Text style={s.mBtnTxt}>Ver detalhes</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  <TouchableOpacity style={s.mBtnMapa} activeOpacity={0.85} onPress={() => abrirMapa(e.coleta_lat, e.coleta_lng, e.coleta_endereco)}>
+                    <Text style={{ fontSize: 18 }}>🗺</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.mBtn, s.mBtnP, { flex: 1, marginTop: 0 }, busy[e.id] && s.mBtnBusy]}
+                    onPress={() => router.push({ pathname: '/aceitar', params: { entregaId: e.id } })}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={s.mBtnTxt}>Ver detalhes</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
           </>
@@ -467,6 +476,13 @@ export default function Home() {
                     <View style={[s.mBtn, s.mBtnP, { flex: 1, marginTop: 0 }]}>
                       <Text style={s.mBtnTxt}>Abrir corrida</Text>
                     </View>
+                    <TouchableOpacity style={s.mBtnMapa} activeOpacity={0.85} onPress={(ev) => {
+                      const prox = pontos.find(p => !(p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em));
+                      if (prox) abrirMapa(prox.lat, prox.lng, prox.endereco);
+                      else abrirMapa(e.coleta_lat, e.coleta_lng, e.coleta_endereco);
+                    }}>
+                      <Text style={{ fontSize: 18 }}>🗺</Text>
+                    </TouchableOpacity>
                     {chat.ativo && (
                       <TouchableOpacity style={s.mBtnChat} activeOpacity={0.85}
                         onPress={() => router.push({ pathname: '/chat', params: { entregaId: e.id, protocolo: e.protocolo } })}>
@@ -566,6 +582,7 @@ const s = StyleSheet.create({
   mBtnBusy:  { opacity: 0.5 },
   mBtnTxt:   { fontWeight: '800', fontSize: 14, color: '#fff' },
   mBtnChat:  { width: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eaf3fc', borderWidth: 1.5, borderColor: C.azulV },
+  mBtnMapa:  { width: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eef7f1', borderWidth: 1.5, borderColor: C.ok },
   vazio:     { alignItems: 'center', paddingVertical: 48 },
   vaziIco:   { fontSize: 44, marginBottom: 12 },
   vaziTxt:   { fontSize: 16, fontWeight: '700', color: C.tinta2 },
