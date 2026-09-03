@@ -80,12 +80,13 @@ export default function Chat() {
   }, [convId, carregarMsgs]);
 
   async function enviarTexto() {
-    const t = texto.trim(); if (!t) return;
+    const t = texto.trim(); if (!t || enviando) return;
     let id = convId;
     if (!id) { try { const r = await api.chatAbrir(entregaId, tipo); id = r.conversa_id; setConvId(id); } catch { setErro(true); return; } }
-    setTexto('');
+    setTexto(''); setEnviando(true);
     try { await api.chatEnviar(id, { tipo: 'texto', texto: t }); await carregarMsgs(id); }
     catch (e) { setTexto(t); }
+    finally { setEnviando(false); }
   }
   async function enviarFoto() {
     if (!convId) return;

@@ -28,12 +28,14 @@ async function reqInterno(method, path, body, _tentativa = 0) {
   // servidor. Requisicao leve = teto curto (falha rapido em queda real).
   const ehUpload = payload && payload.length > 40000;
   const TIMEOUT = ehUpload ? 30000 : (_tentativa === 0 ? 14000 : 9000);
-  // Pode repetir: GET (idempotente) e escritas idempotentes no backend. Excluímos
-  // só o logout (repetir é inútil e gerava logouts repetidos). O /concluir É
-  // idempotente no backend (se o ponto já foi concluído, ele responde jaConcluido
-  // sem recriar foto/retorno), então PODE repetir — é justamente a ação que mais
-  // sofre com micro-queda de rede no upload da foto.
-  const podeRepetir = method === 'GET' || !path.includes('/auth/logout');
+  // Pode repetir: GET (idempotente) e escritas idempotentes no backend. O /concluir
+  // É idempotente (se o ponto já foi concluído, responde jaConcluido sem recriar
+  // foto/retorno), então PODE repetir — é a ação que mais sofre com micro-queda no
+  // upload da foto. Já o CHAT (enviar mensagem) NÃO é idempotente: repetir em falso
+  // timeout gerava a mesma mensagem 2-3x. Também não repetimos o logout.
+  const naoIdempotente = path.includes('/auth/logout')
+    || (method === 'POST' && (path.includes('/chat/') && path.includes('/mensagens')));
+  const podeRepetir = method === 'GET' || !naoIdempotente;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
   let r;
