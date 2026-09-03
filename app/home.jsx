@@ -10,6 +10,7 @@ import { api } from '../src/api';
 import { useGPS } from '../src/hooks/useGPS';
 import * as SecureStore from 'expo-secure-store';
 import { garantirLocalizacaoSempre, temLocalizacaoSempre } from '../src/utils/disclosure';
+import { garantirUpdatesBackground, pararUpdatesBackground } from '../src/tasks/gpsTask';
 import { setOnline, assinarOnline } from '../src/state/online';
 import { registrarPush } from '../src/push';
 import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
@@ -234,6 +235,9 @@ export default function Home() {
     setOnline(val);
     try {
       await api.patch('/motoboys/app/status', { online: val });
+      // Arranca/para o serviço de GPS NA HORA (não espera o hook/reload) e atualiza a tela.
+      if (val) { try { await garantirUpdatesBackground(false); } catch {} carregar(); }
+      else { try { await pararUpdatesBackground(); } catch {} }
     } catch (e) {
       setEu(p => ({ ...p, online: !val }));
       setOnline(!val);

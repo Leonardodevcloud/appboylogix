@@ -29,6 +29,14 @@ async function abrirBateria() {
   try { await IntentLauncher.startActivityAsync('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS'); return; } catch (e) {}
   try { await Linking.openSettings(); } catch (e2) {}
 }
+// Abre a LISTA de otimização de bateria do sistema (tela real de bateria, não a
+// config do app). É o mais perto que dá de um deep-link público na Samsung — a
+// tela de "apps em suspensão profunda" NÃO tem intent público, então caímos aqui.
+async function abrirListaBateria() {
+  try { await IntentLauncher.startActivityAsync('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS'); return; } catch (e) {}
+  try { await IntentLauncher.startActivityAsync('android.settings.APPLICATION_DETAILS_SETTINGS', { data: 'package:' + PKG }); return; } catch (e2) {}
+  try { await Linking.openSettings(); } catch (e3) {}
+}
 // Xiaomi/MIUI: tenta abrir o gerenciador de início automático; se falhar, info do app.
 async function abrirAutostartXiaomi() {
   try { await IntentLauncher.startActivityAsync('android.intent.action.MAIN', { className: 'com.miui.permcenter.autostart.AutoStartManagementActivity', packageName: 'com.miui.securitycenter' }); return; } catch (e) {}
@@ -41,8 +49,8 @@ function guiaDaMarca(marca) {
   if (m.includes('samsung')) return {
     nome: 'Samsung', passos: [
       { titulo: 'Bateria "Sem restrições"', detalhe: 'Toque em "Abrir bateria" abaixo. Na tela do app, vá em Bateria e marque "Sem restrições" (NÃO deixe em "Otimizado"). É diferente da otimização geral — mesmo com ela desligada, o app precisa ficar "Sem restrições" aqui.', btn: 'Abrir bateria do app', acao: abrirInfoApp },
-      { titulo: 'Tirar da "Suspensão profunda"', detalhe: 'Esta é a trava que mais atrapalha na Samsung. Vá em Configurações → Bateria → "Limites de uso em segundo plano":\n\n•  em "Apps em suspensão profunda", REMOVA este app se ele estiver lá;\n•  em "Apps que nunca entram em suspensão", ADICIONE este app.', btn: 'Abrir ajustes de bateria', acao: abrirBateria },
-      { titulo: 'Desligar "Bateria adaptativa" (opcional)', detalhe: 'Configurações → Bateria → toque nos 3 pontinhos → Bateria adaptativa → desligar. Ajuda a manter o rastreio ativo por mais tempo.', btn: 'Abrir bateria', acao: abrirBateria },
+      { titulo: 'Tirar da "Suspensão profunda"', detalhe: 'Esta é a trava que mais atrapalha na Samsung. Vá em Configurações → Bateria → "Limites de uso em segundo plano":\n\n•  em "Apps em suspensão profunda", REMOVA este app se ele estiver lá;\n•  em "Apps que nunca entram em suspensão", ADICIONE este app.\n\n(A Samsung não deixa abrir essa lista direto — o botão te leva à tela de Bateria; siga o caminho acima ali dentro.)', btn: 'Abrir ajustes de bateria', acao: abrirListaBateria },
+      { titulo: 'Desligar "Bateria adaptativa" (opcional)', detalhe: 'Configurações → Bateria → toque nos 3 pontinhos → Bateria adaptativa → desligar. Ajuda a manter o rastreio ativo por mais tempo.', btn: 'Abrir bateria', acao: abrirListaBateria },
     ],
   };
   if (m.includes('xiaomi') || m.includes('redmi') || m.includes('poco')) return {
@@ -85,8 +93,14 @@ export default function RastreamentoAtivo() {
     return () => { clearInterval(t); try { sub.remove(); } catch {} };
   }, [checar]);
 
-  const enviandoOk = bgOk && ultimaMs != null && ultimaMs < 90000;
-  const ultimaTxt = ultimaMs == null ? 'sem envio ainda' : (ultimaMs < 60000 ? 'há ' + Math.round(ultimaMs / 1000) + ' segundos' : 'há ' + Math.round(ultimaMs / 60000) + ' min');
+  // "OK" = permissão "o tempo todo" liberada E serviço de background ativo.
+  // NÃO usamos a hora da última posição como gatilho: em primeiro plano ela não
+  // atualiza (o serviço de background pausa), o que dava falso "pode falhar".
+  const enviandoOk = !!(bgOk && servico);
+  const ultimaTxt = ultimaMs == null ? 'sem envio ainda' : (ultimaMs < 60000 ? 'há ' + Math.round(ultimaMs / 1000) + ' s' : 'há ' + Math.round(ultimaMs / 60000) + ' min');
+  const subtitulo = enviandoOk
+    ? ('Serviço ativo em segundo plano.' + (ultimaMs != null ? ' Última posição ' + ultimaTxt + '.' : ''))
+    : (!bgOk ? 'A localização "o tempo todo" não está liberada.' : 'O serviço em segundo plano está parado — toque em "Reativar".');
 
   return (
     <View style={st.root}>
@@ -101,7 +115,7 @@ export default function RastreamentoAtivo() {
           <View style={[st.sico, { backgroundColor: enviandoOk ? COR.ok : COR.erro }]}><Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>{enviandoOk ? '✓' : '!'}</Text></View>
           <View style={{ flex: 1 }}>
             <Text style={[st.sb, { color: enviandoOk ? '#0f6e56' : '#a23c34' }]}>{enviandoOk ? 'Rastreamento ativo' : 'Rastreamento pode falhar'}</Text>
-            <Text style={st.ss}>{enviandoOk ? ('Última posição enviada ' + ultimaTxt + '.') : (bgOk ? ('Seu celular pode estar bloqueando o app em segundo plano. Última posição: ' + ultimaTxt + '.') : 'A localização "o tempo todo" não está liberada.')}</Text>
+            <Text style={st.ss}>{subtitulo}</Text>
           </View>
         </View>
 
@@ -113,13 +127,14 @@ export default function RastreamentoAtivo() {
             <View style={[st.diagDot, { backgroundColor: servico ? COR.ok : COR.erro }]} />
             <Text style={st.diagTxt}>Serviço em segundo plano: <Text style={{ fontWeight: '800', color: servico ? '#0f6e56' : '#a23c34' }}>{servico == null ? '…' : (servico ? 'ativo' : 'parado')}</Text></Text>
           </View>
-          <TouchableOpacity onPress={async () => { await garantirUpdatesBackground(false); setTimeout(checar, 800); }}>
+          <TouchableOpacity onPress={async () => { await garantirUpdatesBackground(false); setTimeout(checar, 800); }} style={{ opacity: servico ? 0 : 1 }} disabled={!!servico}>
             <Text style={st.diagBtn}>Reativar</Text>
           </TouchableOpacity>
         </View>
         <Text style={st.intro}>
-          Pra você receber corridas e não perder o rastreio com a tela apagada, o {guia.nome} precisa liberar o app.
-          {'\n'}Importante: isso é DIFERENTE de "otimização de bateria" — mesmo com ela desligada, o aparelho tem outras travas que precisam ser ajustadas abaixo.
+          {enviandoOk
+            ? 'Está tudo certo — o rastreamento já está ativo. Os passos abaixo são só para reforçar e evitar que o aparelho feche o app com o tempo.'
+            : 'Pra você receber corridas e não perder o rastreio com a tela apagada, o ' + guia.nome + ' precisa liberar o app.\nImportante: isso é DIFERENTE de "otimização de bateria" — mesmo com ela desligada, o aparelho tem outras travas que precisam ser ajustadas abaixo.'}
         </Text>
 
         {!bgOk && (
