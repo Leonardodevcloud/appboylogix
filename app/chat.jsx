@@ -45,7 +45,18 @@ export default function Chat() {
 
   const carregarMsgs = useCallback(async (id) => {
     if (!id) return;
-    try { const r = await api.chatMensagens(id); setMsgs(r.mensagens || []); if (r.conversa) setEncerrada(r.conversa.status === 'encerrada'); setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60); } catch {}
+    try {
+      const r = await api.chatMensagens(id);
+      const novas = r.mensagens || [];
+      setMsgs(prev => {
+        const mudou = prev.length !== novas.length || (novas.length > 0 && prev.length > 0 && prev[prev.length - 1].id !== novas[novas.length - 1].id) || (novas.length > 0 && prev.length === 0);
+        if (!mudou) return prev; // sem mudança → mesma referência → não re-renderiza (não pisca)
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+        return novas;
+      });
+      const enc = !!(r.conversa && r.conversa.status === 'encerrada');
+      setEncerrada(prev => (prev === enc ? prev : enc));
+    } catch {}
   }, []);
 
   const abrir = useCallback(async (t) => {

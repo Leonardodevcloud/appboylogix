@@ -212,7 +212,7 @@ export default function Home() {
   // Badge de chat (não lidas). Só mostra o 💬 se o módulo chat estiver ativo.
   useEffect(() => {
     let vivo = true;
-    const puxar = async () => { try { const r = await api.chatNaoLidas(); if (vivo) setChat({ ativo: !!r.ativo, total: r.total || 0 }); } catch {} };
+    const puxar = async () => { try { const r = await api.chatNaoLidas(); if (vivo) setChat(prev => (prev.ativo === !!r.ativo && prev.total === (r.total || 0)) ? prev : { ativo: !!r.ativo, total: r.total || 0 }); } catch {} };
     puxar();
     const t = setInterval(puxar, 15000);
     return () => { vivo = false; clearInterval(t); };
