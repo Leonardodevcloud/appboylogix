@@ -42,6 +42,7 @@ export default function Chat() {
   const [erroLoja, setErroLoja] = useState(false);
   const [erro, setErro] = useState(false);
   const [encerrada, setEncerrada] = useState(false);
+  const [estado, setEstado] = useState(null);
   const scrollRef = useRef(null);
   const timer = useRef(null);
 
@@ -58,6 +59,8 @@ export default function Chat() {
       });
       const enc = !!(r.conversa && r.conversa.status === 'encerrada');
       setEncerrada(prev => (prev === enc ? prev : enc));
+      const est = r.conversa && r.conversa.estado;
+      setEstado(prev => (prev === est ? prev : est));
     } catch {}
   }, []);
 
@@ -178,10 +181,14 @@ export default function Chat() {
             </TouchableOpacity>
           </View>
         ) : (
-          <ScrollView ref={scrollRef} style={st.msgs} contentContainerStyle={{ padding: 14, gap: 8 }} keyboardShouldPersistTaps="handled">
-            {msgs.length === 0 && <Text style={st.vazio}>Nenhuma mensagem ainda. Diga oi 👋</Text>}
-            {msgs.map(m => <Bolha key={m.id} m={m} />)}
-          </ScrollView>
+          <>
+            {estado === 'aguardando' && <View style={[st.faixa, st.faixaAguarda]}><Text style={st.faixaTxt}>⏳ Aguardando atendimento — é um retorno rápido pra esta corrida.</Text></View>}
+            {estado === 'em_atendimento' && <View style={[st.faixa, st.faixaAtend]}><Text style={st.faixaTxt}>💬 Em atendimento — pode falar.</Text></View>}
+            <ScrollView ref={scrollRef} style={st.msgs} contentContainerStyle={{ padding: 14, gap: 8 }} keyboardShouldPersistTaps="handled">
+              {msgs.length === 0 && <Text style={st.vazio}>Nenhuma mensagem ainda. Diga oi 👋</Text>}
+              {msgs.map(m => <Bolha key={m.id} m={m} />)}
+            </ScrollView>
+          </>
         )}
 
         {!carregando && !erroLoja && !erro && (
@@ -232,4 +239,8 @@ const st = StyleSheet.create({
   sysTxt: { fontSize: 10.5, fontWeight: '700', color: C.tinta2 },
   encBar: { padding: 14, paddingBottom: 26, backgroundColor: '#eef2f7', borderTopWidth: 1, borderTopColor: C.linha, alignItems: 'center' },
   encTxt: { fontSize: 12, fontWeight: '700', color: C.tinta2 },
+  faixa: { paddingVertical: 8, paddingHorizontal: 14 },
+  faixaAguarda: { backgroundColor: '#FBF1DD' },
+  faixaAtend: { backgroundColor: '#e7f6ef' },
+  faixaTxt: { fontSize: 11.5, fontWeight: '600', color: '#5a4a2a' },
 });
