@@ -343,9 +343,9 @@ export default function Home() {
       >
         {/* Stats */}
         <View style={s.mStats}>
+          <View style={s.mStat}><Text style={s.mStatB}>{emColeta.length}</Text><Text style={s.mStatS}>A caminho</Text></View>
           <View style={s.mStat}><Text style={s.mStatB}>{emRota.length}</Text><Text style={s.mStatS}>Em rota</Text></View>
-          <View style={s.mStat}><Text style={s.mStatB}>{eu.entregas_ativas}</Text><Text style={s.mStatS}>Hoje</Text></View>
-          <View style={s.mStat}><Text style={s.mStatB}>{fila.length}</Text><Text style={s.mStatS}>Na fila</Text></View>
+          <View style={s.mStat}><Text style={s.mStatB}>{qtdOfertas}</Text><Text style={s.mStatS}>Disponíveis</Text></View>
         </View>
 
         {/* Badge de ofertas disponíveis (corridas que o motoboy pode aceitar) */}
@@ -360,56 +360,7 @@ export default function Home() {
           </TouchableOpacity>
         )}
 
-        {/* Novas corridas */}
-        {novas.length > 0 && (
-          <>
-            <View style={s.mSec}>
-              <Text style={s.mSecTxt}>Nova corrida disponível</Text>
-              <Text style={s.mSecBadge}>{novas.length} nova{novas.length > 1 ? 's' : ''}</Text>
-            </View>
-            {novas.map(e => (
-              <View key={e.id} style={[s.ride, s.rideNew]}>
-                <View style={s.rTop}>
-                  <Text style={s.protoBig}>{e.protocolo}</Text>
-                  <View style={[s.pill, { backgroundColor: C.roxoBg }]}><Text style={[s.pillTxt, { color: C.roxo }]}>Nova</Text></View>
-                </View>
-                <Text style={s.metaLinha}>🕒 {quando(e.criado_em)}{e.cliente_nome ? '   ·   🏢 ' + e.cliente_nome : ''}</Text>
-                {Kpis(e)}
-                <View style={s.rRoute}>
-                  <View style={s.rPt}>
-                    <View style={[s.pin, { backgroundColor: C.navy900 }]}><Text style={s.pinTxt}>C</Text></View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.rPtSub}>Coleta</Text>
-                      <Text style={s.rPtMain} numberOfLines={1}>{e.coleta_nome ? e.coleta_nome + ' — ' : ''}{e.coleta_endereco}</Text>
-                    </View>
-                  </View>
-                  {(e.pontos || []).map((p, i) => (
-                    <View key={p.id || i} style={s.rPt}>
-                      <View style={[s.pin, { backgroundColor: C.ok }]}><Text style={s.pinTxt}>{i + 1}</Text></View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.rPtSub}>{(e.pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega')}</Text>
-                        <Text style={s.rPtMain} numberOfLines={2}>{p.nome_fantasia ? p.nome_fantasia + ' — ' : ''}{p.endereco}</Text>
-                        {!!p.numero_nf && <Text style={s.nfTag}>NF/Pedido {p.numero_nf}</Text>}
-                      </View>
-                    </View>
-                  ))}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                  <TouchableOpacity style={s.mBtnMapa} activeOpacity={0.85} onPress={() => abrirMapa(e.coleta_lat, e.coleta_lng, e.coleta_endereco)}>
-                    <Text style={{ fontSize: 18 }}>🗺</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[s.mBtn, s.mBtnP, { flex: 1, marginTop: 0 }, busy[e.id] && s.mBtnBusy]}
-                    onPress={() => router.push({ pathname: '/aceitar', params: { entregaId: e.id } })}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={s.mBtnTxt}>Ver detalhes</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </>
-        )}
+        {/* Corridas disponíveis para aceitar ficam na tela de Ofertas (badge acima). */}
 
         {/* Em coleta */}
         {/* Corrida ativa: leva para a visão macro (timeline) */}
