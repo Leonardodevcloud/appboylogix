@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 import { AppState } from 'react-native';
-import { GPS_TASK, setEntregaAtiva, garantirUpdatesBackground, pararUpdatesBackground } from '../tasks/gpsTask';
-import { api } from '../api';
+import { setEntregaAtiva, garantirUpdatesBackground, pararUpdatesBackground, registrarPontoForeground, descarregarBuffer } from '../tasks/gpsTask';
 import { garantirDisclosureLocalizacao } from '../utils/disclosure';
 
 // Ativa o rastreamento GPS quando o motoboy está ONLINE (esperando corrida) ou
@@ -57,12 +56,13 @@ export function useGPS(entregaId, ativoExtra = false) {
         return;
       }
 
-      // FOREGROUND (fallback): só vale com o app aberto.
+      // FOREGROUND (fallback): só vale com o app aberto. Usa o MESMO buffer/lote
+      // da task de background — nunca 1 request por ponto.
       const reportar = async () => {
         try {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          const { latitude, longitude } = loc.coords;
-          await api.post('/motoboys/app/posicao', { lat: latitude, lng: longitude, entrega_id: entregaId || undefined });
+          const { latitude, longitude, accuracy } = loc.coords;
+          await registrarPontoForeground(latitude, longitude, accuracy, !!entregaId);
         } catch (e) { console.log('[GPS fg] erro:', e?.message); }
       };
       reportar();
@@ -74,7 +74,10 @@ export function useGPS(entregaId, ativoExtra = false) {
 
     // Ao voltar o app para o primeiro plano, re-afirma o rastreamento — se o SO
     // tiver matado o serviço em segundo plano, isto o revive na hora.
-    const sub = AppState.addEventListener('change', (e) => { if (e === 'active' && ativo) iniciar(); });
+    // Também descarrega o buffer: se ficou sem rede, os pontos guardados vão agora.
+    const sub = AppState.addEventListener('change', (e) => {
+      if (e === 'active' && ativo) { iniciar(); descarregarBuffer().catch(() => {}); }
+    });
 
     // No cleanup NÃO paramos o background (ele deve sobreviver à navegação entre
     // telas). Só paramos o foreground preso a esta montagem.
