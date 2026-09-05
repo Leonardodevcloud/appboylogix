@@ -6,7 +6,8 @@ import {
 import { router } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { api } from '../src/api';
+import { api, EMPRESA_SLUG } from '../src/api';
+import { uploadDireto } from '../src/api/upload';
 
 const C = {
   navy900: '#042C53', navy800: '#0a3a66',
@@ -128,7 +129,16 @@ export default function Cadastro() {
   async function enviar() {
     setEnviando(true);
     try {
-      const r = await api.enviarCadastro({ ...form, documentos: docs });
+      // Documentos: upload direto ao storage (endpoint público por slug); o que não
+      // subir vai em base64 como antes. Em ambos os casos o servidor grava só a chave.
+      const documentos = {};
+      for (const tipo of Object.keys(docs)) {
+        if (!docs[tipo]) continue;
+        const mime = (/^data:([^;]+);/.exec(docs[tipo]) || [])[1] || 'image/jpeg';
+        const key = await uploadDireto({ fonte: docs[tipo], mime, finalidade: 'cadastro', publicoSlug: EMPRESA_SLUG });
+        documentos[tipo] = key || docs[tipo];
+      }
+      const r = await api.enviarCadastro({ ...form, documentos });
       const modalidade = r.modalidade ? `\n\nModalidade escolhida: ${r.modalidade}` : '';
       // Login automático com o e-mail/senha recém-cadastrados, para o motoboy
       // já entrar logado e ver a tela de "em análise" sem precisar relogar.

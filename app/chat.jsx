@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import { api } from '../src/api';
+import { uploadDireto } from '../src/api/upload';
 
 const C = {
   navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
@@ -135,7 +136,8 @@ export default function Chat() {
       if (res.canceled || !res.assets?.[0]) return;
       setEnviando(true);
       const img = await ImageManipulator.manipulateAsync(res.assets[0].uri, [{ resize: { width: 1280 } }], { compress: 0.6, base64: true, format: ImageManipulator.SaveFormat.JPEG });
-      await api.chatEnviar(convId, { tipo: 'foto', arquivo: `data:image/jpeg;base64,${img.base64}` });
+      const key = await uploadDireto({ fonte: img.uri, mime: 'image/jpeg', finalidade: 'chat' });
+      await api.chatEnviar(convId, { tipo: 'foto', arquivo: key || `data:image/jpeg;base64,${img.base64}` });
       await carregarMsgs(convId);
     } catch {} finally { setEnviando(false); }
   }

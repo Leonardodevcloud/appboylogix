@@ -7,6 +7,7 @@ import { router, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { api } from '../src/api';
+import { uploadDireto } from '../src/api/upload';
 
 const C = {
   navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
@@ -121,7 +122,9 @@ export default function MeusDados() {
       if (res.canceled || !res.assets?.[0]) return;
       setEnviandoDoc(d.tipo);
       const img = await ImageManipulator.manipulateAsync(res.assets[0].uri, [{ resize: { width: 1280 } }], { compress: 0.6, base64: true, format: ImageManipulator.SaveFormat.JPEG });
-      await api.enviarDocumento(d.tipo, `data:image/jpeg;base64,${img.base64}`);
+      // Upload direto ao storage; se falhar, manda base64 (servidor aceita os dois).
+      const key = await uploadDireto({ fonte: img.uri, mime: 'image/jpeg', finalidade: 'documento' });
+      await api.enviarDocumento(d.tipo, key || `data:image/jpeg;base64,${img.base64}`);
       await carregar();
       Alert.alert('Enviado', 'Documento enviado. A central vai revisar.');
     } catch (e) { Alert.alert('Erro', e?.message || 'Não foi possível enviar o documento.'); }

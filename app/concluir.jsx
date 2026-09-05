@@ -9,6 +9,7 @@ import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { api, getToken, API_URL } from '../src/api';
+import { uploadDiretoVarios } from '../src/api/upload';
 
 const C = {
   navy900: '#042C53', azul: '#185FA5', azulC: '#B5D4F4',
@@ -194,7 +195,11 @@ export default function ConcluirScreen() {
 
     setEnviando(true);
     try {
-      const fotos_urls = fotos.map(f => f.base64).filter(Boolean);
+      // Upload DIRETO ao storage (R2). O que subir vai como fotos_keys; o que falhar
+      // (sem rede/4G ruim) vai no fluxo antigo, em base64 — o servidor aceita os dois.
+      const keys = await uploadDiretoVarios(fotos.map(f => ({ fonte: f.uri || `data:${f.tipo || 'image/jpeg'};base64,${f.base64}`, mime: f.tipo || 'image/jpeg', finalidade: 'protocolo' })));
+      const fotos_keys = keys.filter(Boolean);
+      const fotos_urls = fotos.filter((f, i) => !keys[i]).map(f => f.base64).filter(Boolean);
       const endpoint = pontoId
         ? `/motoboys/app/entregas/${entregaId}/pontos/${pontoId}/concluir`
         : `/motoboys/app/entregas/${entregaId}/concluir-sem-ponto`;
@@ -206,6 +211,7 @@ export default function ConcluirScreen() {
         ocorrencia_id: ocSel.id,
         recebedor:  ehInsucesso ? null : recebedor.trim(),
         observacao: observacao.trim() || null,
+        fotos_keys,
         fotos_urls,
         ...(loc ? { lat: loc.lat, lng: loc.lng } : {}),
       });
