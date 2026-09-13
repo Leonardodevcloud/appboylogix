@@ -4,6 +4,11 @@
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { T, reais, hora, km, curto } from '../tema';
 
+// Só aceita telefone de verdade no slot de telefone (o cadastro às vezes traz e-mail ali).
+function telefoneValido(v) {
+  const n = String(v || '').replace(/\D/g, '');
+  return n.length >= 8 && !/@/.test(String(v || '')) ? n : null;
+}
 function ligar(tel) {
   const n = String(tel || '').replace(/\D/g, '');
   if (n) Linking.openURL(`tel:${n}`).catch(() => {});
@@ -58,7 +63,7 @@ export default function CartaoCorrida({ oferta: o, destaque = false, onVer, onMa
         <View style={st.p}>
           <View style={[st.bola, { backgroundColor: T.vivo }]} />
           <View style={{ flex: 1 }}>
-            <Text style={st.pLbl}>Coleta{!!o.cliente_telefone && <Text style={st.tel} onPress={() => ligar(o.cliente_telefone)}>{'  '}{o.cliente_telefone}</Text>}</Text>
+            <Text style={st.pLbl}>Coleta</Text>
             <Text style={st.pTxt}>{curto(o.coleta_endereco)}</Text>
           </View>
         </View>
@@ -66,11 +71,14 @@ export default function CartaoCorrida({ oferta: o, destaque = false, onVer, onMa
         <View style={st.p}>
           <View style={[st.bola, { backgroundColor: T.ganho }]} />
           <View style={{ flex: 1 }}>
-            <Text style={st.pLbl}>
-              {totalDest > 1 ? 'Entrega 1' : 'Entrega'}{(p1.nome_fantasia || p1.nome) ? ` · ${p1.nome_fantasia || p1.nome}` : ''}
-              {!!p1.telefone && <Text style={st.tel} onPress={() => ligar(p1.telefone)}>{'  '}{p1.telefone}</Text>}
-            </Text>
+            <Text style={st.pLbl}>{totalDest > 1 ? 'Entrega 1' : 'Entrega'}</Text>
             <Text style={st.pTxt}>{curto(p1.endereco || o.primeiro_destino)}{p1.complemento ? ` · ${p1.complemento}` : ''}{totalDest > 1 ? `  +${totalDest - 1} ${totalDest - 1 === 1 ? 'parada' : 'paradas'}` : ''}</Text>
+            {(!!(p1.nome_fantasia || p1.nome) || !!telefoneValido(p1.telefone)) && (
+              <Text style={st.destinatario}>
+                {(p1.nome_fantasia || p1.nome) ? `Destinatário: ${p1.nome_fantasia || p1.nome}` : 'Destinatário'}
+                {!!telefoneValido(p1.telefone) && <Text style={st.tel} onPress={() => ligar(p1.telefone)}>{'  '}{p1.telefone}</Text>}
+              </Text>
+            )}
           </View>
         </View>
       </View>
@@ -117,6 +125,7 @@ const st = StyleSheet.create({
   pLbl: { fontSize: 12.5, fontWeight: '800', color: T.tinta2 },
   tel: { color: T.primario, fontWeight: '800' },
   pTxt: { fontSize: 14, color: T.tinta, lineHeight: 19, marginTop: 1 },
+  destinatario: { fontSize: 12.5, color: T.tinta2, fontWeight: '600', marginTop: 3 },
   obs: { marginTop: 10, backgroundColor: T.atencaoBg, borderRadius: 10, padding: 10 },
   obsTxt: { fontSize: 13, color: T.atencaoTx, lineHeight: 18, fontWeight: '600' },
   acoes: { flexDirection: 'row', gap: 10, marginTop: 14 },

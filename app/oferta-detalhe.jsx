@@ -153,14 +153,17 @@ export default function OfertaDetalhe() {
           <View style={st.rota}>
             <View style={st.p}>
               <View style={[st.bola, { backgroundColor: T.vivo }]} />
-              <View style={{ flex: 1 }}><Text style={st.pLbl}>Coleta{!!oferta.cliente_telefone && <Text style={st.tel} onPress={() => Linking.openURL('tel:' + String(oferta.cliente_telefone).replace(/\D/g, '')).catch(() => {})}>{'  '}{oferta.cliente_telefone}</Text>}</Text><Text style={st.pTxt}>{oferta.coleta_nome ? oferta.coleta_nome + ' — ' : ''}{curto(oferta.coleta_endereco) || '—'}</Text></View>
+              <View style={{ flex: 1 }}><Text style={st.pLbl}>Coleta</Text><Text style={st.pTxt}>{curto(oferta.coleta_endereco) || '—'}</Text></View>
             </View>
             {pontos.map((p, i) => (
               <View key={i} style={st.p}>
                 <View style={[st.bola, { backgroundColor: i === pontos.length - 1 ? T.ganho : T.claro }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={st.pLbl}>{pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega'}{p.numero_nf ? ` · NF ${p.numero_nf}` : ''}{!!p.telefone && <Text style={st.tel} onPress={() => Linking.openURL('tel:' + String(p.telefone).replace(/\D/g, '')).catch(() => {})}>{'  '}{p.telefone}</Text>}</Text>
-                  <Text style={st.pTxt}>{p.nome_fantasia || p.nome ? (p.nome_fantasia || p.nome) + ' — ' : ''}{curto(p.endereco) || '—'}{p.complemento ? ` (${p.complemento})` : ''}</Text>
+                  <Text style={st.pLbl}>{pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega'}{p.numero_nf ? ` · NF ${p.numero_nf}` : ''}</Text>
+                  <Text style={st.pTxt}>{curto(p.endereco) || '—'}{p.complemento ? ` (${p.complemento})` : ''}</Text>
+                  {(!!(p.nome_fantasia || p.nome) || (!!p.telefone && !/@/.test(String(p.telefone)))) && (
+                    <Text style={st.pObs}>{(p.nome_fantasia || p.nome) ? `Destinatário: ${p.nome_fantasia || p.nome}` : 'Destinatário'}{!!p.telefone && !/@/.test(String(p.telefone)) && <Text style={st.tel} onPress={() => Linking.openURL('tel:' + String(p.telefone).replace(/\D/g, '')).catch(() => {})}>{'  '}{p.telefone}</Text>}</Text>
+                  )}
                   {!!p.observacoes && <Text style={st.pObs}>{p.observacoes}</Text>}
                 </View>
               </View>
