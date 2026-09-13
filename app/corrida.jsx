@@ -20,6 +20,12 @@ export default function Corrida() {
   const [carregando, setCarregando] = useState(true);
   const [busy, setBusy] = useState(false);
   const [navAlvo, setNavAlvo] = useState(null);
+  const [chatAtivo, setChatAtivo] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    api.chatNaoLidas().then(r => { if (vivo) setChatAtivo(!!r.ativo); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   async function carregar() {
     try {
@@ -132,7 +138,9 @@ export default function Corrida() {
   if (!proxPonto) { passoN = 4; etapaTxt = 'Concluída'; }
   const prazoLabel = entrega.prazo_estado === 'estourado' ? 'Prazo estourado' : entrega.prazo_em ? ('Entregar até ' + hora(entrega.prazo_em)) : null;
 
-  const abrirChat = () => router.push({ pathname: '/chat', params: { entregaId: entrega.id, protocolo: entrega.protocolo } });
+  // Chat só aparece se o módulo estiver ativo para a empresa (a Home já fazia isso; a corrida
+  // mostrava o botão sempre — 11h). `onChat` undefined esconde o botão na Parada.
+  const abrirChat = chatAtivo ? () => router.push({ pathname: '/chat', params: { entregaId: entrega.id, protocolo: entrega.protocolo } }) : undefined;
   // Etapas da barra: coleta + cada entrega. feita | agora | depois.
   const etapas = [jaColetou ? 'feita' : 'agora', ...pontos.map(p => {
     const feito = p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
