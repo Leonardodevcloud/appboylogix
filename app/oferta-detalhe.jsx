@@ -126,8 +126,8 @@ export default function OfertaDetalhe() {
             <Text style={st.granaSub}>você recebe</Text>
           </>
         ) : <Text style={[st.grana, { fontSize: 30 }]}>Serviço {oferta.protocolo}</Text>}
-        <Text style={st.quem} numberOfLines={1}>{oferta.cliente_nome || oferta.coleta_nome || 'Cliente'}</Text>
-        <Text style={st.quemSub}>serviço {oferta.protocolo}{oferta.prazo_em ? ` · entregar até ${hora(oferta.prazo_em)}` : ''}{oferta.tempo_estimado_min != null ? ` · ~${oferta.tempo_estimado_min} min` : ''}</Text>
+        <Text style={st.quem} numberOfLines={1}>{oferta.cliente_nome || oferta.coleta_nome || 'Cliente'}{oferta.cliente_razao && oferta.cliente_razao !== oferta.cliente_nome ? ` · ${oferta.cliente_razao}` : ''}</Text>
+        <Text style={st.quemSub}>serviço {oferta.protocolo}{oferta.pedido ? ` · pedido ${oferta.pedido}` : ''}{oferta.prazo_em ? ` · entregar até ${hora(oferta.prazo_em)}` : ''}{oferta.tempo_estimado_min != null ? ` · ~${oferta.tempo_estimado_min} min` : ''}</Text>
         <View style={st.fatos}>
           {!!ateColeta && <View style={st.fato}><Text style={st.fatoB}>{ateColeta}</Text><Text style={st.fatoL}>até a coleta</Text></View>}
           {!!rotaKm && <View style={st.fato}><Text style={st.fatoB}>{rotaKm}</Text><Text style={st.fatoL}>de rota</Text></View>}
@@ -153,13 +153,13 @@ export default function OfertaDetalhe() {
           <View style={st.rota}>
             <View style={st.p}>
               <View style={[st.bola, { backgroundColor: T.vivo }]} />
-              <View style={{ flex: 1 }}><Text style={st.pLbl}>Coleta</Text><Text style={st.pTxt}>{oferta.coleta_nome ? oferta.coleta_nome + ' — ' : ''}{curto(oferta.coleta_endereco) || '—'}</Text></View>
+              <View style={{ flex: 1 }}><Text style={st.pLbl}>Coleta{!!oferta.cliente_telefone && <Text style={st.tel} onPress={() => Linking.openURL('tel:' + String(oferta.cliente_telefone).replace(/\D/g, '')).catch(() => {})}>{'  '}{oferta.cliente_telefone}</Text>}</Text><Text style={st.pTxt}>{oferta.coleta_nome ? oferta.coleta_nome + ' — ' : ''}{curto(oferta.coleta_endereco) || '—'}</Text></View>
             </View>
             {pontos.map((p, i) => (
               <View key={i} style={st.p}>
                 <View style={[st.bola, { backgroundColor: i === pontos.length - 1 ? T.ganho : T.claro }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={st.pLbl}>{pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega'}{p.numero_nf ? ` · NF ${p.numero_nf}` : ''}</Text>
+                  <Text style={st.pLbl}>{pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega'}{p.numero_nf ? ` · NF ${p.numero_nf}` : ''}{!!p.telefone && <Text style={st.tel} onPress={() => Linking.openURL('tel:' + String(p.telefone).replace(/\D/g, '')).catch(() => {})}>{'  '}{p.telefone}</Text>}</Text>
                   <Text style={st.pTxt}>{p.nome_fantasia || p.nome ? (p.nome_fantasia || p.nome) + ' — ' : ''}{curto(p.endereco) || '—'}{p.complemento ? ` (${p.complemento})` : ''}</Text>
                   {!!p.observacoes && <Text style={st.pObs}>{p.observacoes}</Text>}
                 </View>
@@ -213,6 +213,7 @@ const st = StyleSheet.create({
   p: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', paddingBottom: 12 },
   bola: { width: 10, height: 10, borderRadius: 5, marginTop: 8 },
   pLbl: { fontSize: 12, fontWeight: '700', color: T.tinta2 },
+  tel: { color: T.primario, fontWeight: '800' },
   pTxt: { fontSize: 14.5, color: T.tinta, lineHeight: 20 },
   pObs: { fontSize: 13, color: T.tinta2, marginTop: 2, fontStyle: 'italic' },
   links: { flexDirection: 'row', gap: 10, marginTop: 4 },
