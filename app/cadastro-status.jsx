@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { abrirSocket } from '../src/realtime/socket';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, Image, Alert, StatusBar,
@@ -6,7 +7,7 @@ import {
 import { router } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { api, API_URL, getToken } from '../src/api';
+import { api, getToken } from '../src/api';
 
 const C = {
   navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
@@ -50,8 +51,7 @@ export default function CadastroStatus() {
       try {
         const token = await getToken();
         if (!token) return;
-        const wsUrl = API_URL.replace(/^http/, 'ws').replace('/api/v1', '') + '/ws?token=' + token;
-        const ws = new WebSocket(wsUrl);
+        const ws = abrirSocket(token);
         wsRef.current = ws;
         ws.onmessage = (ev) => {
           try {

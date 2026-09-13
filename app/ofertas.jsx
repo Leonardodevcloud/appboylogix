@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { abrirSocket } from '../src/realtime/socket';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, Alert, StatusBar, Linking,
 } from 'react-native';
 import { router } from 'expo-router';
-import { api, API_URL, getToken } from '../src/api';
+import { api, getToken } from '../src/api';
 import { alertaCorrida, pararAlerta } from '../src/utils/alerta';
 
 const C = {
@@ -66,8 +67,7 @@ export default function Ofertas() {
       try {
         const token = await getToken();
         if (!token) return;
-        const wsUrl = API_URL.replace(/^http/, 'ws').replace('/api/v1', '') + '/ws?token=' + token;
-        const ws = new WebSocket(wsUrl);
+        const ws = abrirSocket(token);
         wsRef.current = ws;
         ws.onmessage = (ev) => {
           try {

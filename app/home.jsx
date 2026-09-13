@@ -170,11 +170,11 @@ export default function Home() {
     let ws;
     (async () => {
       try {
-        const { getToken, API_URL } = require('../src/api');
+        const { getToken } = require('../src/api');
+        const { abrirSocket } = require('../src/realtime/socket');
         const token = await getToken();
         if (!token) return;
-        const wsUrl = API_URL.replace(/^http/, 'ws').replace('/api/v1', '') + '/ws?token=' + token;
-        ws = new WebSocket(wsUrl);
+        ws = abrirSocket(token);
         ws.onmessage = (ev) => {
           try {
             const { evento, dados } = JSON.parse(ev.data);

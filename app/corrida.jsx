@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { abrirSocket } from '../src/realtime/socket';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, Alert, StatusBar, Linking,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { api, getToken, API_URL } from '../src/api';
+import { api, getToken } from '../src/api';
 import SheetNavegacao from '../src/componentes/SheetNavegacao';
 
 const C = {
@@ -60,8 +61,7 @@ export default function Corrida() {
       try {
         const token = await getToken();
         if (!token) return;
-        const wsUrl = API_URL.replace(/^http/, 'ws').replace('/api/v1', '') + '/ws?token=' + token;
-        ws = new WebSocket(wsUrl);
+        ws = abrirSocket(token);
         ws.onmessage = (ev) => {
           try {
             const { evento, dados } = JSON.parse(ev.data);

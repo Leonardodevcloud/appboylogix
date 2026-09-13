@@ -10,7 +10,8 @@
 // o motoboy está online, roda um serviço de localização em primeiro plano que
 // mantém o processo ativo (e o WebSocket conectado).
 
-import { getToken, API_URL } from '../api';
+import { getToken } from '../api';
+import { abrirSocket, FECHAMENTO_SESSAO } from './socket';
 import { alertaCorrida } from '../utils/alerta';
 import { mostrarBanner } from '../state/banner';
 
@@ -56,8 +57,7 @@ async function abrir() {
   if (!token) { agendarReconexao(); return; }
 
   try {
-    const wsUrl = API_URL.replace(/^http/, 'ws').replace('/api/v1', '') + '/ws?token=' + token;
-    ws = new WebSocket(wsUrl);
+    ws = abrirSocket(token);
 
     ws.onopen = () => {
       // Keepalive: mantém a conexão viva em redes que derrubam socket ocioso.
@@ -76,17 +76,22 @@ async function abrir() {
       } catch {}
     };
 
-    ws.onclose = () => { clearInterval(pingTimer); agendarReconexao(); };
+    ws.onclose = (ev) => {
+      clearInterval(pingTimer);
+      // Sessão recusada (token velho, revogado ou fora do formato): reconectar a cada 4 s só
+      // martela o servidor. Espera 60 s — o login novo troca o token e o canal volta sozinho.
+      agendarReconexao(FECHAMENTO_SESSAO.has(ev && ev.code) ? 60000 : 4000);
+    };
     ws.onerror = () => { try { ws && ws.close(); } catch {} };
   } catch {
     agendarReconexao();
   }
 }
 
-function agendarReconexao() {
+function agendarReconexao(ms = 4000) {
   if (!ativo) return;
   clearTimeout(reconectarTimer);
-  reconectarTimer = setTimeout(abrir, 4000);
+  reconectarTimer = setTimeout(abrir, ms);
 }
 
 // Inicia o canal de alertas (idempotente). Chamar após login / na home.

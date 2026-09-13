@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { abrirSocket } from '../src/realtime/socket';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Alert, ActivityIndicator, Image, StatusBar, PixelRatio,
@@ -8,7 +9,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { api, getToken, API_URL } from '../src/api';
+import { api, getToken } from '../src/api';
 import { uploadDiretoVarios } from '../src/api/upload';
 
 const C = {
@@ -64,8 +65,7 @@ export default function ConcluirScreen() {
       try {
         const token = await getToken();
         if (!token || !vivo) return;
-        const wsUrl = API_URL.replace(/^http/, 'ws').replace('/api/v1', '') + '/ws?token=' + token;
-        const ws = new WebSocket(wsUrl);
+        const ws = abrirSocket(token);
         wsRef.current = ws;
         ws.onmessage = (ev) => {
           try {
