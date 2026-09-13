@@ -8,13 +8,14 @@ import AvisoHost from '../src/componentes/AvisoHost';
 import ErroBoundary from '../src/componentes/ErroBoundary';
 import BannerHost from '../src/componentes/BannerHost';
 import { carregarPrefs } from '../src/state/prefsAlerta';
+import { anotarDestino, marcarOfertaAberta } from '../src/state/navegacaoPendente';
 
 // Decide para onde navegar quando o motoboy toca em uma notificacao.
 function navegarPorNotificacao(dados) {
   if (!dados || !dados.tipo) return;
   switch (dados.tipo) {
     case 'oferta':
-      if (dados.ofertaId) router.push('/oferta-detalhe?oferta_id=' + dados.ofertaId);
+      if (dados.ofertaId) { marcarOfertaAberta(String(dados.ofertaId)); router.push('/oferta-detalhe?oferta_id=' + dados.ofertaId); }
       else router.push('/ofertas');
       break;
     case 'chat':
@@ -38,8 +39,12 @@ export default function Layout() {
     carregarPrefs();
     configurarNotificacoes();
     // App aberto pelo toque na notificacao (estava fechado).
+    // App aberto pelo toque (estava fechado): NÃO navega agora — o index.jsx ainda vai fazer
+    // replace('/home') ao confirmar o login e passaria por cima. Só anota; a Home consome.
     notificacaoQueAbriuApp().then((dados) => {
-      if (dados) setTimeout(() => navegarPorNotificacao(dados), 600);
+      if (!dados || !dados.tipo) return;
+      if (dados.tipo === 'oferta' && dados.ofertaId) anotarDestino('/oferta-detalhe?oferta_id=' + dados.ofertaId);
+      else if (dados.tipo === 'chat' && dados.entregaId) anotarDestino('/chat?entregaId=' + dados.entregaId + '&tipo=' + (dados.chatTipo || 'suporte'));
     });
     // App ja aberto: toque na notificacao.
     const limpar = aoTocarNotificacao(navegarPorNotificacao);

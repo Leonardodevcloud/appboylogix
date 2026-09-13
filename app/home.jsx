@@ -12,6 +12,7 @@ import * as SecureStore from 'expo-secure-store';
 import { garantirLocalizacaoSempre, temLocalizacaoSempre } from '../src/utils/disclosure';
 import { garantirUpdatesBackground, pararUpdatesBackground } from '../src/tasks/gpsTask';
 import { setOnline, assinarOnline } from '../src/state/online';
+import { consumirDestino, marcarOfertaAberta, ofertaJaAberta } from '../src/state/navegacaoPendente';
 import { registrarPush } from '../src/push';
 import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
 
@@ -156,6 +157,10 @@ export default function Home() {
         const mc = await api.meuCadastro();
         if (mc.situacao && mc.situacao !== 'aprovado') { router.replace('/cadastro-status'); return; }
       } catch { /* segue; se o token estiver ruim, o carregar() trata */ }
+      // Notificação que abriu o app (estava fechado): agora que a Home existe e o cadastro
+      // está ok, vai para o destino anotado pelo _layout (oferta ou chat).
+      const destino = consumirDestino();
+      if (destino) setTimeout(() => router.push(destino), 250);
       carregar();
       // Registra/atualiza o token de push deste aparelho (nao bloqueia a tela).
       registrarPush().catch(() => {});
@@ -212,8 +217,12 @@ export default function Home() {
           try {
             const { evento, dados } = JSON.parse(ev.data);
             if (evento === 'oferta.nova') {
-              // Nova corrida disponível: atualiza o badge (não abre tela cheia).
               api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
+              // Mockup v1, tela 1: a corrida chega em TELA CHEIA para decidir deslizando —
+              // sem depender de o motoboy notar o badge. Uma vez por oferta (WS + push do
+              // mesmo disparo não empilham).
+              const id = dados?.ofertaId ? String(dados.ofertaId) : null;
+              if (id && !ofertaJaAberta(id)) { marcarOfertaAberta(id); router.push('/oferta-detalhe?oferta_id=' + id); }
             } else if (evento === 'oferta.encerrada') {
               api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
             } else if (evento === 'entrega.atribuida') {

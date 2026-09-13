@@ -56,3 +56,12 @@ eas update --platform android --branch preview --message "Visual do fluxo da cor
 - Se o "Última posição há N min" continuar alto mesmo assim, o serviço de GPS em segundo plano
   está morto nesse aparelho de verdade — aí os passos da tela (bateria "sem restrições" /
   suspensão profunda) são a correção, não o app.
+
+## 11c — a corrida chega em tela cheia (13/09)
+- **Toque na notificação com o app fechado não abria a corrida**: o `_layout` navegava 600 ms
+  depois do boot e o `index.jsx`, ao confirmar o login, fazia `replace('/home')` por cima. Agora a
+  notificação só anota o destino (`src/state/navegacaoPendente.js`) e a Home o consome depois de
+  confirmar o cadastro.
+- **Nova corrida abre em tela cheia** (tela 1 do mockup) ao chegar pelo WebSocket — tanto pela
+  Home quanto pelo canal global de alertas, de qualquer tela; `ofertaJaAberta` evita que WS +
+  push do mesmo disparo empilhem a mesma corrida. Antes só o badge/banner mudava.
