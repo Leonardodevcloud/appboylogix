@@ -96,6 +96,8 @@ export default function Rota() {
     paradas.forEach(p => linhaRota.push({ latitude: p.lat, longitude: p.lng }));
   }
 
+  // 11f: sem overlay CARTO no MapView — o CARTO passou a exigir chave e carimbava "KEY REQUIRED"
+  // no mapa. O mapa nativo (Google, chave no app.json; sem custo no SDK Android) fica sozinho.
   return (
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
@@ -134,7 +136,6 @@ export default function Rota() {
             <View style={st.mapaWrap}>
               <MapView style={st.mapa} provider={PROVIDER_DEFAULT} initialRegion={regiao} mapType="standard"
                 onMapReady={() => setMapaPronto(true)} rotateEnabled={false} pitchEnabled={false}>
-                {mapaPronto && <UrlTile urlTemplate="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png" maximumZ={20} tileSize={512} flipY={false} zIndex={-1} shouldReplaceMapContent={true} />}
                 {linhaRota.length > 1 && <Polyline coordinates={linhaRota} strokeColor={C.azulP} strokeWidth={4} zIndex={3} />}
                 {temColeta && (
                   <Marker coordinate={{ latitude: dados.coleta.lat, longitude: dados.coleta.lng }} title="Coleta" anchor={{ x: 0.5, y: 0.5 }}>

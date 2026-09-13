@@ -27,7 +27,7 @@ export default function OfertaDetalhe() {
   const [aceitando, setAceitando] = useState(false);
   const [mapaPronto, setMapaPronto] = useState(false);
   const [aceita, setAceita] = useState(false);
-  const [mostrarMapa, setMostrarMapa] = useState(false);
+  const [mostrarMapa] = useState(true); // 11f: o mapa da corrida já aparece aberto
 
   async function recusar() {
     Alert.alert('Recusar esta corrida?', 'Ela some da sua lista; outros motoboys continuam vendo.', [
@@ -109,6 +109,8 @@ export default function OfertaDetalhe() {
   const ateColeta = km(oferta.distancia_km), rotaKm = Number(oferta.rota_km) > 0 ? km(oferta.rota_km) : null;
   const temValor = Number(oferta.valor_motoboy_cent) > 0;
 
+  // 11f: sem overlay CARTO no MapView — o CARTO passou a exigir chave e carimbava "KEY REQUIRED"
+  // no mapa. O mapa nativo (Google, chave no app.json; sem custo no SDK Android) fica sozinho.
   return (
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
@@ -135,12 +137,11 @@ export default function OfertaDetalhe() {
         </View>
       </View>
 
-      {/* Folha clara: rota, mapa (sob demanda) e a decisão */}
+      {/* Folha clara: mapa, rota e a decisão */}
       <View style={st.folha}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
           {mostrarMapa && mapaDisponivel && regiao && (
             <MapView style={st.mapa} provider={PROVIDER_DEFAULT} initialRegion={regiao} mapType="standard" onMapReady={() => setMapaPronto(true)} rotateEnabled={false} pitchEnabled={false}>
-              {mapaPronto && <UrlTile urlTemplate="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png" maximumZ={20} tileSize={512} flipY={false} zIndex={-1} shouldReplaceMapContent={true} />}
               {rotaOrs.length > 1 && <Polyline coordinates={rotaOrs} strokeColor={T.primario} strokeWidth={5} zIndex={3} />}
               {rotaOrs.length <= 1 && temColetaGeo && pontosGeo.length > 0 && (
                 <Polyline coordinates={[{ latitude: coleta.lat, longitude: coleta.lng }, ...pontosGeo.map(p => ({ latitude: p.lat, longitude: p.lng }))]} strokeColor={T.primario} strokeWidth={4} lineDashPattern={[8, 6]} zIndex={3} />
@@ -170,18 +171,8 @@ export default function OfertaDetalhe() {
             ))}
           </View>
 
-          <View style={st.links}>
-            {temColetaGeo && (
-              <TouchableOpacity style={st.link} onPress={() => (mapaDisponivel && regiao) ? setMostrarMapa(v => !v) : abrirMapaExterno(coleta.lat, coleta.lng, oferta.coleta_endereco)} activeOpacity={0.8}>
-                <Text style={st.linkTxt}>{mostrarMapa ? 'Esconder mapa' : 'Ver no mapa'}</Text>
-              </TouchableOpacity>
-            )}
-            {temColetaGeo && (
-              <TouchableOpacity style={st.link} onPress={() => abrirMapaExterno(coleta.lat, coleta.lng, oferta.coleta_endereco)} activeOpacity={0.8}>
-                <Text style={st.linkTxt}>Navegar até a coleta</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          {/* 11f: "Navegar até a coleta" só existe DEPOIS do aceite (tela da corrida) — aqui
+              confundia com aceitar. O mapa acima já mostra onde é. */}
         </ScrollView>
 
         <View style={st.decisao}>
