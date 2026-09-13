@@ -17,16 +17,23 @@ export default function DeslizarParaConfirmar({ rotulo, rotuloOk, cor = T.ganho,
   const x = useRef(new Animated.Value(0)).current;
   const maxRef = useRef(0);
   maxRef.current = Math.max(0, largura - BOLHA - FOLGA * 2);
+  // O PanResponder é criado UMA vez; sem estes refs ele guardaria o `onConfirmar`/`ocupado`
+  // da primeira renderização (11g: a tela de entrega recebia a função de quando ainda não
+  // havia resultado selecionado e dizia "Selecione o resultado" com tudo preenchido).
+  const atual = useRef({ onConfirmar, ocupado, feito });
+  atual.current = { onConfirmar, ocupado, feito };
+  const podeArrastar = () => !atual.current.ocupado && !atual.current.feito;
 
   const pan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => !ocupado && !feito,
-    onMoveShouldSetPanResponder: (_, g) => !ocupado && !feito && Math.abs(g.dx) > 4,
+    onStartShouldSetPanResponder: () => podeArrastar(),
+    onMoveShouldSetPanResponder: (_, g) => podeArrastar() && Math.abs(g.dx) > 4,
     onPanResponderMove: (_, g) => { x.setValue(Math.max(0, Math.min(maxRef.current, g.dx))); },
     onPanResponderRelease: (_, g) => {
       if (maxRef.current > 0 && g.dx >= maxRef.current - 8) {
         Animated.timing(x, { toValue: maxRef.current, duration: 80, useNativeDriver: false }).start();
         try { Vibration.vibrate(30); } catch {}
-        onConfirmar && onConfirmar();
+        const fn = atual.current.onConfirmar;
+        fn && fn();
         // Volta ao início logo depois: se a tela validar e recusar (ex.: sem foto), o gesto
         // pode ser repetido; se der certo, a tela troca ou marca `feito` e a bolinha some.
         setTimeout(() => Animated.spring(x, { toValue: 0, useNativeDriver: false, bounciness: 2 }).start(), 600);
