@@ -7,29 +7,12 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { api, getToken } from '../src/api';
 import SheetNavegacao from '../src/componentes/SheetNavegacao';
+import Parada from '../src/componentes/Parada';
+import { T, reais, hora } from '../src/tema';
 
-const C = {
-  navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
-  tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
-  fundo: '#eef4fb', sup: '#ffffff', linha: '#dde9f5',
-  ok: '#1f9d6b', okV: '#27b67f', warn: '#f59e0b',
-};
 
-const STATUS_LABEL = {
-  aguardando_coleta: 'A caminho da coleta',
-  em_coleta: 'Na coleta',
-  em_rota: 'A caminho da entrega',
-};
 const PROXIMO = { aguardando_coleta: 'em_coleta', em_coleta: 'em_rota' };
 
-function reais(cent) {
-  if (cent == null) return '—';
-  return 'R$ ' + (cent / 100).toFixed(2).replace('.', ',');
-}
-function hora(iso) {
-  if (!iso) return '';
-  try { return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
-}
 
 export default function Corrida() {
   const params = useLocalSearchParams();
@@ -131,12 +114,11 @@ export default function Corrida() {
   }
 
   if (carregando) {
-    return <View style={st.splash}><StatusBar barStyle="light-content" backgroundColor={C.navy900} /><ActivityIndicator color={C.azulV} size="large" /></View>;
+    return <View style={st.splash}><StatusBar barStyle="light-content" backgroundColor={T.profundo} /><ActivityIndicator color={T.vivo} size="large" /></View>;
   }
   if (!entrega) return null;
 
   const pontos = entrega.pontos || [];
-  const coletou = entrega.status === 'em_rota' || entrega.status === 'em_coleta' ? entrega.status === 'em_rota' : false;
   const jaColetou = entrega.status === 'em_rota';
   const concluidos = pontos.filter(p => p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em).length;
   const totalPontos = pontos.length;
@@ -148,149 +130,94 @@ export default function Corrida() {
   else if (proxPonto && !proxPonto.chegou_em) { passoN = 3; etapaTxt = 'A caminho da entrega'; }
   else if (proxPonto)                          { passoN = 4; etapaTxt = 'Na entrega'; }
   if (!proxPonto) { passoN = 4; etapaTxt = 'Concluída'; }
-  const prazoCor = { estourado: { bg: '#fbe8e6', bd: '#f0c4be', tx: '#a23c34' }, iminente: { bg: '#fdeede', bd: '#f2cf9c', tx: '#a35a12' }, atencao: { bg: '#fbf2df', bd: '#f0dca6', tx: '#7a5300' }, no_prazo: { bg: '#e7f6ef', bd: '#b6e3ce', tx: '#0f6e56' } }[entrega.prazo_estado] || { bg: '#eef2f7', bd: '#dde9f5', tx: '#46637f' };
   const prazoLabel = entrega.prazo_estado === 'estourado' ? 'Prazo estourado' : entrega.prazo_em ? ('Entregar até ' + hora(entrega.prazo_em)) : null;
+
+  const abrirChat = () => router.push({ pathname: '/chat', params: { entregaId: entrega.id, protocolo: entrega.protocolo } });
+  // Etapas da barra: coleta + cada entrega. feita | agora | depois.
+  const etapas = [jaColetou ? 'feita' : 'agora', ...pontos.map(p => {
+    const feito = p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
+    return feito ? 'feita' : (jaColetou && proxPonto && p.id === proxPonto.id ? 'agora' : 'depois');
+  })];
+  const prazoCorTxt = { estourado: T.alertaTx, iminente: '#a35a12', atencao: T.atencaoTx, no_prazo: T.ganhoEsc }[entrega.prazo_estado] || T.tinta2;
+  const prazoCorBg = { estourado: T.alertaBg, iminente: '#fdeede', atencao: T.atencaoBg, no_prazo: T.ganhoBg }[entrega.prazo_estado] || T.suave;
 
   return (
     <View style={st.root}>
-      <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
+      <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
 
-      {/* Cabeçalho resumo */}
       <View style={st.header}>
         <View style={st.headerTopo}>
-          <TouchableOpacity onPress={() => router.replace('/home')} style={{ width: 56 }}>
-            <Text style={st.voltar}>‹ Início</Text>
-          </TouchableOpacity>
-          <View style={st.statusPill}><Text style={st.statusPillTxt}>{STATUS_LABEL[entrega.status] || entrega.status}</Text></View>
+          <TouchableOpacity onPress={() => router.replace('/home')} style={{ minWidth: 64 }}><Text style={st.voltar}>‹ Início</Text></TouchableOpacity>
+          <Text style={st.headerTit}>Serviço {entrega.protocolo}</Text>
+          <View style={{ minWidth: 64, alignItems: 'flex-end' }}><View style={st.statusPill}><Text style={st.statusPillTxt}>{etapaTxt}</Text></View></View>
         </View>
-        <Text style={st.osLabel}>CORRIDA ATIVA</Text>
-        <Text style={st.osNum}>{entrega.protocolo}</Text>
-        <Text style={st.cliente}>{entrega.cliente_nome ? `🏢 ${entrega.cliente_nome}   ·   ` : ''}🕒 {hora(entrega.criado_em)}</Text>
-        <View style={st.resumoStats}>
-          {Number(entrega.valor_motoboy_cent) > 0 && <View><Text style={st.statB}>{reais(entrega.valor_motoboy_cent)}</Text><Text style={st.statL}>valor</Text></View>}
-          <View><Text style={st.statB}>{concluidos} de {totalPontos}</Text><Text style={st.statL}>entregas</Text></View>
-          {Number.isFinite(Number(entrega.distancia_km)) && Number(entrega.distancia_km) > 0 && <View><Text style={st.statB}>{Number(entrega.distancia_km).toFixed(1)} km</Text><Text style={st.statL}>rota</Text></View>}
+        <View style={st.etapas}>
+          {etapas.map((e, i) => <View key={i} style={[st.etapa, e === 'feita' && st.etapaFeita, e === 'agora' && st.etapaAgora]} />)}
         </View>
-        {!!prazoLabel && (
-          <View style={[st.prazoChip, { backgroundColor: prazoCor.bg, borderColor: prazoCor.bd }]}>
-            <Text style={[st.prazoTxt, { color: prazoCor.tx }]}>⏱ {prazoLabel}{entrega.prazo_resta_min != null && entrega.prazo_estado !== 'estourado' ? `  ·  faltam ${entrega.prazo_resta_min} min` : ''}</Text>
-          </View>
-        )}
-        <View style={st.progRow}>
-          {[0, 1, 2, 3].map(i => (
-            <View key={i} style={[st.pstep, i < passoN - 1 && st.pstepDone, i === passoN - 1 && st.pstepCur]} />
-          ))}
+        <View style={st.headerLinha}>
+          {!!prazoLabel ? (
+            <View style={[st.prazo, { backgroundColor: prazoCorBg }]}>
+              <Text style={[st.prazoTxt, { color: prazoCorTxt }]}>{prazoLabel}{entrega.prazo_resta_min != null && entrega.prazo_estado !== 'estourado' ? ` · faltam ${entrega.prazo_resta_min} min` : ''}</Text>
+            </View>
+          ) : <Text style={st.headerSub}>{entrega.cliente_nome || ''}</Text>}
+          {Number(entrega.valor_motoboy_cent) > 0 && <Text style={st.headerValor}>{reais(entrega.valor_motoboy_cent)}</Text>}
         </View>
-        <Text style={st.progTxt}>Passo {Math.min(passoN, 4)} de 4 · {etapaTxt}{totalPontos > 1 && passoN >= 3 && proxPonto ? ` · entrega ${concluidos + 1}/${totalPontos}` : ''}</Text>
       </View>
 
-      <ScrollView style={st.body} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        <View style={st.timeline}>
-          {/* COLETA */}
-          <View style={st.linha}>
-            <View style={st.coluna}>
-              <View style={[st.no, jaColetou ? st.noOk : st.noAtual]}>
-                {jaColetou ? <Text style={st.noIco}>✓</Text> : <View style={st.noPulse} />}
-              </View>
-              <View style={[st.traco, jaColetou ? st.tracoOk : st.tracoOff]} />
-            </View>
-            <View style={st.conteudo}>
-              <Text style={[st.etapaTit, jaColetou ? st.txtOk : st.txtAtual]}>Coleta {jaColetou ? '' : '· agora'}</Text>
-              <Text style={st.etapaNome}>{entrega.coleta_nome || 'Ponto de coleta'}</Text>
-              <Text style={st.etapaEnd}>{entrega.coleta_endereco}</Text>
-              {!!entrega.chegada_coleta_em && <Text style={st.etapaHora}>Cheguei às {hora(entrega.chegada_coleta_em)}</Text>}
-              {jaColetou && !!entrega.iniciada_em && <Text style={st.etapaHora}>Coletei às {hora(entrega.iniciada_em)}</Text>}
-              {!jaColetou && (
-                <View style={st.acoesPonto}>
-                  <TouchableOpacity style={st.btnNav} onPress={() => navegar(entrega.coleta_lat, entrega.coleta_lng, entrega.coleta_endereco)}>
-                    <Text style={st.btnNavTxt}>➤  Navegar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={st.btnChat} onPress={() => router.push({ pathname: '/chat', params: { entregaId: entrega.id, protocolo: entrega.protocolo } })}>
-                    <Text style={st.btnChatTxt}>💬 Chat</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* PONTOS DE ENTREGA */}
-          {pontos.map((p, i) => {
-            const feito = p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
-            const atual = jaColetou && !feito && proxPonto && p.id === proxPonto.id;
-            const ultimo = i === pontos.length - 1;
-            return (
-              <View key={p.id} style={st.linha}>
-                <View style={st.coluna}>
-                  <View style={[st.no, feito ? st.noOk : atual ? st.noAtual : st.noFuturo]}>
-                    {feito ? <Text style={st.noIco}>✓</Text> : atual ? <View style={st.noPulse} /> : <Text style={st.noNum}>{i + 1}</Text>}
-                  </View>
-                  {!ultimo && <View style={[st.traco, feito ? st.tracoOk : st.tracoOff]} />}
-                </View>
-                <View style={st.conteudo}>
-                  <Text style={[st.etapaTit, feito ? st.txtOk : atual ? st.txtAtual : st.txtFuturo]}>
-                    {totalPontos > 1 ? `Entrega ${i + 1}` : 'Entrega'}{atual ? ' · agora' : ''}
-                  </Text>
-                  <Text style={[st.etapaNome, !feito && !atual && st.txtFuturo]}>{p.nome_fantasia || 'Destino'}</Text>
-                  <Text style={[st.etapaEnd, !feito && !atual && st.txtFuturo]}>{p.endereco}</Text>
-                  {!!p.complemento && <Text style={[st.etapaInfo, !feito && !atual && st.txtFuturo]}>📌 {p.complemento}</Text>}
-                  {!!p.numero_nf && <Text style={[st.etapaInfo, !feito && !atual && st.txtFuturo]}>🧾 NF {p.numero_nf}</Text>}
-                  {!!p.telefone && <Text style={[st.etapaInfo, !feito && !atual && st.txtFuturo]}>📞 {p.telefone}</Text>}
-                  {!!p.observacoes && <Text style={[st.etapaObs, !feito && !atual && st.txtFuturoObs]}>💬 {p.observacoes}</Text>}
-                  {!!p.chegou_em && <Text style={st.etapaHora}>Cheguei às {hora(p.chegou_em)}</Text>}
-                  {feito && !!p.finalizado_em && <Text style={st.etapaHora}>Entregue às {hora(p.finalizado_em)}</Text>}
-                  {atual && (
-                    <View style={st.acoesPonto}>
-                      <TouchableOpacity style={st.btnNav} onPress={() => navegar(p.lat, p.lng, p.endereco)}>
-                        <Text style={st.btnNavTxt}>➤  Navegar</Text>
-                      </TouchableOpacity>
-                      {!!p.telefone && (
-                        <TouchableOpacity style={st.btnTel} onPress={() => ligar(p.telefone)}>
-                          <Text style={st.btnTelTxt}>📞 Ligar</Text>
-                        </TouchableOpacity>
-                      )}
-                      <TouchableOpacity style={st.btnChat} onPress={() => router.push({ pathname: '/chat', params: { entregaId: entrega.id, protocolo: entrega.protocolo } })}>
-                        <Text style={st.btnChatTxt}>💬</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              </View>
-            );
-          })}
-        </View>
+      <ScrollView style={st.body} contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+        <Parada
+          numero="C"
+          titulo={`Coleta · ${entrega.coleta_nome || entrega.cliente_nome || 'Ponto de coleta'}`}
+          endereco={entrega.coleta_endereco}
+          chips={[entrega.chegada_coleta_em ? `Cheguei ${hora(entrega.chegada_coleta_em)}` : null, jaColetou && entrega.iniciada_em ? `Coletado ${hora(entrega.iniciada_em)}` : null]}
+          estado={jaColetou ? 'feita' : 'agora'}
+          onNavegar={() => navegar(entrega.coleta_lat, entrega.coleta_lng, entrega.coleta_endereco)}
+          onChat={abrirChat}
+        />
+        {pontos.map((p, i) => {
+          const feito = p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
+          const atual = jaColetou && !feito && proxPonto && p.id === proxPonto.id;
+          return (
+            <Parada key={p.id}
+              numero={i + 1}
+              titulo={p.nome_fantasia ? `${p.nome_fantasia}` : (totalPontos > 1 ? `Entrega ${i + 1}` : 'Entrega')}
+              endereco={p.endereco + (p.complemento ? ` · ${p.complemento}` : '')}
+              detalhes={[p.nome && p.nome !== p.nome_fantasia ? p.nome : null, p.numero_nf ? `NF ${p.numero_nf}` : null, p.observacoes ? `"${p.observacoes}"` : null]}
+              chips={[p.chegou_em ? `Cheguei ${hora(p.chegou_em)}` : null, feito && p.finalizado_em ? `Entregue ${hora(p.finalizado_em)}` : null, !feito && !atual && i > 0 ? `depois da ${i}` : null]}
+              estado={feito ? 'feita' : atual ? 'agora' : 'depois'}
+              telefone={p.telefone}
+              onNavegar={() => navegar(p.lat, p.lng, p.endereco)}
+              onLigar={() => ligar(p.telefone)}
+              onChat={abrirChat}
+            />
+          );
+        })}
       </ScrollView>
 
-      {/* Ação principal da etapa */}
+      {/* Uma ação só, fixa: muda de texto conforme a etapa */}
       <View style={st.rodape}>
-        {proxPonto && (
-          <View style={st.etapaBarra}>
-            <Text style={st.etapaBarraPasso}>Passo {passoN} de 4</Text>
-            <Text style={st.etapaBarraTxt}>{etapaTxt}{totalPontos > 1 && passoN >= 3 ? ` · entrega ${concluidos + 1}/${totalPontos}` : ''}</Text>
-          </View>
-        )}
         {entrega.status === 'aguardando_coleta' ? (
-          <TouchableOpacity style={st.btnPrincipal} onPress={avancar} disabled={busy} activeOpacity={0.85}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnPrincipalTxt}>Cheguei na coleta</Text>}
+          <TouchableOpacity style={st.btn} onPress={avancar} disabled={busy} activeOpacity={0.85}>
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>Cheguei na coleta</Text>}
           </TouchableOpacity>
         ) : entrega.status === 'em_coleta' ? (
-          <TouchableOpacity style={st.btnPrincipal} onPress={avancar} disabled={busy} activeOpacity={0.85}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnPrincipalTxt}>Finalizei a coleta</Text>}
+          <TouchableOpacity style={[st.btn, { backgroundColor: T.ganho }]} onPress={avancar} disabled={busy} activeOpacity={0.85}>
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>Peguei o pedido, saindo</Text>}
           </TouchableOpacity>
         ) : proxPonto && !proxPonto.chegou_em ? (
-          <TouchableOpacity style={[st.btnPrincipal, st.btnEntrega]} onPress={() => chegarEntrega(proxPonto.id)} disabled={busy} activeOpacity={0.85}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnPrincipalTxt}>Cheguei na entrega</Text>}
+          <TouchableOpacity style={st.btn} onPress={() => chegarEntrega(proxPonto.id)} disabled={busy} activeOpacity={0.85}>
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>Cheguei na entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>}
           </TouchableOpacity>
         ) : proxPonto ? (
-          <TouchableOpacity style={[st.btnPrincipal, st.btnFinalizar]}
+          <TouchableOpacity style={[st.btn, { backgroundColor: T.ganho }]}
             onPress={() => router.push({ pathname: '/concluir', params: { entregaId: entrega.id, pontoId: proxPonto.id, endereco: proxPonto.endereco, numero: concluidos + 1, total: totalPontos } })}
             activeOpacity={0.85}>
-            <Text style={st.btnPrincipalTxt}>Finalizei a entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>
+            <Text style={st.btnTxt}>Marcar entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>
           </TouchableOpacity>
         ) : (
-          <View style={[st.btnPrincipal, { backgroundColor: C.ok }]}>
-            <Text style={st.btnPrincipalTxt}>Corrida concluída ✓</Text>
-          </View>
+          <View style={[st.btn, { backgroundColor: T.ganho }]}><Text style={st.btnTxt}>Corrida concluída ✓</Text></View>
         )}
+        {proxPonto && <Text style={st.rodapeSub}>{entrega.status === 'aguardando_coleta' ? 'Ao chegar, o botão vira "Peguei o pedido"' : entrega.status === 'em_coleta' ? 'Depois disso, a entrega 1 entra em foco' : !proxPonto.chegou_em ? 'Ao chegar, o botão vira "Marcar entrega"' : 'Foto de protocolo obrigatória na próxima tela'}</Text>}
       </View>
 
       <SheetNavegacao alvo={navAlvo} aoFechar={() => setNavAlvo(null)} />
@@ -299,69 +226,26 @@ export default function Corrida() {
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.fundo },
-  splash: { flex: 1, backgroundColor: C.navy900, justifyContent: 'center', alignItems: 'center' },
-
-  header: { backgroundColor: C.navy900, paddingTop: 52, paddingBottom: 18, paddingHorizontal: 16, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  headerTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  voltar: { color: C.azulC, fontSize: 14, fontWeight: '700' },
-  statusPill: { backgroundColor: C.azulP, paddingVertical: 4, paddingHorizontal: 12, borderRadius: 20 },
-  statusPillTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  osLabel: { color: '#9fb8d0', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  osNum: { color: '#fff', fontSize: 22, fontWeight: '900', marginTop: 1 },
-  cliente: { color: C.azulC, fontSize: 13, marginTop: 3, fontWeight: '600' },
-  prazoChip: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 10, paddingVertical: 5, paddingHorizontal: 11, marginTop: 12 },
-  prazoTxt: { fontSize: 12, fontWeight: '800' },
-  progRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
-  pstep: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.18)' },
-  pstepDone: { backgroundColor: C.ok },
-  pstepCur: { backgroundColor: C.azulV },
-  progTxt: { color: '#cfe0f2', fontSize: 10.5, fontWeight: '700', marginTop: 7 },
-  resumoStats: { flexDirection: 'row', gap: 20, marginTop: 14 },
-  statB: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  statL: { color: '#9fb8d0', fontSize: 10, marginTop: 1 },
-
+  root: { flex: 1, backgroundColor: T.papel },
+  splash: { flex: 1, backgroundColor: T.profundo, justifyContent: 'center', alignItems: 'center' },
+  header: { backgroundColor: T.profundo, paddingTop: 50, paddingBottom: 14, paddingHorizontal: 20 },
+  headerTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  voltar: { color: T.claro, fontSize: 14, fontWeight: '700' },
+  headerTit: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  statusPill: { backgroundColor: T.vivo, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  statusPillTxt: { color: '#fff', fontSize: 11.5, fontWeight: '800' },
+  etapas: { flexDirection: 'row', gap: 6, marginTop: 14 },
+  etapa: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.18)' },
+  etapaFeita: { backgroundColor: T.ganho },
+  etapaAgora: { backgroundColor: T.vivo },
+  headerLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, gap: 8 },
+  headerSub: { color: T.claro, fontSize: 13, fontWeight: '600' },
+  headerValor: { color: T.claro, fontSize: 13, fontWeight: '800' },
+  prazo: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  prazoTxt: { fontSize: 12.5, fontWeight: '800' },
   body: { flex: 1 },
-  timeline: { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 16, padding: 16 },
-  linha: { flexDirection: 'row', gap: 12 },
-  coluna: { width: 26, alignItems: 'center' },
-  no: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  noOk: { backgroundColor: C.okV },
-  noAtual: { backgroundColor: C.azulP, borderWidth: 3, borderColor: C.azulC },
-  noFuturo: { backgroundColor: C.fundo, borderWidth: 2, borderColor: '#cdd9e8' },
-  noIco: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  noNum: { color: C.tinta3, fontSize: 12, fontWeight: '800' },
-  noPulse: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#fff' },
-  traco: { width: 2, flex: 1, minHeight: 22, marginVertical: 3 },
-  tracoOk: { backgroundColor: C.okV },
-  tracoOff: { backgroundColor: C.linha },
-
-  conteudo: { flex: 1, paddingBottom: 22 },
-  etapaTit: { fontSize: 13, fontWeight: '800' },
-  txtOk: { color: C.ok },
-  txtAtual: { color: C.azulP },
-  txtFuturo: { color: C.tinta3 },
-  txtFuturoObs: { color: C.tinta3, backgroundColor: '#f0f4f8' },
-  etapaNome: { fontSize: 14.5, fontWeight: '700', color: C.tinta, marginTop: 2 },
-  etapaEnd: { fontSize: 13, color: C.tinta2, marginTop: 1, lineHeight: 18 },
-  etapaInfo: { fontSize: 12.5, color: C.tinta2, marginTop: 4 },
-  etapaObs: { fontSize: 12.5, color: C.tinta2, marginTop: 6, fontStyle: 'italic', backgroundColor: '#f6f9fc', padding: 8, borderRadius: 8 },
-  etapaHora: { fontSize: 12, color: C.ok, marginTop: 3, fontWeight: '600' },
-
-  acoesPonto: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  btnNav: { backgroundColor: '#eef4fb', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 14 },
-  btnNavTxt: { color: C.azulP, fontSize: 12.5, fontWeight: '700' },
-  btnTel: { backgroundColor: '#eef4fb', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 14 },
-  btnTelTxt: { color: C.azulP, fontSize: 12.5, fontWeight: '700' },
-  btnChat: { backgroundColor: '#eef4fb', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 14 },
-  btnChatTxt: { color: C.azulP, fontSize: 12.5, fontWeight: '700' },
-
-  rodape: { padding: 16, paddingBottom: 28, backgroundColor: C.fundo, borderTopWidth: 1, borderTopColor: C.linha },
-  etapaBarra: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
-  etapaBarraPasso: { fontSize: 11, fontWeight: '800', color: C.tinta3, letterSpacing: 0.3 },
-  etapaBarraTxt: { fontSize: 13, fontWeight: '800', color: C.azulP },
-  btnPrincipal: { backgroundColor: C.azulP, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  btnFinalizar: { backgroundColor: C.ok },
-  btnEntrega: { backgroundColor: C.azulV },
-  btnPrincipalTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  rodape: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 26, backgroundColor: T.sup, borderTopWidth: 1, borderTopColor: T.linha },
+  btn: { backgroundColor: T.primario, borderRadius: 16, paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
+  btnTxt: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  rodapeSub: { textAlign: 'center', fontSize: 12.5, color: T.tinta2, fontWeight: '600', marginTop: 8 },
 });

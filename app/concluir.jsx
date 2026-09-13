@@ -11,14 +11,8 @@ import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { api, getToken } from '../src/api';
 import { uploadDiretoVarios } from '../src/api/upload';
-
-const C = {
-  navy900: '#042C53', azul: '#185FA5', azulC: '#B5D4F4',
-  tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
-  fundo: '#fff', cinza: '#F5F7FA', borda: '#D1DCE8',
-  ok: '#1D9E75', okBg: '#eafaf3', okBorda: '#27b67f',
-  erro: '#dc2626', erroBg: '#fef2f2', erroBorda: '#fca5a5',
-};
+import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
+import { T } from '../src/tema';
 
 export default function ConcluirScreen() {
   const router = useRouter();
@@ -246,7 +240,8 @@ export default function ConcluirScreen() {
     }
   }
 
-  const botaoTxt = geraRetorno ? 'Registrar retorno' : (ehInsucesso ? 'Registrar ocorrência' : 'Confirmar entrega');
+  const botaoTxt = geraRetorno ? 'Deslize para registrar o retorno' : (ehInsucesso ? 'Deslize para registrar' : 'Deslize para confirmar');
+  const bloqueado = !!bloqueio && !liberado;
 
   return (
     <View style={s.root}>
@@ -260,164 +255,150 @@ export default function ConcluirScreen() {
           </View>
         </ViewShot>
       )}
-      <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
-      {/* Header com voltar */}
+      <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.btnVoltar}>
-          <Text style={s.btnVoltarTxt}>‹</Text>
-        </TouchableOpacity>
-        <View>
-          <Text style={s.headerTit}>Finalizar entrega</Text>
-          {!!total && <Text style={s.headerSub}>Ponto {numero} de {total}</Text>}
-        </View>
-        <View style={{ width: 38 }} />
+        <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 64 }}><Text style={s.voltar}>‹ Corrida</Text></TouchableOpacity>
+        <Text style={s.headerTit}>{total && Number(total) > 1 ? `Entrega ${numero}` : 'Marcar entrega'}</Text>
+        <View style={{ minWidth: 64, alignItems: 'flex-end' }}>{!!total && Number(total) > 1 && <Text style={s.pill}>{numero} de {total}</Text>}</View>
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.content}>
-        {/* Resultado / ocorrência */}
-        <Text style={s.label}>Resultado da entrega *</Text>
-        {carregandoOc ? (
-          <ActivityIndicator color={C.azul} style={{ marginVertical: 16 }} />
+      <ScrollView style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        {/* 1. Foto — o que trava a conclusão vem primeiro e grande */}
+        {fotos.length === 0 ? (
+          <TouchableOpacity style={s.fotoVazia} onPress={tirarFoto} activeOpacity={0.85}>
+            <Text style={s.fotoVaziaIco}>📷</Text>
+            <Text style={s.fotoVaziaTit}>Tirar foto do protocolo</Text>
+            <Text style={s.fotoVaziaSub}>Obrigatória — sem ela a entrega não fecha</Text>
+          </TouchableOpacity>
         ) : (
-          <View style={s.ocLista}>
+          <View style={s.fotoBox}>
+            <Image source={{ uri: fotos[0].uri }} style={s.fotoGrande} />
+            <View style={s.fotoTag}><Text style={s.fotoTagTxt}>{fotos.length} foto{fotos.length > 1 ? 's' : ''} ✓</Text></View>
+            <TouchableOpacity style={s.fotoRemover} onPress={() => removerFoto(0)}><Text style={s.fotoRemoverTxt}>×</Text></TouchableOpacity>
+          </View>
+        )}
+        {fotos.length > 0 && (
+          <View style={s.fotosLinha}>
+            {fotos.slice(1).map((f, i) => (
+              <View key={i + 1} style={s.miniWrap}>
+                <Image source={{ uri: f.uri }} style={s.mini} />
+                <TouchableOpacity style={s.miniRemover} onPress={() => removerFoto(i + 1)}><Text style={s.fotoRemoverTxt}>×</Text></TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity style={s.maisFoto} onPress={tirarFoto} activeOpacity={0.8}><Text style={s.maisFotoTxt}>+ outra foto</Text></TouchableOpacity>
+          </View>
+        )}
+
+        {/* 2. Resultado — botões grandes; os tipos vêm da central */}
+        <Text style={s.label}>Resultado</Text>
+        {carregandoOc ? <ActivityIndicator color={T.primario} style={{ marginVertical: 12 }} /> : (
+          <View style={s.seg}>
             {ocorrencias.map(o => {
               const sel = ocSel && ocSel.id === o.id;
               const insuc = o.tipo === 'insucesso';
-              const ret = o.comportamento === 'retorno';
               return (
                 <TouchableOpacity key={o.id} activeOpacity={0.8} onPress={() => setOcSel(o)}
-                  style={[s.ocItem, sel && (insuc ? s.ocItemSelErro : s.ocItemSelOk)]}>
-                  <View style={[s.ocDot, { backgroundColor: insuc ? C.erro : C.ok }]} />
-                  <Text style={[s.ocNome, sel && { color: insuc ? '#991b1b' : '#0f6e56', fontWeight: '700' }]}>{o.nome}</Text>
-                  <View style={[s.ocTag, { backgroundColor: insuc ? C.erroBg : C.okBg }]}>
-                    <Text style={[s.ocTagTxt, { color: insuc ? C.erro : C.ok }]}>{ret ? 'RETORNO' : (insuc ? 'INSUCESSO' : 'SUCESSO')}</Text>
-                  </View>
+                  style={[s.op, sel && (insuc ? s.opRuim : s.opBom)]}>
+                  <Text style={[s.opTxt, sel && { color: insuc ? T.alertaTx : T.ganhoEsc }]} numberOfLines={2}>{o.nome}</Text>
+                  {o.comportamento === 'retorno' && <Text style={s.opSub}>gera retorno</Text>}
                 </TouchableOpacity>
               );
             })}
           </View>
         )}
-
         {geraRetorno && (
-          <View style={s.avisoRetorno}>
-            <Text style={s.avisoRetornoTxt}>↩ Será criado um ponto de retorno à coleta. A corrida só finaliza quando você concluir esse retorno.</Text>
+          <View style={s.aviso}><Text style={s.avisoTxt}>Será criado um ponto de retorno à coleta. A corrida só finaliza quando você concluir esse retorno.</Text></View>
+        )}
+
+        {/* 3. Quem recebeu (só sucesso) e observação */}
+        {!ehInsucesso && (
+          <View style={s.campo}>
+            <Text style={s.label}>Quem recebeu</Text>
+            <TextInput style={s.input} value={recebedor} onChangeText={setRecebedor} placeholder="Nome de quem assinou / recebeu" placeholderTextColor={T.tinta3} returnKeyType="next" />
           </View>
         )}
-
-        {/* Recebedor — só no sucesso */}
-        {!ehInsucesso && (
-          <>
-            <Text style={s.label}>Quem recebeu *</Text>
-            <TextInput style={s.input} value={recebedor} onChangeText={setRecebedor}
-              placeholder="Ex: João Silva" placeholderTextColor="#8AA2BE" returnKeyType="next" />
-          </>
-        )}
-
-        {/* Observação — sempre opcional */}
-        <Text style={s.label}>Observação <Text style={s.opcional}>(opcional)</Text></Text>
-        <TextInput style={[s.input, s.textarea]} value={observacao} onChangeText={setObservacao}
-          placeholder={ehInsucesso ? 'Explique o que aconteceu...' : 'Ex: deixei com o porteiro...'}
-          placeholderTextColor="#8AA2BE" multiline numberOfLines={3} textAlignVertical="top" />
-
-        {/* Foto — sempre obrigatória */}
-        <Text style={s.label}>Foto de protocolo *</Text>
-        <View style={s.fotosGrid}>
-          {fotos.map((f, i) => (
-            <View key={i} style={s.fotoWrap}>
-              <Image source={{ uri: f.uri }} style={s.fotoThumb} />
-              <TouchableOpacity style={s.removerFoto} onPress={() => removerFoto(i)}>
-                <Text style={s.removerFotoTxt}>×</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity style={s.addFoto} onPress={tirarFoto}>
-            <Text style={s.addFotoIco}>+</Text>
-            <Text style={s.addFotoTxt}>Tirar foto</Text>
-          </TouchableOpacity>
+        <View style={s.campo}>
+          <Text style={s.label}>Observação <Text style={s.opcional}>(opcional)</Text></Text>
+          <TextInput style={[s.input, s.textarea]} value={observacao} onChangeText={setObservacao}
+            placeholder={ehInsucesso ? 'Explique o que aconteceu…' : 'Ex.: deixei com o porteiro…'}
+            placeholderTextColor={T.tinta3} multiline numberOfLines={3} textAlignVertical="top" />
         </View>
 
-        {/* Bloqueio por raio (geofence) */}
-        {bloqueio && !liberado && (
-          <View style={s.geoCard}>
-            <Text style={s.geoTit}>📍 Você está fora do ponto</Text>
+        {/* 4. Geofence: fora do raio → pedir liberação daqui mesmo */}
+        {bloqueado && (
+          <View style={s.geo}>
+            <Text style={s.geoTit}>Você está fora do ponto</Text>
             <Text style={s.geoTxt}>
               {bloqueio.distancia_m != null
-                ? `Você está a ${bloqueio.distancia_m}m do local e precisa estar a até ${bloqueio.raio_m}m para marcar esta entrega.`
-                : (bloqueio.mensagem || 'Você está fora do raio permitido para marcar esta entrega.')}
+                ? `Está a ${bloqueio.distancia_m} m do local; precisa estar a até ${bloqueio.raio_m} m para marcar.`
+                : (bloqueio.mensagem || 'Fora do raio permitido para marcar esta entrega.')}
             </Text>
             {!liberSolicitada ? (
               <TouchableOpacity style={s.geoBtn} onPress={solicitarLiberacao} disabled={solicitando} activeOpacity={0.85}>
-                {solicitando ? <ActivityIndicator color="#fff" /> : <Text style={s.geoBtnTxt}>Solicitar liberação de ponto</Text>}
+                {solicitando ? <ActivityIndicator color="#fff" /> : <Text style={s.geoBtnTxt}>Pedir liberação à central</Text>}
               </TouchableOpacity>
-            ) : (
-              <View style={s.geoAguard}>
-                <Text style={s.geoAguardTxt}>⏳ Solicitação enviada. Aguardando a central liberar…</Text>
-              </View>
-            )}
+            ) : <Text style={s.geoAguard}>Pedido enviado. Aguardando a central liberar…</Text>}
           </View>
         )}
-
-        {liberado && (
-          <View style={s.geoOk}>
-            <Text style={s.geoOkTxt}>✓ Ponto liberado pela central. Pode confirmar a entrega.</Text>
-          </View>
-        )}
-
-        <TouchableOpacity style={[s.btnConcluir, ehInsucesso && s.btnConcluirErro, enviando && s.btnDisabled]}
-          onPress={concluir} disabled={enviando}>
-          {enviando ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{botaoTxt}</Text>}
-        </TouchableOpacity>
+        {liberado && <View style={s.geoOk}><Text style={s.geoOkTxt}>Ponto liberado pela central — pode confirmar.</Text></View>}
       </ScrollView>
+
+      <View style={s.rodape}>
+        <DeslizarParaConfirmar
+          rotulo={botaoTxt} rotuloOk={geraRetorno ? 'Retorno registrado ✓' : (ehInsucesso ? 'Ocorrência registrada ✓' : 'Entrega confirmada ✓')}
+          cor={ehInsucesso ? T.alerta : T.ganho} corFundo={ehInsucesso ? T.alertaBg : T.ganhoBg} corBorda={ehInsucesso ? '#f0c4be' : T.ganhoBd}
+          ocupado={enviando} onConfirmar={concluir} icone="✓" />
+        <Text style={s.rodapeSub}>{fotos.length === 0 ? 'Tire a foto do protocolo para liberar a confirmação' : 'Fora do raio? A central pode liberar — o pedido sai daqui mesmo.'}</Text>
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  root:           { flex: 1, backgroundColor: '#fff' },
-  header:         { backgroundColor: C.navy900, paddingTop: 52, paddingBottom: 16, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  btnVoltar:      { width: 38, height: 38, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  btnVoltarTxt:   { color: '#fff', fontSize: 26, fontWeight: '700', marginTop: -2 },
-  headerTit:      { color: '#fff', fontSize: 17, fontWeight: '800', textAlign: 'center' },
-  headerSub:      { color: C.azulC, fontSize: 11, textAlign: 'center', marginTop: 1 },
-
-  scroll:         { flex: 1, backgroundColor: '#fff' },
-  content:        { padding: 20, paddingBottom: 40 },
-  label:          { fontSize: 12, fontWeight: '700', color: C.tinta2, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8, marginTop: 18 },
-  opcional:       { fontSize: 11, fontWeight: '400', color: '#8AA2BE', textTransform: 'none' },
-
-  ocLista:        { gap: 8 },
-  ocItem:         { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderWidth: 1, borderColor: C.borda, borderRadius: 12, backgroundColor: '#fff' },
-  ocItemSelOk:    { borderWidth: 2, borderColor: C.okBorda, backgroundColor: C.okBg },
-  ocItemSelErro:  { borderWidth: 2, borderColor: C.erro, backgroundColor: C.erroBg },
-  ocDot:          { width: 10, height: 10, borderRadius: 5 },
-  ocNome:         { flex: 1, fontSize: 14, color: C.tinta2 },
-  ocTag:          { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  ocTagTxt:       { fontSize: 10, fontWeight: '800', letterSpacing: 0.4 },
-
-  avisoRetorno:   { marginTop: 12, backgroundColor: C.erroBg, borderRadius: 10, padding: 12 },
-  avisoRetornoTxt:{ fontSize: 12.5, color: '#991b1b', lineHeight: 18 },
-
-  input:          { borderWidth: 1, borderColor: C.borda, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: C.tinta, backgroundColor: C.cinza },
-  textarea:       { minHeight: 72, paddingTop: 12 },
-  fotosGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
-  fotoWrap:       { position: 'relative' },
-  fotoThumb:      { width: 88, height: 88, borderRadius: 10, backgroundColor: C.cinza },
-  removerFoto:    { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: '#E24B4A', alignItems: 'center', justifyContent: 'center' },
-  removerFotoTxt: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  addFoto:        { width: 88, height: 88, borderRadius: 10, borderWidth: 1.5, borderColor: C.azul, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  addFotoIco:     { fontSize: 28, color: C.azul },
-  addFotoTxt:     { fontSize: 11, color: C.azul, fontWeight: '600' },
-  btnConcluir:    { marginTop: 28, backgroundColor: C.okBorda, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  geoCard:        { marginTop: 24, backgroundColor: '#fff7ed', borderWidth: 1.5, borderColor: '#fdba74', borderRadius: 14, padding: 16 },
-  geoTit:         { fontSize: 15, fontWeight: '800', color: '#9a3412', marginBottom: 6 },
-  geoTxt:         { fontSize: 13.5, color: '#9a3412', lineHeight: 19, marginBottom: 14 },
-  geoBtn:         { backgroundColor: '#ea580c', borderRadius: 11, paddingVertical: 14, alignItems: 'center' },
-  geoBtnTxt:      { color: '#fff', fontSize: 14.5, fontWeight: '800' },
-  geoAguard:      { backgroundColor: '#fff', borderRadius: 11, paddingVertical: 13, alignItems: 'center', borderWidth: 1, borderColor: '#fdba74' },
-  geoAguardTxt:   { color: '#9a3412', fontSize: 13, fontWeight: '700' },
-  geoOk:          { marginTop: 24, backgroundColor: C.okBg, borderWidth: 1.5, borderColor: C.okBorda, borderRadius: 14, padding: 14 },
-  geoOkTxt:       { color: '#0f6e56', fontSize: 13.5, fontWeight: '700', textAlign: 'center' },
-  btnConcluirErro:{ backgroundColor: C.erro },
-  btnDisabled:    { opacity: 0.6 },
-  btnTxt:         { color: '#fff', fontSize: 16, fontWeight: '800' },
+  root: { flex: 1, backgroundColor: T.papel },
+  header: { backgroundColor: T.profundo, paddingTop: 50, paddingBottom: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  voltar: { color: T.claro, fontSize: 14, fontWeight: '700' },
+  headerTit: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  pill: { color: '#fff', fontSize: 12, fontWeight: '800', backgroundColor: T.primario, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, overflow: 'hidden' },
+  scroll: { flex: 1 },
+  content: { padding: 16, paddingBottom: 24 },
+  fotoVazia: { height: 196, borderRadius: T.r, borderWidth: 2, borderStyle: 'dashed', borderColor: T.claro, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  fotoVaziaIco: { fontSize: 34 },
+  fotoVaziaTit: { fontSize: 16, fontWeight: '800', color: T.primario },
+  fotoVaziaSub: { fontSize: 12.5, color: T.tinta2, fontWeight: '600' },
+  fotoBox: { height: 196, borderRadius: T.r, overflow: 'hidden', borderWidth: 2, borderColor: T.ganho, backgroundColor: T.ganhoBg },
+  fotoGrande: { width: '100%', height: '100%' },
+  fotoTag: { position: 'absolute', right: 10, top: 10, backgroundColor: T.ganho, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  fotoTagTxt: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  fotoRemover: { position: 'absolute', left: 10, top: 10, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
+  fotoRemoverTxt: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: -2 },
+  fotosLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' },
+  miniWrap: { position: 'relative' },
+  mini: { width: 56, height: 56, borderRadius: 10 },
+  miniRemover: { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: T.alerta, alignItems: 'center', justifyContent: 'center' },
+  maisFoto: { paddingVertical: 8, paddingHorizontal: 4 },
+  maisFotoTxt: { color: T.primario, fontWeight: '800', fontSize: 13.5 },
+  label: { fontSize: 12.5, fontWeight: '700', color: T.tinta2, marginBottom: 8, marginTop: 16 },
+  opcional: { fontWeight: '500', color: T.tinta3 },
+  seg: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  op: { flexGrow: 1, flexBasis: '30%', borderWidth: 1.5, borderColor: T.linha, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center', backgroundColor: T.sup },
+  opBom: { borderColor: T.ganho, backgroundColor: T.ganhoBg },
+  opRuim: { borderColor: T.alerta, backgroundColor: T.alertaBg },
+  opTxt: { fontWeight: '800', fontSize: 14, color: T.tinta2, textAlign: 'center' },
+  opSub: { fontSize: 11, color: T.tinta3, fontWeight: '600', marginTop: 2 },
+  aviso: { marginTop: 10, backgroundColor: T.alertaBg, borderRadius: 12, padding: 12 },
+  avisoTxt: { fontSize: 13, color: T.alertaTx, lineHeight: 18 },
+  campo: { marginTop: 0 },
+  input: { backgroundColor: T.sup, borderWidth: 1.5, borderColor: T.linha, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: T.tinta, fontWeight: '600' },
+  textarea: { minHeight: 74, paddingTop: 12 },
+  geo: { marginTop: 18, backgroundColor: T.atencaoBg, borderRadius: 14, padding: 14 },
+  geoTit: { fontSize: 14.5, fontWeight: '800', color: T.atencaoTx },
+  geoTxt: { fontSize: 13.5, color: T.atencaoTx, lineHeight: 19, marginTop: 4 },
+  geoBtn: { marginTop: 12, backgroundColor: T.primario, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  geoBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  geoAguard: { marginTop: 10, fontSize: 13, color: T.atencaoTx, fontWeight: '700' },
+  geoOk: { marginTop: 18, backgroundColor: T.ganhoBg, borderRadius: 14, padding: 12 },
+  geoOkTxt: { color: T.ganhoEsc, fontWeight: '700', fontSize: 13.5 },
+  rodape: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 26, backgroundColor: T.sup, borderTopWidth: 1, borderTopColor: T.linha },
+  rodapeSub: { textAlign: 'center', fontSize: 12.5, color: T.tinta2, fontWeight: '600', marginTop: 8 },
 });

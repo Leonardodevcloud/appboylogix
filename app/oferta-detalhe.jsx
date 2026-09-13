@@ -5,13 +5,8 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
-
-const C = {
-  navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
-  tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
-  fundo: '#eef4fb', sup: '#ffffff', linha: '#dde9f5',
-  ok: '#1f9d6b', okV: '#27b67f',
-};
+import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
+import { T, reais, hora, km, curto } from '../src/tema';
 
 // Carrega react-native-maps com segurança (não existe no Expo Go).
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
@@ -21,10 +16,6 @@ try {
   mapaDisponivel = !!MapView;
 } catch (e) { mapaDisponivel = false; }
 
-function reais(cent) {
-  if (cent == null) return '—';
-  return 'R$ ' + (cent / 100).toFixed(2).replace('.', ',');
-}
 
 export default function OfertaDetalhe() {
   const params = useLocalSearchParams();
@@ -32,6 +23,15 @@ export default function OfertaDetalhe() {
   const [carregando, setCarregando] = useState(true);
   const [aceitando, setAceitando] = useState(false);
   const [mapaPronto, setMapaPronto] = useState(false);
+  const [aceita, setAceita] = useState(false);
+  const [mostrarMapa, setMostrarMapa] = useState(false);
+
+  async function recusar() {
+    Alert.alert('Recusar esta corrida?', 'Ela some da sua lista; outros motoboys continuam vendo.', [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Recusar', style: 'destructive', onPress: async () => { try { await api.recusarOferta(params.oferta_id); } catch {} router.replace('/ofertas'); } },
+    ]);
+  }
 
   useEffect(() => {
     (async () => {
@@ -59,6 +59,7 @@ export default function OfertaDetalhe() {
     setAceitando(true);
     try {
       const r = await api.aceitarOferta(params.oferta_id);
+      setAceita(true);
       // Vai direto pra tela da corrida pra já começar a rota — sem passar pela
       // home e ter que reabrir a corrida na mão.
       if (r && r.entregaId) router.replace({ pathname: '/corrida', params: { entrega_id: r.entregaId } });
@@ -75,7 +76,7 @@ export default function OfertaDetalhe() {
   }
 
   if (carregando) {
-    return <View style={st.splash}><StatusBar barStyle="light-content" backgroundColor={C.navy900} /><ActivityIndicator color={C.azulV} size="large" /></View>;
+    return <View style={st.splash}><StatusBar barStyle="light-content" backgroundColor={T.profundo} /><ActivityIndicator color={T.vivo} size="large" /></View>;
   }
   if (!dados) return null;
 
@@ -100,173 +101,120 @@ export default function OfertaDetalhe() {
     };
   }
 
+  const totalDest = pontos.length || Number(oferta.qtd_pontos) || 1;
+  const ateColeta = km(oferta.distancia_km), rotaKm = Number(oferta.rota_km) > 0 ? km(oferta.rota_km) : null;
+  const temValor = Number(oferta.valor_motoboy_cent) > 0;
+
   return (
     <View style={st.root}>
-      <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
-      <View style={st.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ width: 64 }}>
-          <Text style={st.voltar}>‹ Voltar</Text>
-        </TouchableOpacity>
-        <Text style={st.headerTit}>Detalhes da corrida</Text>
-        <View style={{ width: 64 }} />
+      <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
+
+      {/* Topo escuro: o que decide em 3 segundos */}
+      <View style={st.topo}>
+        <View style={st.topoLinha}>
+          <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 64 }}><Text style={st.voltar}>‹ Voltar</Text></TouchableOpacity>
+          <Text style={st.rotulo}>Nova corrida para você</Text>
+          <View style={{ minWidth: 64 }} />
+        </View>
+        {temValor ? (
+          <>
+            <Text style={st.grana}>{reais(oferta.valor_motoboy_cent)}</Text>
+            <Text style={st.granaSub}>você recebe</Text>
+          </>
+        ) : <Text style={[st.grana, { fontSize: 30 }]}>Serviço {oferta.protocolo}</Text>}
+        <Text style={st.quem} numberOfLines={1}>{oferta.cliente_nome || oferta.coleta_nome || 'Cliente'}</Text>
+        <Text style={st.quemSub}>serviço {oferta.protocolo}{oferta.prazo_em ? ` · entregar até ${hora(oferta.prazo_em)}` : ''}{oferta.tempo_estimado_min != null ? ` · ~${oferta.tempo_estimado_min} min` : ''}</Text>
+        <View style={st.fatos}>
+          {!!ateColeta && <View style={st.fato}><Text style={st.fatoB}>{ateColeta}</Text><Text style={st.fatoL}>até a coleta</Text></View>}
+          {!!rotaKm && <View style={st.fato}><Text style={st.fatoB}>{rotaKm}</Text><Text style={st.fatoL}>de rota</Text></View>}
+          <View style={st.fato}><Text style={st.fatoB}>{totalDest}</Text><Text style={st.fatoL}>{totalDest === 1 ? 'entrega' : 'entregas'}</Text></View>
+        </View>
       </View>
 
-      <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 110 }}>
-        {/* Mapa */}
-        {mapaDisponivel && regiao ? (
-          <MapView
-            style={st.mapa}
-            provider={PROVIDER_DEFAULT}
-            initialRegion={regiao}
-            mapType="standard"
-            onMapReady={() => setMapaPronto(true)}
-            rotateEnabled={false}
-            pitchEnabled={false}
-          >
-            {/* Tiles do OpenStreetMap via CARTO, por cima do mapa base.
-                Só montam após onMapReady para não serem cobertos pelo provider nativo. */}
-            {mapaPronto && (
-              <UrlTile
-                urlTemplate="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
-                maximumZ={20}
-                tileSize={512}
-                flipY={false}
-                zIndex={-1}
-                shouldReplaceMapContent={true}
-              />
-            )}
-            {/* Rota pelas ruas (ORS) ou linha reta de fallback. */}
-            {rotaOrs.length > 1 && (
-              <Polyline coordinates={rotaOrs} strokeColor={C.azulP} strokeWidth={5} zIndex={3} />
-            )}
-            {rotaOrs.length <= 1 && temColetaGeo && pontosGeo.length > 0 && (
-              <Polyline coordinates={[{ latitude: coleta.lat, longitude: coleta.lng }, ...pontosGeo.map(p => ({ latitude: p.lat, longitude: p.lng }))]} strokeColor={C.azulP} strokeWidth={4} lineDashPattern={[8, 6]} zIndex={3} />
-            )}
-            {temColetaGeo && <Marker coordinate={{ latitude: coleta.lat, longitude: coleta.lng }} title="Coleta" pinColor={C.azulV} />}
-            {pontosGeo.map((p, i) => (
-              <Marker key={i} coordinate={{ latitude: p.lat, longitude: p.lng }} title={`Entrega ${i + 1}`} pinColor={C.okV} />
-            ))}
-          </MapView>
-        ) : (
-          <View style={st.mapaFallback}>
-            <Text style={st.mapaFallbackEmoji}>🗺️</Text>
-            <Text style={st.mapaFallbackTxt}>Mapa disponível na versão instalada do app</Text>
-            {temColetaGeo && (
-              <TouchableOpacity style={st.mapaBtn} onPress={() => abrirMapaExterno(coleta.lat, coleta.lng, oferta.coleta_endereco)}>
-                <Text style={st.mapaBtnTxt}>Abrir rota no Google Maps / Waze</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        <View style={st.conteudo}>
-          {/* Resumo */}
-          <View style={st.resumo}>
-            <View>
-              <Text style={st.osLabel}>SERVIÇO</Text>
-              <Text style={st.osNum}>{oferta.protocolo}</Text>
-            </View>
-            {Number(oferta.valor_motoboy_cent) > 0 && (
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={st.valorLabel}>Você recebe</Text>
-                <Text style={st.valor}>{reais(oferta.valor_motoboy_cent)}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={st.chips}>
-            {!!oferta.cliente_nome && <View style={st.chip}><Text style={st.chipTxt}>🏢 {oferta.cliente_nome}</Text></View>}
-            {Number.isFinite(Number(oferta.distancia_km)) && <View style={st.chip}><Text style={st.chipTxt}>📍 {Number(oferta.distancia_km).toFixed(1)} km até coleta</Text></View>}
-            {Number.isFinite(Number(oferta.rota_km)) && Number(oferta.rota_km) > 0 && <View style={st.chip}><Text style={st.chipTxt}>🛣 {Number(oferta.rota_km).toFixed(1)} km de rota</Text></View>}
-            {oferta.tempo_estimado_min != null && <View style={st.chip}><Text style={st.chipTxt}>⏱ ~{oferta.tempo_estimado_min} min</Text></View>}
-          </View>
-
-          {/* Coleta */}
-          <Text style={st.secaoTit}>Coleta</Text>
-          <View style={st.bloco}>
-            <View style={st.blocoTopo}>
-              <View style={[st.dot, { backgroundColor: C.azulV }]} />
-              <Text style={st.blocoNome}>{oferta.coleta_nome || 'Ponto de coleta'}</Text>
-            </View>
-            <Text style={st.blocoEnd}>{oferta.coleta_endereco || '—'}</Text>
-            {temColetaGeo && (
-              <TouchableOpacity style={st.navBtn} onPress={() => abrirMapaExterno(coleta.lat, coleta.lng, oferta.coleta_endereco)}>
-                <Text style={st.navBtnTxt}>🧭 Navegar até a coleta</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Entregas */}
-          <Text style={st.secaoTit}>Entrega{pontos.length > 1 ? `s (${pontos.length})` : ''}</Text>
-          {pontos.map((p, i) => (
-            <View key={i} style={st.bloco}>
-              <View style={st.blocoTopo}>
-                <View style={[st.dot, { backgroundColor: C.okV }]} />
-                <Text style={st.blocoNome}>{pontos.length > 1 ? `${i + 1}. ` : ''}{p.nome_fantasia || p.nome || 'Destino'}</Text>
-              </View>
-              <Text style={st.blocoEnd}>{p.endereco || '—'}</Text>
-              {!!p.complemento && <Text style={st.blocoLinha}>📌 Complemento: {p.complemento}</Text>}
-              {!!p.numero_nf && <Text style={st.blocoLinha}>🧾 Nota fiscal: {p.numero_nf}</Text>}
-              {!!p.telefone && <Text style={st.blocoLinha}>📞 {p.telefone}</Text>}
-              {!!p.observacoes && <Text style={st.blocoObs}>💬 {p.observacoes}</Text>}
-              {p.lat && p.lng && (
-                <TouchableOpacity style={st.navBtn} onPress={() => abrirMapaExterno(Number(p.lat), Number(p.lng), p.endereco)}>
-                  <Text style={st.navBtnTxt}>🧭 Navegar até aqui</Text>
-                </TouchableOpacity>
+      {/* Folha clara: rota, mapa (sob demanda) e a decisão */}
+      <View style={st.folha}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
+          {mostrarMapa && mapaDisponivel && regiao && (
+            <MapView style={st.mapa} provider={PROVIDER_DEFAULT} initialRegion={regiao} mapType="standard" onMapReady={() => setMapaPronto(true)} rotateEnabled={false} pitchEnabled={false}>
+              {mapaPronto && <UrlTile urlTemplate="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png" maximumZ={20} tileSize={512} flipY={false} zIndex={-1} shouldReplaceMapContent={true} />}
+              {rotaOrs.length > 1 && <Polyline coordinates={rotaOrs} strokeColor={T.primario} strokeWidth={5} zIndex={3} />}
+              {rotaOrs.length <= 1 && temColetaGeo && pontosGeo.length > 0 && (
+                <Polyline coordinates={[{ latitude: coleta.lat, longitude: coleta.lng }, ...pontosGeo.map(p => ({ latitude: p.lat, longitude: p.lng }))]} strokeColor={T.primario} strokeWidth={4} lineDashPattern={[8, 6]} zIndex={3} />
               )}
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+              {temColetaGeo && <Marker coordinate={{ latitude: coleta.lat, longitude: coleta.lng }} title="Coleta" pinColor={T.vivo} />}
+              {pontosGeo.map((p, i) => <Marker key={i} coordinate={{ latitude: p.lat, longitude: p.lng }} title={`Entrega ${i + 1}`} pinColor={T.ganho} />)}
+            </MapView>
+          )}
 
-      {/* Botão fixo de aceitar */}
-      <View style={st.rodapeFixo}>
-        <TouchableOpacity style={st.btnAceitar} onPress={aceitar} disabled={aceitando} activeOpacity={0.85}>
-          {aceitando ? <ActivityIndicator color="#fff" /> : <Text style={st.btnAceitarTxt}>{Number(oferta.valor_motoboy_cent) > 0 ? `Aceitar corrida · ${reais(oferta.valor_motoboy_cent)}` : 'Aceitar corrida'}</Text>}
-        </TouchableOpacity>
+          <View style={st.rota}>
+            <View style={st.p}>
+              <View style={[st.bola, { backgroundColor: T.vivo }]} />
+              <View style={{ flex: 1 }}><Text style={st.pLbl}>Coleta</Text><Text style={st.pTxt}>{oferta.coleta_nome ? oferta.coleta_nome + ' — ' : ''}{curto(oferta.coleta_endereco) || '—'}</Text></View>
+            </View>
+            {pontos.map((p, i) => (
+              <View key={i} style={st.p}>
+                <View style={[st.bola, { backgroundColor: i === pontos.length - 1 ? T.ganho : T.claro }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={st.pLbl}>{pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega'}{p.numero_nf ? ` · NF ${p.numero_nf}` : ''}</Text>
+                  <Text style={st.pTxt}>{p.nome_fantasia || p.nome ? (p.nome_fantasia || p.nome) + ' — ' : ''}{curto(p.endereco) || '—'}{p.complemento ? ` (${p.complemento})` : ''}</Text>
+                  {!!p.observacoes && <Text style={st.pObs}>{p.observacoes}</Text>}
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={st.links}>
+            {temColetaGeo && (
+              <TouchableOpacity style={st.link} onPress={() => (mapaDisponivel && regiao) ? setMostrarMapa(v => !v) : abrirMapaExterno(coleta.lat, coleta.lng, oferta.coleta_endereco)} activeOpacity={0.8}>
+                <Text style={st.linkTxt}>{mostrarMapa ? 'Esconder mapa' : 'Ver no mapa'}</Text>
+              </TouchableOpacity>
+            )}
+            {temColetaGeo && (
+              <TouchableOpacity style={st.link} onPress={() => abrirMapaExterno(coleta.lat, coleta.lng, oferta.coleta_endereco)} activeOpacity={0.8}>
+                <Text style={st.linkTxt}>Navegar até a coleta</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </ScrollView>
+
+        <View style={st.decisao}>
+          <DeslizarParaConfirmar rotulo={temValor ? `Deslize para aceitar · ${reais(oferta.valor_motoboy_cent)}` : 'Deslize para aceitar'} rotuloOk="Corrida aceita ✓" ocupado={aceitando} feito={aceita} onConfirmar={aceitar} />
+          <TouchableOpacity onPress={recusar} disabled={aceitando || aceita} style={st.recusa} activeOpacity={0.7}>
+            <Text style={st.recusaTxt}>Não posso agora · <Text style={{ color: T.alerta }}>recusar</Text></Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.fundo },
-  splash: { flex: 1, backgroundColor: C.navy900, justifyContent: 'center', alignItems: 'center' },
-  header: { backgroundColor: C.navy900, paddingTop: 54, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  voltar: { color: C.azulC, fontSize: 14, fontWeight: '700' },
-  headerTit: { color: '#fff', fontSize: 16, fontWeight: '800' },
-
-  body: { flex: 1 },
-  mapa: { width: '100%', height: 220 },
-  mapaFallback: { width: '100%', height: 150, backgroundColor: '#dce8f5', alignItems: 'center', justifyContent: 'center', padding: 16 },
-  mapaFallbackEmoji: { fontSize: 30, marginBottom: 6 },
-  mapaFallbackTxt: { fontSize: 12.5, color: C.tinta2, textAlign: 'center', marginBottom: 10 },
-  mapaBtn: { backgroundColor: C.azulP, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 },
-  mapaBtnTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
-
-  conteudo: { padding: 16 },
-  resumo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: C.sup, borderRadius: 14, borderWidth: 1, borderColor: C.linha, padding: 15, marginBottom: 10 },
-  osLabel: { fontSize: 10, fontWeight: '800', color: C.tinta3, letterSpacing: 1 },
-  osNum: { fontSize: 22, fontWeight: '900', color: C.navy900, marginTop: 1 },
-  valorLabel: { fontSize: 10, color: C.tinta3, fontWeight: '600' },
-  valor: { color: C.okV, fontSize: 24, fontWeight: '900' },
-
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
-  chip: { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 10 },
-  chipTxt: { fontSize: 12, color: C.tinta2, fontWeight: '600' },
-
-  secaoTit: { fontSize: 13, fontWeight: '800', color: C.tinta2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginTop: 6 },
-  bloco: { backgroundColor: C.sup, borderRadius: 12, borderWidth: 1, borderColor: C.linha, padding: 14, marginBottom: 10 },
-  blocoTopo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  dot: { width: 12, height: 12, borderRadius: 6 },
-  blocoNome: { fontSize: 15, fontWeight: '800', color: C.tinta, flex: 1 },
-  blocoEnd: { fontSize: 13.5, color: C.tinta2, lineHeight: 19, marginBottom: 2 },
-  blocoLinha: { fontSize: 13, color: C.tinta2, marginTop: 5 },
-  blocoObs: { fontSize: 13, color: C.tinta2, marginTop: 5, fontStyle: 'italic', backgroundColor: '#f6f9fc', padding: 8, borderRadius: 8 },
-  navBtn: { marginTop: 10, backgroundColor: '#eef4fb', borderRadius: 9, paddingVertical: 9, alignItems: 'center' },
-  navBtnTxt: { color: C.azulP, fontSize: 13, fontWeight: '700' },
-
-  rodapeFixo: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, paddingBottom: 28, backgroundColor: C.fundo, borderTopWidth: 1, borderTopColor: C.linha },
-  btnAceitar: { backgroundColor: C.okV, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  btnAceitarTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  root: { flex: 1, backgroundColor: T.profundo },
+  splash: { flex: 1, backgroundColor: T.profundo, justifyContent: 'center', alignItems: 'center' },
+  topo: { paddingTop: 50, paddingHorizontal: 24, paddingBottom: 18 },
+  topoLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  voltar: { color: T.claro, fontSize: 14, fontWeight: '700' },
+  rotulo: { color: T.claro, fontSize: 13, fontWeight: '700' },
+  grana: { color: '#fff', fontSize: 52, fontWeight: '800', letterSpacing: -1.5, lineHeight: 56 },
+  granaSub: { color: T.claro, fontSize: 14, fontWeight: '700', marginTop: 2 },
+  quem: { color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 10 },
+  quemSub: { color: T.claro, fontSize: 13, fontWeight: '600', marginTop: 2 },
+  fatos: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  fato: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 },
+  fatoB: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  fatoL: { color: T.claro, fontSize: 12, fontWeight: '600' },
+  folha: { flex: 1, backgroundColor: T.sup, borderTopLeftRadius: 24, borderTopRightRadius: 24, marginHorizontal: 8, paddingTop: 18, paddingHorizontal: 18 },
+  mapa: { height: 190, borderRadius: 16, marginBottom: 14, overflow: 'hidden' },
+  rota: { paddingLeft: 2 },
+  p: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', paddingBottom: 12 },
+  bola: { width: 10, height: 10, borderRadius: 5, marginTop: 8 },
+  pLbl: { fontSize: 12, fontWeight: '700', color: T.tinta2 },
+  pTxt: { fontSize: 14.5, color: T.tinta, lineHeight: 20 },
+  pObs: { fontSize: 13, color: T.tinta2, marginTop: 2, fontStyle: 'italic' },
+  links: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  link: { flex: 1, backgroundColor: T.suave, borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
+  linkTxt: { color: T.primario, fontWeight: '800', fontSize: 14 },
+  decisao: { paddingTop: 10, paddingBottom: 26 },
+  recusa: { alignItems: 'center', paddingTop: 14 },
+  recusaTxt: { fontSize: 14, color: T.tinta2, fontWeight: '700' },
 });

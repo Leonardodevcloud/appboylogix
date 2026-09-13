@@ -7,6 +7,8 @@ import {
 import { router } from 'expo-router';
 import { api, getToken } from '../src/api';
 import { alertaCorrida, pararAlerta } from '../src/utils/alerta';
+import CartaoCorrida from '../src/componentes/CartaoCorrida';
+import { T } from '../src/tema';
 
 const C = {
   navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
@@ -15,14 +17,6 @@ const C = {
   ok: '#1f9d6b', okV: '#27b67f',
 };
 
-function reais(cent) {
-  if (cent == null) return '—';
-  return 'R$ ' + (cent / 100).toFixed(2).replace('.', ',');
-}
-function curto(end) {
-  if (!end) return '—';
-  return end.split(',').slice(0, 2).join(',').trim();
-}
 function abrirMapa(lat, lng, endereco) {
   const q = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(endereco || '');
   if (!q) return;
@@ -32,18 +26,6 @@ function abrirMapa(lat, lng, endereco) {
 export default function Ofertas() {
   const [ofertas, setOfertas] = useState([]);
   const [carregando, setCarregando] = useState(true);
-  const [expandido, setExpandido] = useState(null);   // oferta_id aberto
-  const [detalhes, setDetalhes] = useState({});        // oferta_id -> { pontos, coleta }
-
-  async function alternarExpandir(o) {
-    if (expandido === o.oferta_id) { setExpandido(null); return; }
-    setExpandido(o.oferta_id);
-    if (!detalhes[o.oferta_id]) {
-      try { const r = await api.detalheOferta(o.oferta_id); setDetalhes(d => ({ ...d, [o.oferta_id]: { pontos: r.pontos || [], coleta: r.oferta || {} } })); }
-      catch { /* mantém resumo */ }
-    }
-  }
-  const travaRef = useRef(false);
   const wsRef = useRef(null);
   const qtdAnterior = useRef(0);
 
@@ -88,185 +70,51 @@ export default function Ofertas() {
     return () => { clearInterval(poll); pararAlerta(); try { wsRef.current?.close(); } catch {} };
   }, []);
 
-  async function aceitar(oferta) {
-    if (travaRef.current) return;
-    travaRef.current = true;
-    pararAlerta();
-    try {
-      await api.aceitarOferta(oferta.oferta_id);
-      router.replace('/home');
-    } catch (e) {
-      travaRef.current = false;
-      Alert.alert('Ops', e.message || 'Não foi possível aceitar essa corrida');
-      carregar();
-    }
-  }
 
   if (carregando) {
-    return <View style={st.splash}><StatusBar barStyle="light-content" backgroundColor={C.navy900} /><ActivityIndicator color={C.azulV} size="large" /></View>;
+    return <View style={st.splash}><StatusBar barStyle="light-content" backgroundColor={T.profundo} /><ActivityIndicator color={T.vivo} size="large" /></View>;
   }
-
+  // A mais perto sobe e ganha destaque (mockup v1, tela 2). Sem distância, mantém a ordem do servidor.
+  const ordenadas = [...ofertas].sort((a, b) => (Number(a.distancia_km) || 1e9) - (Number(b.distancia_km) || 1e9));
+  const maisPerto = ordenadas.length > 1 && Number.isFinite(Number(ordenadas[0].distancia_km)) ? ordenadas[0].oferta_id : null;
   return (
     <View style={st.root}>
-      <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
+      <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => { pararAlerta(); router.replace('/home'); }} style={{ width: 64 }}>
+        <TouchableOpacity onPress={() => { pararAlerta(); router.replace('/home'); }} style={{ minWidth: 64 }}>
           <Text style={st.voltar}>‹ Início</Text>
         </TouchableOpacity>
         <Text style={st.headerTit}>Corridas disponíveis</Text>
-        <View style={st.contador}><Text style={st.contadorTxt}>{ofertas.length}</Text></View>
+        <View style={{ minWidth: 64, alignItems: 'flex-end' }}><Text style={st.contadorTxt}>{ofertas.length}</Text></View>
       </View>
-
       <ScrollView style={st.body} contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
         {!ofertas.length && (
           <View style={st.vazio}>
-            <Text style={st.vazioEmoji}>🛵</Text>
             <Text style={st.vazioTit}>Nenhuma corrida agora</Text>
-            <Text style={st.vazioSub}>Fique online que avisamos assim que aparecer.</Text>
+            <Text style={st.vazioSub}>Fique online que avisamos assim que aparecer uma perto de você.</Text>
           </View>
         )}
-
-        {ofertas.map(o => {
-          const totalDest = o.qtd_pontos || 1;
-          return (
-            <View key={o.oferta_id} style={st.card}>
-              <View style={st.cardTopo}>
-                <View style={{ flex: 1 }}>
-                  <Text style={st.osLabel}>SERVIÇO</Text>
-                  <Text style={st.osNum}>{o.protocolo}</Text>
-                </View>
-                {Number(o.valor_motoboy_cent) > 0 && (
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={st.valorLabel}>Você recebe</Text>
-                    <Text style={st.valor}>{reais(o.valor_motoboy_cent)}</Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={st.metaLinha}>
-                {!!o.cliente_nome && (
-                  <View style={st.metaChip}><Text style={st.metaChipTxt}>🏢 {o.cliente_nome}</Text></View>
-                )}
-                {!!o.primeiro_nf && (
-                  <View style={st.metaChip}><Text style={st.metaChipTxt}>NF {o.primeiro_nf}</Text></View>
-                )}
-              </View>
-
-              <TouchableOpacity style={st.rota} activeOpacity={0.7} onPress={() => alternarExpandir(o)}>
-                <View style={st.ponto}>
-                  <View style={[st.bolinha, { backgroundColor: C.azulV }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={st.pontoLbl}>COLETA</Text>
-                    <Text style={st.pontoTxt} numberOfLines={2}>{o.coleta_nome ? o.coleta_nome + ' · ' : ''}{curto(o.coleta_endereco)}</Text>
-                  </View>
-                </View>
-                <View style={st.traco} />
-                <View style={st.ponto}>
-                  <View style={[st.bolinha, { backgroundColor: C.okV }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={st.pontoLbl}>{totalDest > 1 ? `ENTREGA · ${totalDest} pontos` : 'ENTREGA'}</Text>
-                    <Text style={st.pontoTxt} numberOfLines={2}>{curto(o.primeiro_destino)}{totalDest > 1 ? ` · +${totalDest - 1}` : ''}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              {/* Detalhes por parada (expandido) */}
-              {expandido === o.oferta_id && (
-                <View style={st.detBox}>
-                  {!detalhes[o.oferta_id] ? (
-                    <ActivityIndicator color={C.azulV} style={{ marginVertical: 8 }} />
-                  ) : (
-                    (detalhes[o.oferta_id].pontos || []).map((p, i) => (
-                      <View key={p.id || i} style={st.detItem}>
-                        <Text style={st.detOrd}>{(detalhes[o.oferta_id].pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega')}</Text>
-                        <Text style={st.detEnd}>{p.nome_fantasia ? p.nome_fantasia + ' — ' : ''}{p.endereco}</Text>
-                        {!!p.numero_nf && <Text style={st.detNf}>NF/Pedido {p.numero_nf}</Text>}
-                        {!!p.complemento && <Text style={st.detSub}>📌 {p.complemento}</Text>}
-                        {!!p.telefone && <Text style={st.detSub}>📞 {p.telefone}</Text>}
-                        {!!p.observacoes && <Text style={st.detSub}>💬 {p.observacoes}</Text>}
-                      </View>
-                    ))
-                  )}
-                </View>
-              )}
-
-              <View style={st.distLinha}>
-                <Text style={st.dist}>📍 {Number.isFinite(Number(o.distancia_km)) ? Number(o.distancia_km).toFixed(1) + ' km até a coleta' : '—'}</Text>
-                {Number.isFinite(Number(o.rota_km)) && Number(o.rota_km) > 0 && <Text style={st.dist}>🛣 {Number(o.rota_km).toFixed(1)} km de rota</Text>}
-              </View>
-
-              <TouchableOpacity onPress={() => alternarExpandir(o)} activeOpacity={0.7}>
-                <Text style={st.expandHint}>{expandido === o.oferta_id ? '▴ recolher' : '▾ ver detalhes das paradas'}</Text>
-              </TouchableOpacity>
-
-              <View style={st.acoes}>
-                <TouchableOpacity style={st.btnMapa} onPress={() => abrirMapa(o.coleta_lat, o.coleta_lng, o.coleta_endereco)} activeOpacity={0.8}>
-                  <Text style={st.btnMapaTxt}>🗺</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={st.btnAceitar} onPress={() => aceitar(o)} activeOpacity={0.85}>
-                  <Text style={st.btnAceitarTxt}>Aceitar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })}
-
-        {!!ofertas.length && <Text style={st.rodapeLimite}>As corridas ficam disponíveis até alguém aceitar. Aceite as que conseguir cumprir.</Text>}
+        {ordenadas.map(o => (
+          <CartaoCorrida key={o.oferta_id} oferta={o} destaque={o.oferta_id === maisPerto}
+            onVer={() => { pararAlerta(); router.push({ pathname: '/oferta-detalhe', params: { oferta_id: o.oferta_id } }); }}
+            onMapa={() => abrirMapa(o.coleta_lat, o.coleta_lng, o.coleta_endereco)} />
+        ))}
+        {!!ofertas.length && <Text style={st.rodapeLimite}>As corridas ficam aqui até alguém aceitar. Pegue as que consegue cumprir no prazo.</Text>}
       </ScrollView>
     </View>
   );
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.fundo },
-  splash: { flex: 1, backgroundColor: C.navy900, justifyContent: 'center', alignItems: 'center' },
-  header: { backgroundColor: C.navy900, paddingTop: 54, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  voltar: { color: C.azulC, fontSize: 14, fontWeight: '700' },
-  headerTit: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  contador: { width: 64, alignItems: 'flex-end' },
-  contadorTxt: { color: '#fff', fontSize: 14, fontWeight: '800', backgroundColor: C.azulP, paddingHorizontal: 10, paddingVertical: 2, borderRadius: 20, overflow: 'hidden' },
-
+  root: { flex: 1, backgroundColor: T.papel },
+  splash: { flex: 1, backgroundColor: T.profundo, justifyContent: 'center', alignItems: 'center' },
+  header: { backgroundColor: T.profundo, paddingTop: 54, paddingBottom: 18, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  voltar: { color: T.claro, fontSize: 14, fontWeight: '700' },
+  headerTit: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  contadorTxt: { color: '#fff', fontSize: 13, fontWeight: '800', backgroundColor: T.primario, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, overflow: 'hidden' },
   body: { flex: 1 },
-  vazio: { alignItems: 'center', paddingTop: 70 },
-  vazioEmoji: { fontSize: 44, marginBottom: 10 },
-  vazioTit: { fontSize: 17, fontWeight: '800', color: C.tinta },
-  vazioSub: { fontSize: 13.5, color: C.tinta2, marginTop: 6, textAlign: 'center' },
-
-  card: { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 16, padding: 15, marginBottom: 12 },
-  cardTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  osLabel: { fontSize: 10, fontWeight: '800', color: C.tinta3, letterSpacing: 1 },
-  osNum: { fontSize: 20, fontWeight: '900', color: C.navy900, marginTop: 1 },
-  valorLabel: { fontSize: 10, color: C.tinta3, fontWeight: '600' },
-  valor: { color: C.okV, fontSize: 22, fontWeight: '900' },
-
-  metaLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-  metaChip: { backgroundColor: '#eef4fb', borderRadius: 7, paddingVertical: 4, paddingHorizontal: 9 },
-  metaChipTxt: { fontSize: 12, color: C.tinta2, fontWeight: '600' },
-
-  rota: { marginBottom: 10 },
-  ponto: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  bolinha: { width: 11, height: 11, borderRadius: 6, marginTop: 3 },
-  traco: { width: 2, height: 16, backgroundColor: '#cdd9e8', marginLeft: 4.5, marginVertical: 2 },
-  pontoLbl: { fontSize: 9.5, fontWeight: '800', color: C.tinta3, letterSpacing: 0.8 },
-  pontoTxt: { fontSize: 13.5, color: C.tinta, fontWeight: '600', marginTop: 1 },
-
-  distLinha: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 13 },
-  dist: { fontSize: 11.5, color: C.tinta3 },
-
-  acoes: { flexDirection: 'row', gap: 10 },
-  btnMapa: { width: 52, borderWidth: 1.5, borderColor: C.azulV, borderRadius: 11, paddingVertical: 11, alignItems: 'center' },
-  btnMapaTxt: { fontSize: 18 },
-  expandHint: { textAlign: 'center', fontSize: 11.5, fontWeight: '800', color: C.azulP, paddingVertical: 8 },
-  detBox: { backgroundColor: '#f6faff', borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 10, marginBottom: 8 },
-  detItem: { paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.linha },
-  detOrd: { fontSize: 10, fontWeight: '800', color: C.tinta3, textTransform: 'uppercase' },
-  detEnd: { fontSize: 12.5, fontWeight: '600', color: C.tinta, marginTop: 1 },
-  detNf: { alignSelf: 'flex-start', backgroundColor: '#eef2f7', borderRadius: 6, fontSize: 10, fontWeight: '800', color: C.tinta2, paddingHorizontal: 7, paddingVertical: 1, marginTop: 3, overflow: 'hidden' },
-  detSub: { fontSize: 11, color: C.tinta2, marginTop: 2 },
-  btnDetalhes: { flex: 1, borderWidth: 1.5, borderColor: '#cdd9e8', borderRadius: 11, paddingVertical: 11, alignItems: 'center' },
-  btnDetalhesTxt: { color: C.azulP, fontSize: 13.5, fontWeight: '700' },
-  btnAceitar: { flex: 1.3, backgroundColor: C.okV, borderRadius: 11, paddingVertical: 11, alignItems: 'center' },
-  btnAceitarTxt: { color: '#fff', fontSize: 14, fontWeight: '800' },
-
-  rodapeLimite: { fontSize: 11.5, color: C.tinta3, textAlign: 'center', marginTop: 8, lineHeight: 16 },
+  vazio: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 30 },
+  vazioTit: { fontSize: 18, fontWeight: '800', color: T.tinta },
+  vazioSub: { fontSize: 14, color: T.tinta2, marginTop: 8, textAlign: 'center', lineHeight: 20 },
+  rodapeLimite: { textAlign: 'center', fontSize: 12.5, color: T.tinta3, fontWeight: '600', paddingHorizontal: 10, paddingTop: 6 },
 });

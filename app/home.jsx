@@ -74,6 +74,18 @@ export default function Home() {
   const [fila, setFila]   = useState([]);
   const [ordemRota, setOrdemRota] = useState([]); // entrega_ids na ordem otimizada
   const [qtdOfertas, setQtdOfertas] = useState(0);
+  // "GPS enviado há X s": a validade da posição no servidor é de 10 min (Onda 10); o motoboy
+  // vê aqui, antes de descobrir que não recebe corrida.
+  const [gpsHaSeg, setGpsHaSeg] = useState(null);
+  useEffect(() => {
+    let vivo = true;
+    const ler = async () => {
+      try { const iso = await SecureStore.getItemAsync('lx_ultima_posicao_em'); if (vivo) setGpsHaSeg(iso ? Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000)) : null); } catch {}
+    };
+    ler(); const t = setInterval(ler, 15000);
+    return () => { vivo = false; clearInterval(t); };
+  }, []);
+  const gpsTxt = gpsHaSeg == null ? 'sem posição ainda' : gpsHaSeg < 60 ? `GPS enviado há ${gpsHaSeg} s` : gpsHaSeg < 600 ? `GPS enviado há ${Math.round(gpsHaSeg / 60)} min` : 'GPS parado há mais de 10 min';
   const [refresh, setRef] = useState(false);
   const [busy, setBusy]   = useState({});
   const [chat, setChat]   = useState({ ativo: false, total: 0 });
@@ -316,7 +328,8 @@ export default function Home() {
       <View style={s.mStatus}>
         <View style={s.hello}>
           <Text style={s.helloSmall}>Boa tarde,</Text>
-          <Text style={s.helloB}>{eu.nome_completo.split(' ')[0]} 👋</Text>
+          <Text style={s.helloB}>{eu.nome_completo.split(' ')[0]}</Text>
+          <Text style={[s.gpsLinha, eu.online && gpsHaSeg != null && gpsHaSeg >= 600 && { color: '#a23c34' }]}>{eu.online ? `Online · ${gpsTxt}` : 'Offline · não recebe corridas'}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {chat.ativo && (
@@ -351,9 +364,9 @@ export default function Home() {
         {/* Badge de ofertas disponíveis (corridas que o motoboy pode aceitar) */}
         {qtdOfertas > 0 && (
           <TouchableOpacity style={s.ofertaBadge} onPress={() => router.push('/ofertas')} activeOpacity={0.8}>
-            <View style={s.ofertaIco}><Text style={{ fontSize: 18 }}>🛵</Text></View>
+            <View style={s.ofertaIco}><Text style={s.ofertaIcoTxt}>{qtdOfertas}</Text></View>
             <View style={{ flex: 1 }}>
-              <Text style={s.ofertaTit}>{qtdOfertas} corrida{qtdOfertas > 1 ? 's' : ''} disponível{qtdOfertas > 1 ? 'eis' : ''}</Text>
+              <Text style={s.ofertaTit}>{qtdOfertas > 1 ? 'Corridas disponíveis perto de você' : 'Corrida disponível perto de você'}</Text>
               <Text style={s.ofertaSub}>Toque para ver e aceitar</Text>
             </View>
             <Text style={s.ofertaSeta}>›</Text>
@@ -489,9 +502,11 @@ const s = StyleSheet.create({
   helloB:    { fontSize: 16, fontWeight: '800', color: C.tinta },
   mBody:     { flex: 1, paddingHorizontal: 16, paddingTop: 6 },
   mStats:    { flexDirection: 'row', gap: 8, marginBottom: 14, marginTop: 8 },
-  ofertaBadge: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: C.sup, borderWidth: 1, borderColor: '#dde9f5', borderLeftWidth: 4, borderLeftColor: '#378ADD', borderRadius: 12, padding: 13, marginBottom: 14 },
-  ofertaIco: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#eaf3fc', alignItems: 'center', justifyContent: 'center' },
-  ofertaTit: { fontSize: 14.5, fontWeight: '800', color: '#0e2138' },
+  ofertaBadge: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.sup, borderWidth: 2, borderColor: '#378ADD', borderRadius: 18, padding: 14, marginBottom: 14, shadowColor: '#042C53', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  ofertaIco: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#378ADD', alignItems: 'center', justifyContent: 'center' },
+  ofertaIcoTxt: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  ofertaTit: { fontSize: 15, fontWeight: '800', color: '#0e2138' },
+  gpsLinha: { fontSize: 11.5, fontWeight: '700', color: '#46637f', marginTop: 2 },
   ofertaSub: { fontSize: 12, color: '#46637f', marginTop: 1 },
   ofertaSeta: { fontSize: 22, color: '#8ba5bc', fontWeight: '700' },
   mStat:     { flex: 1, backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 11, alignItems: 'center' },
