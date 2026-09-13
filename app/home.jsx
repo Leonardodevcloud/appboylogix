@@ -388,7 +388,7 @@ export default function Home() {
             mostrar oferta a quem está offline gerava confusão ("tento aceitar e não vai"). */}
         {!eu.online && (
           <View style={s.offlineBox}>
-            <Text style={s.offlineIco}>⏻</Text>
+            <View style={s.offlineIco}><View style={s.offlineIcoPonto} /></View>
             <Text style={s.offlineTit}>Você está offline</Text>
             <Text style={s.offlineSub}>Fique online para ver e aceitar as corridas perto de você. Entregas já atribuídas continuam abaixo.</Text>
             <TouchableOpacity style={s.offlineBtn} onPress={() => toggleOnline(true)} activeOpacity={0.85}>
@@ -397,6 +397,8 @@ export default function Home() {
           </View>
         )}
 
+        {/* Offline: tudo abaixo do card fica apagado e sem toque — o único caminho é "Ficar online". */}
+        <View pointerEvents={eu.online ? 'auto' : 'none'} style={!eu.online && s.offlineVeu}>
         {/* Stats */}
         <View style={s.mStats}>
           <View style={s.mStat}><Text style={s.mStatB}>{emColeta.length}</Text><Text style={s.mStatS}>A caminho</Text></View>
@@ -515,6 +517,8 @@ export default function Home() {
           </View>
         )}
 
+        </View>
+
         <TouchableOpacity style={s.btnSair} onPress={sair}>
           <Text style={s.btnSairTxt}>Sair da conta</Text>
         </TouchableOpacity>
@@ -551,7 +555,9 @@ const s = StyleSheet.create({
   ofertaTit: { fontSize: 15, fontWeight: '800', color: '#0e2138' },
   gpsLinha: { fontSize: 11.5, fontWeight: '700', color: '#46637f', marginTop: 2 },
   offlineBox: { backgroundColor: '#0e2138', borderRadius: 18, padding: 18, marginBottom: 14, alignItems: 'center' },
-  offlineIco: { fontSize: 28, color: '#8ba5bc', marginBottom: 4 },
+  offlineIco: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, borderColor: '#8ba5bc', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  offlineIcoPonto: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#8ba5bc' },
+  offlineVeu: { opacity: 0.35 },
   offlineTit: { color: '#fff', fontSize: 18, fontWeight: '800' },
   offlineSub: { color: '#b5d4f4', fontSize: 13, textAlign: 'center', lineHeight: 18, marginTop: 6 },
   offlineBtn: { marginTop: 14, backgroundColor: '#1f9d6b', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, alignSelf: 'stretch', alignItems: 'center' },
