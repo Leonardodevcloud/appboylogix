@@ -11,6 +11,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
+import { AppState } from 'react-native';
 import { api, getToken, API_URL } from '../api';
 import { alertaCorrida } from '../utils/alerta';
 
@@ -20,13 +21,20 @@ const CANAL_ID = 'corridas_v4';
 
 // Foreground: quando o app esta aberto, ainda assim exibe banner + toca som.
 export function configurarNotificacoes() {
+  // 11k: com o app ABERTO, o tempo real já mostra a corrida em tela cheia e o banner interno;
+  // a notificação do sistema por cima disso duplicava (e sobrepunha) o aviso. Em primeiro
+  // plano ela fica só na lista de notificações, sem banner nem som; em segundo plano continua
+  // como antes. O som interno é o do alertas.js.
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async () => {
+      const aberto = AppState.currentState === 'active';
+      return {
+        shouldShowBanner: !aberto,
+        shouldShowList: true,
+        shouldPlaySound: !aberto,
+        shouldSetBadge: false,
+      };
+    },
   });
 }
 

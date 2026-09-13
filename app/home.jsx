@@ -388,7 +388,7 @@ export default function Home() {
             mostrar oferta a quem está offline gerava confusão ("tento aceitar e não vai"). */}
         {!eu.online && (
           <View style={s.offlineBox}>
-            <View style={s.offlineIco}><View style={s.offlineIcoPonto} /></View>
+            <Text style={s.offlineEmoji}>📴</Text>
             <Text style={s.offlineTit}>Você está offline</Text>
             <Text style={s.offlineSub}>Fique online para ver e aceitar as corridas perto de você. Entregas já atribuídas continuam abaixo.</Text>
             <TouchableOpacity style={s.offlineBtn} onPress={() => toggleOnline(true)} activeOpacity={0.85}>
@@ -398,13 +398,13 @@ export default function Home() {
         )}
 
         {/* Offline: tudo abaixo do card fica apagado e sem toque — o único caminho é "Ficar online". */}
-        <View pointerEvents={eu.online ? 'auto' : 'none'} style={!eu.online && s.offlineVeu}>
-        {/* Stats */}
-        <View style={s.mStats}>
+        <View pointerEvents={eu.online ? 'auto' : 'none'}>
+        {/* Stats (só online — offline o único número que importa é o zero de corridas) */}
+        {eu.online && <View style={s.mStats}>
           <View style={s.mStat}><Text style={s.mStatB}>{emColeta.length}</Text><Text style={s.mStatS}>A caminho</Text></View>
           <View style={s.mStat}><Text style={s.mStatB}>{emRota.length}</Text><Text style={s.mStatS}>Em rota</Text></View>
-          {eu.online && <View style={s.mStat}><Text style={s.mStatB}>{qtdOfertas}</Text><Text style={s.mStatS}>Disponíveis</Text></View>}
-        </View>
+          <View style={s.mStat}><Text style={s.mStatB}>{qtdOfertas}</Text><Text style={s.mStatS}>Disponíveis</Text></View>
+        </View>}
 
         {/* Badge de ofertas disponíveis (corridas que o motoboy pode aceitar) — só online */}
         {eu.online && qtdOfertas > 0 && (
@@ -517,6 +517,11 @@ export default function Home() {
           </View>
         )}
 
+        {!eu.online && (
+          <View style={s.offlineVeu} pointerEvents="none">
+            <Text style={s.offlineVeuTxt}>Fique online para abrir as corridas</Text>
+          </View>
+        )}
         </View>
 
         <TouchableOpacity style={s.btnSair} onPress={sair}>
@@ -555,9 +560,9 @@ const s = StyleSheet.create({
   ofertaTit: { fontSize: 15, fontWeight: '800', color: '#0e2138' },
   gpsLinha: { fontSize: 11.5, fontWeight: '700', color: '#46637f', marginTop: 2 },
   offlineBox: { backgroundColor: '#0e2138', borderRadius: 18, padding: 18, marginBottom: 14, alignItems: 'center' },
-  offlineIco: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, borderColor: '#8ba5bc', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  offlineIcoPonto: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#8ba5bc' },
-  offlineVeu: { opacity: 0.35 },
+  offlineEmoji: { fontSize: 34, marginBottom: 6 },
+  offlineVeu: { position: 'absolute', left: -16, right: -16, top: 0, bottom: 0, backgroundColor: 'rgba(244,247,251,0.72)', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 120, borderRadius: 12 },
+  offlineVeuTxt: { backgroundColor: '#0e2138', color: '#fff', fontSize: 13, fontWeight: '800', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, overflow: 'hidden' },
   offlineTit: { color: '#fff', fontSize: 18, fontWeight: '800' },
   offlineSub: { color: '#b5d4f4', fontSize: 13, textAlign: 'center', lineHeight: 18, marginTop: 6 },
   offlineBtn: { marginTop: 14, backgroundColor: '#1f9d6b', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, alignSelf: 'stretch', alignItems: 'center' },
