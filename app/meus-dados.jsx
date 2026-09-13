@@ -143,7 +143,7 @@ export default function MeusDados() {
         <Text style={st.htitle}>Meus dados</Text>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
         <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
 
           {/* Dados pessoais */}

@@ -189,7 +189,7 @@ export default function Cadastro() {
         <Text style={st.etapaLabel}>Etapa {etapa + 1} de 5 · {titulos[etapa]}</Text>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
         <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
           {etapa === 0 && (
             <View>

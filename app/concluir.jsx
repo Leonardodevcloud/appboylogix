@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { abrirSocket } from '../src/realtime/socket';
 import {
+  KeyboardAvoidingView, Platform,
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Alert, ActivityIndicator, Image, StatusBar, PixelRatio,
 } from 'react-native';
@@ -256,6 +257,9 @@ export default function ConcluirScreen() {
         </ViewShot>
       )}
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
+      {/* 11i: com edge-to-edge (SDK 54) o Android não encolhe mais a janela sozinho — sem isto o
+          teclado cobria "Quem recebeu" e a observação. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 64 }}><Text style={s.voltar}>‹ Corrida</Text></TouchableOpacity>
         <Text style={s.headerTit}>{total && Number(total) > 1 ? `Entrega ${numero}` : 'Marcar entrega'}</Text>
@@ -350,6 +354,7 @@ export default function ConcluirScreen() {
           ocupado={enviando} onConfirmar={concluir} icone="✓" />
         <Text style={s.rodapeSub}>{fotos.length === 0 ? 'Tire a foto do protocolo para liberar a confirmação' : 'Fora do raio? A central pode liberar — o pedido sai daqui mesmo.'}</Text>
       </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }

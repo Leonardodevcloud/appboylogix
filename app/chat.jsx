@@ -187,7 +187,7 @@ export default function Chat() {
         )}
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
         {carregando ? (
           <View style={st.center}><ActivityIndicator color={C.azulV} /></View>
         ) : erroLoja ? (

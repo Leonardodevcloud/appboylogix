@@ -384,15 +384,28 @@ export default function Home() {
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={refresh} onRefresh={async () => { setRef(true); await carregar(); setRef(false); }} tintColor={C.azulV} />}
       >
+        {/* Offline: estado inequívoco. Corridas disponíveis só existem para quem está online —
+            mostrar oferta a quem está offline gerava confusão ("tento aceitar e não vai"). */}
+        {!eu.online && (
+          <View style={s.offlineBox}>
+            <Text style={s.offlineIco}>⏻</Text>
+            <Text style={s.offlineTit}>Você está offline</Text>
+            <Text style={s.offlineSub}>Fique online para ver e aceitar as corridas perto de você. Entregas já atribuídas continuam abaixo.</Text>
+            <TouchableOpacity style={s.offlineBtn} onPress={() => toggleOnline(true)} activeOpacity={0.85}>
+              <Text style={s.offlineBtnTxt}>Ficar online</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Stats */}
         <View style={s.mStats}>
           <View style={s.mStat}><Text style={s.mStatB}>{emColeta.length}</Text><Text style={s.mStatS}>A caminho</Text></View>
           <View style={s.mStat}><Text style={s.mStatB}>{emRota.length}</Text><Text style={s.mStatS}>Em rota</Text></View>
-          <View style={s.mStat}><Text style={s.mStatB}>{qtdOfertas}</Text><Text style={s.mStatS}>Disponíveis</Text></View>
+          {eu.online && <View style={s.mStat}><Text style={s.mStatB}>{qtdOfertas}</Text><Text style={s.mStatS}>Disponíveis</Text></View>}
         </View>
 
-        {/* Badge de ofertas disponíveis (corridas que o motoboy pode aceitar) */}
-        {qtdOfertas > 0 && (
+        {/* Badge de ofertas disponíveis (corridas que o motoboy pode aceitar) — só online */}
+        {eu.online && qtdOfertas > 0 && (
           <TouchableOpacity style={s.ofertaBadge} onPress={() => router.push('/ofertas')} activeOpacity={0.8}>
             <View style={s.ofertaIco}><Text style={s.ofertaIcoTxt}>{qtdOfertas}</Text></View>
             <View style={{ flex: 1 }}>
@@ -497,8 +510,8 @@ export default function Home() {
         {fila.length === 0 && (
           <View style={s.vazio}>
             <Text style={s.vaziIco}>📦</Text>
-            <Text style={s.vaziTxt}>Nenhuma entrega na fila</Text>
-            <Text style={s.vaziSub}>Puxe para atualizar</Text>
+            <Text style={s.vaziTxt}>Nenhuma entrega atribuída a você no momento</Text>
+            <Text style={s.vaziSub}>{eu.online ? 'Quando você aceitar uma corrida ou a central atribuir, ela aparece aqui.' : 'Fique online para receber corridas.'}</Text>
           </View>
         )}
 
@@ -537,6 +550,12 @@ const s = StyleSheet.create({
   ofertaIcoTxt: { color: '#fff', fontSize: 20, fontWeight: '800' },
   ofertaTit: { fontSize: 15, fontWeight: '800', color: '#0e2138' },
   gpsLinha: { fontSize: 11.5, fontWeight: '700', color: '#46637f', marginTop: 2 },
+  offlineBox: { backgroundColor: '#0e2138', borderRadius: 18, padding: 18, marginBottom: 14, alignItems: 'center' },
+  offlineIco: { fontSize: 28, color: '#8ba5bc', marginBottom: 4 },
+  offlineTit: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  offlineSub: { color: '#b5d4f4', fontSize: 13, textAlign: 'center', lineHeight: 18, marginTop: 6 },
+  offlineBtn: { marginTop: 14, backgroundColor: '#1f9d6b', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, alignSelf: 'stretch', alignItems: 'center' },
+  offlineBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
   ofertaSub: { fontSize: 12, color: '#46637f', marginTop: 1 },
   ofertaSeta: { fontSize: 22, color: '#8ba5bc', fontWeight: '700' },
   mStat:     { flex: 1, backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 11, alignItems: 'center' },

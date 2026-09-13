@@ -34,7 +34,7 @@ export default function Login() {
   );
 
   return (
-    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={s.root} behavior="padding">
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         {/* Marca da empresa (white-label) */}
         <View style={s.hero}>

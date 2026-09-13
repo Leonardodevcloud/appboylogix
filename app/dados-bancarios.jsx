@@ -98,7 +98,7 @@ export default function DadosBancarios() {
         <Text style={st.htitle}>Dados bancários</Text>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
         <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
           <Text style={st.secSub}>É a conta que a central usa para pagar seus repasses. Ao salvar, a central é avisada.</Text>
 
