@@ -19,6 +19,9 @@ try {
 
 export default function OfertaDetalhe() {
   const params = useLocalSearchParams();
+  // A notificação abria `?id=` e a tela lia `oferta_id` → GET /app/ofertas/undefined → "Formato de
+  // valor inválido" (Onda 11b). Aceita os dois nomes.
+  const ofertaId = params.oferta_id || params.id;
   const [dados, setDados] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [aceitando, setAceitando] = useState(false);
@@ -29,14 +32,15 @@ export default function OfertaDetalhe() {
   async function recusar() {
     Alert.alert('Recusar esta corrida?', 'Ela some da sua lista; outros motoboys continuam vendo.', [
       { text: 'Voltar', style: 'cancel' },
-      { text: 'Recusar', style: 'destructive', onPress: async () => { try { await api.recusarOferta(params.oferta_id); } catch {} router.replace('/ofertas'); } },
+      { text: 'Recusar', style: 'destructive', onPress: async () => { try { await api.recusarOferta(ofertaId); } catch {} router.replace('/ofertas'); } },
     ]);
   }
 
   useEffect(() => {
     (async () => {
       try {
-        const r = await api.detalheOferta(params.oferta_id);
+        if (!ofertaId) throw new Error('Corrida não identificada');
+        const r = await api.detalheOferta(ofertaId);
         setDados(r);
       } catch (e) {
         Alert.alert('Ops', e.message || 'Não foi possível carregar', [{ text: 'OK', onPress: () => router.back() }]);
@@ -58,7 +62,7 @@ export default function OfertaDetalhe() {
     if (aceitando) return;
     setAceitando(true);
     try {
-      const r = await api.aceitarOferta(params.oferta_id);
+      const r = await api.aceitarOferta(ofertaId);
       setAceita(true);
       // Vai direto pra tela da corrida pra já começar a rota — sem passar pela
       // home e ter que reabrir a corrida na mão.

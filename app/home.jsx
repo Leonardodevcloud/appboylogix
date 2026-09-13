@@ -69,6 +69,9 @@ function Av({ nome, size = 38 }) {
   );
 }
 
+// Última vez que a tela guiada de GPS foi aberta automaticamente (por processo).
+let ultimoAvisoGpsMs = 0;
+
 export default function Home() {
   const [eu, setEu]       = useState(null);
   const [fila, setFila]   = useState([]);
@@ -90,6 +93,9 @@ export default function Home() {
   const [busy, setBusy]   = useState({});
   const [chat, setChat]   = useState({ ativo: false, total: 0 });
   const avisoRastreio = useRef(false);
+  // Onda 11b: a tela guiada de GPS reabria a cada volta à Home ("Tudo certo" → Home remonta →
+  // ref zera → abre de novo) e o motoboy só saía fechando o app. Agora abre no máximo uma vez
+  // a cada 30 min por processo, e só depois de a Home ter tentado enviar uma posição fresca.
 
   useGPS(
     fila.find(e => ['aguardando_coleta','em_coleta','em_rota'].includes(e.status))?.id || null,
@@ -103,11 +109,24 @@ export default function Home() {
       // Semeia o status compartilhado (mantém home e perfil em sincronia).
       if (me) setOnline(me.online);
       // Auto-abre a tela guiada se estiver ONLINE mas o GPS parou de enviar há muito tempo.
-      if (me && me.online && !avisoRastreio.current) {
+      if (me && me.online && !avisoRastreio.current && (Date.now() - ultimoAvisoGpsMs) > 30 * 60000) {
         try {
           const iso = await SecureStore.getItemAsync('lx_ultima_posicao_em');
           const paradoMuito = !iso || (Date.now() - new Date(iso).getTime()) > 180000; // 3 min sem enviar
-          if (paradoMuito) { avisoRastreio.current = true; router.push('/rastreamento-ativo'); }
+          if (paradoMuito) {
+            // Antes de acusar: tenta mandar uma posição agora. Se conseguir, não há o que corrigir.
+            let enviou = false;
+            try {
+              const perm = await Location.getForegroundPermissionsAsync();
+              if (perm.status === 'granted') {
+                const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                await api.post('/motoboys/app/posicao', { lat: loc.coords.latitude, lng: loc.coords.longitude });
+                await SecureStore.setItemAsync('lx_ultima_posicao_em', new Date().toISOString());
+                enviou = true;
+              }
+            } catch {}
+            if (!enviou) { avisoRastreio.current = true; ultimoAvisoGpsMs = Date.now(); router.push('/rastreamento-ativo'); }
+          }
         } catch (e) {}
       }
       // Ordem otimizada das corridas ativas (mesma rota do "Ver minha rota").
@@ -170,7 +189,9 @@ export default function Home() {
             const perm = await Location.getForegroundPermissionsAsync();
             if (perm.status === 'granted') {
               const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-              api.post('/motoboys/app/posicao', { lat: loc.coords.latitude, lng: loc.coords.longitude }).catch(() => {});
+              api.post('/motoboys/app/posicao', { lat: loc.coords.latitude, lng: loc.coords.longitude })
+                .then(() => SecureStore.setItemAsync('lx_ultima_posicao_em', new Date().toISOString()).catch(() => {}))
+                .catch(() => {});
             }
           } catch {}
         }

@@ -14,7 +14,7 @@ function navegarPorNotificacao(dados) {
   if (!dados || !dados.tipo) return;
   switch (dados.tipo) {
     case 'oferta':
-      if (dados.ofertaId) router.push('/oferta-detalhe?id=' + dados.ofertaId);
+      if (dados.ofertaId) router.push('/oferta-detalhe?oferta_id=' + dados.ofertaId);
       else router.push('/ofertas');
       break;
     case 'chat':

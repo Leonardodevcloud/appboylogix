@@ -43,3 +43,16 @@ eas update --platform android --branch preview --message "Visual do fluxo da cor
 3. Corrida → barra de etapas; parada em foco com Navegar/Ligar/Chat; botão muda de texto a cada etapa.
 4. Marcar → sem foto o deslize volta e avisa; com foto + resultado + nome, deslizar confirma.
 5. Home → "GPS enviado há X s" abaixo do nome quando online.
+
+## 11b — correções do primeiro teste no aparelho (13/09)
+- **"Ops — Formato de valor inválido" ao tocar na notificação**: a notificação abria
+  `/oferta-detalhe?id=…` e a tela lia `oferta_id` → `GET /app/ofertas/undefined`. Bug antigo, que
+  apareceu agora porque o WS voltou a funcionar e a notificação passou a ser tocada mais. A
+  notificação passa a mandar `oferta_id` e a tela aceita os dois nomes.
+- **Tela "Rastreamento sempre ativo" reabrindo em loop**: "Tudo certo" voltava à Home, a Home
+  remontava e abria a tela de novo. Agora (1) antes de acusar, a Home tenta mandar uma posição
+  na hora e só abre a tela se falhar; (2) a posição enviada ao voltar para o app também conta
+  como "última posição"; (3) abre no máximo uma vez a cada 30 min por processo.
+- Se o "Última posição há N min" continuar alto mesmo assim, o serviço de GPS em segundo plano
+  está morto nesse aparelho de verdade — aí os passos da tela (bateria "sem restrições" /
+  suspensão profunda) são a correção, não o app.
