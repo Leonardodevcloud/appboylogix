@@ -14,6 +14,11 @@ module.exports = {
   pacote: 'br.com.logix.motoboy',
   scheme: 'igentregas',
 
+  // Canal do EAS que o app INSTALADO escuta. Não é o slug: o APK em uso foi construído
+  // pelo profile `preview`, então é nesse canal que o OTA precisa ser publicado.
+  // Ao migrar para uma build do profile `ig-loja`, trocar para 'ig'.
+  canal: 'preview',
+
   // Paleta IG (Manual de Marca v1.0)
   cores: {
     profundo: '#042C53',   // fundo/splash/adaptive bg

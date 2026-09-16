@@ -18,6 +18,28 @@ npm run update -- "mensagem" --marca ig
 
 ---
 
+## O canal não é o slug
+
+Cada marca declara `canal` no seu `marca.config.js`: é o canal do EAS que o app **já
+instalado** escuta, e vem do `channel` do profile que gerou aquela build. Pode não ter
+o nome da marca.
+
+Foi o caso do IG em 16/09/2026: o APK em uso foi construído pelo profile `preview`,
+então escuta o canal `preview` — publicar no canal `ig` subia o update e não chegava
+em ninguém, porque nenhum canal aponta para esse branch.
+
+Como conferir:
+
+```powershell
+npx eas channel:list      # qual canal recebeu updates de verdade
+```
+
+O rodapé da tela Perfil, no app, também mostra o canal do aparelho.
+
+Ao migrar o IG para uma build do profile `ig-loja` (que publica no canal `ig`), troque
+`canal` para `'ig'` em `marcas/ig/marca.config.js` — e lembre que quem já tem o APK
+antigo continua no `preview` até instalar a build nova.
+
 ## Por que é uma publicação por marca
 
 A identidade do cliente **vive dentro do bundle**: `scripts/set-marca.js` copia

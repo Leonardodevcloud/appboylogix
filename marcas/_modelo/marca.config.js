@@ -11,6 +11,10 @@ module.exports = {
   pacote: 'br.com.cliente.motoboy',        // TROQUE: applicationId único
   scheme: 'clienteentregas',               // TROQUE: scheme único
 
+  // Canal do EAS que o app instalado escuta (o `channel` do profile em eas.json).
+  // Cliente novo costuma usar o próprio slug; confirme com `npx eas channel:list`.
+  canal: 'cliente-exemplo',
+
   cores: {
     profundo: '#0B1B2B',
     primario: '#1E6FEB',
