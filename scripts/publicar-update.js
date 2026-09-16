@@ -11,7 +11,14 @@
  * ele levaria a marca errada para a segunda. Então, para cada marca em `marcas/`:
  * troca a marca, publica no canal dela, e segue.
  *
- * O canal tem o nome da marca (ver `eas.json`: o profile `ig-loja` publica em `ig`).
+ * O CANAL NÃO É O SLUG. Ele vem do `eas.json`, do profile que construiu o app daquele
+ * cliente — e pode não ter o nome da marca. Em 16/09/2026 o app do IG em produção foi
+ * construído pelo profile `preview` e escuta o canal `preview`; publicar no canal `ig`
+ * não chegaria em ninguém. Por isso cada marca declara `canal` no seu marca.config.js,
+ * e o script publica no BRANCH de mesmo nome do canal.
+ *
+ * Como descobrir o canal de um app já instalado: `npx eas channel:list` mostra qual
+ * canal recebeu updates, e o rodapé da tela Perfil mostra o canal do aparelho.
  *
  * `--platform android` é intencional: o app.json declara web entre as plataformas e
  * o export para web falha sem `react-native-web`. Publicar web não faz sentido aqui.
@@ -42,6 +49,15 @@ function marcas() {
     .filter((d) => fs.existsSync(path.join(dir, d, 'marca.config.js')));
 }
 
+// Canal de cada marca: declarado no marca.config.js. Sem ele, cai no slug — que é o
+// certo para cliente novo, cujo app nasce com o profile de mesmo nome.
+function canalDa(slug) {
+  try {
+    const cfg = require(path.join(raiz, 'marcas', slug, 'marca.config.js'));
+    return cfg.canal || slug;
+  } catch { return slug; }
+}
+
 // Guarda a marca que está no disco para devolvê-la no fim: quem roda isto na própria
 // máquina não pode terminar com o repositório apontando para outro cliente.
 const marcaAtual = (() => {
@@ -56,12 +72,14 @@ console.log(`\nMarcas a publicar: ${alvos.join(', ')}${simular ? '  (simulação
 const falhas = [];
 for (const slug of alvos) {
   console.log(`── ${slug} ───────────────────────────────`);
+  const canal = canalDa(slug);
+  if (canal !== slug) console.log(`  (canal: ${canal})`);
   const passos = [
     `node scripts/set-marca.js ${slug}`,
     // Só --branch: o EAS recusa --branch e --channel juntos. O canal do cliente aponta
     // para o branch de mesmo nome (ver `eas channel:list`), então publicar no branch
     // entrega no canal dele.
-    `npx eas update --branch ${slug} --platform android --message ${JSON.stringify(mensagem)}`,
+    `npx eas update --branch ${canal} --platform android --message ${JSON.stringify(mensagem)}`,
   ];
   for (const cmd of passos) {
     console.log(`  $ ${cmd}`);
