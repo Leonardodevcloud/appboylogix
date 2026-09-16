@@ -42,9 +42,12 @@ outras de receberem a correção.
 ## Conferir depois
 
 ```powershell
-npx eas channel:list
+npx eas channel:list          # confirma que o canal do cliente aponta para o branch de mesmo nome
 npx eas update:list --branch ig --limit 3
 ```
+
+> O update é publicado com `--branch <slug>`, sem `--channel`: o EAS recusa os dois
+> juntos. É o canal que aponta para o branch, e é por ele que o app baixa.
 
 ## Caminho para publicar uma vez só (ainda não feito)
 

@@ -58,7 +58,10 @@ for (const slug of alvos) {
   console.log(`── ${slug} ───────────────────────────────`);
   const passos = [
     `node scripts/set-marca.js ${slug}`,
-    `npx eas update --branch ${slug} --channel ${slug} --platform android --message ${JSON.stringify(mensagem)}`,
+    // Só --branch: o EAS recusa --branch e --channel juntos. O canal do cliente aponta
+    // para o branch de mesmo nome (ver `eas channel:list`), então publicar no branch
+    // entrega no canal dele.
+    `npx eas update --branch ${slug} --platform android --message ${JSON.stringify(mensagem)}`,
   ];
   for (const cmd of passos) {
     console.log(`  $ ${cmd}`);
