@@ -83,3 +83,8 @@ chamada de rede para se pintar, a primeira tela antes do login fica sem marca (o
 a última usada, em cache), e ícone e nome na loja **continuam** sendo build por
 cliente — isso o OTA nunca resolve. Vale quando houver muitos clientes; com dois ou
 três, o laço acima é mais simples e mais previsível.
+
+---
+
+Para entrar um cliente novo (pasta da marca, perfis, Firebase, Play Store), ver
+`NOVO-CLIENTE.md`.
