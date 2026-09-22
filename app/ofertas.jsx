@@ -11,7 +11,7 @@ import CartaoCorrida from '../src/componentes/CartaoCorrida';
 import { T } from '../src/tema';
 
 const C = {
-  navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
+  navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   fundo: '#eef4fb', sup: '#ffffff', linha: '#dde9f5',
   ok: '#1f9d6b', okV: '#27b67f',

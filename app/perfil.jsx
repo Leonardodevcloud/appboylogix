@@ -8,14 +8,15 @@ import { api } from '../src/api';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { assinarOnline } from '../src/state/online';
+import { T } from '../src/tema';
 
 const VERSAO_APP = Constants.expoConfig?.version || '?';
 const ID_UPDATE = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'base';
 const CANAL = Updates.channel || 'dev';
 
 const C = {
-  navy900: '#042C53', navy800: '#0a3a66',
-  azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
+  navy900: T.profundo, navy800: '#0a3a66',
+  azulP: T.primario, azulV: T.vivo, azulC: T.claro,
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   fundo: '#eef4fb', sup: '#ffffff', sup2: '#f6faff', linha: '#dde9f5',
   ok: '#1f9d6b', okBg: '#e7f6ef', erro: '#dc2626', erroBg: '#fef2f2',

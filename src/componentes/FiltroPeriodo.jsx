@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { T } from '../tema';
 
-const C = { navy: '#042C53', azulP: '#185FA5', azulV: '#378ADD', tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc', fundo: '#eef4fb', sup: '#fff', sup2: '#f6faff', linha: '#dde9f5', ok: '#1f9d6b' };
+const C = { navy: T.profundo, azulP: T.primario, azulV: T.vivo, tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc', fundo: '#eef4fb', sup: '#fff', sup2: '#f6faff', linha: '#dde9f5', ok: '#1f9d6b' };
 const MES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const DOW = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

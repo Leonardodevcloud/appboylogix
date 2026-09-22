@@ -1,6 +1,7 @@
 import * as TaskManager from 'expo-task-manager';
 import * as SecureStore from 'expo-secure-store';
 import * as Location from 'expo-location';
+import { T } from '../tema';
 
 // URL do backend (duplicada de propósito para NÃO importar de ../api e evitar
 // dependência circular: api → gpsTask → api).
@@ -187,7 +188,7 @@ export async function garantirUpdatesBackground(emEntrega = false) {
       foregroundService: {
         notificationTitle: 'Logix — você está online',
         notificationBody: 'Compartilhando sua localização para receber corridas.',
-        notificationColor: '#185FA5',
+        notificationColor: T.primario,
         killServiceOnDestroy: false, // mantém o serviço vivo ao fechar/remover o app
       },
     });

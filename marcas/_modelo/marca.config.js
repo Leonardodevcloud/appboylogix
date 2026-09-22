@@ -15,6 +15,9 @@ module.exports = {
   // Cliente novo costuma usar o próprio slug; confirme com `npx eas channel:list`.
   canal: 'cliente-exemplo',
 
+  // Push: google-services.json do pacote deste cliente (Firebase → Adicionar app Android).
+  googleServices: './marcas/cliente-exemplo/google-services.json',
+
   cores: {
     profundo: '#0B1B2B',
     primario: '#1E6FEB',

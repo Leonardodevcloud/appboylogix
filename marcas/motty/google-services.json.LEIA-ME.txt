@@ -1,0 +1,4 @@
+Coloque aqui o google-services.json do app Android "br.com.motty.entregador":
+Firebase Console → projeto (o mesmo do IG) → Adicionar app → Android → package br.com.motty.entregador
+→ baixar google-services.json → salvar como marcas/motty/google-services.json (commitar).
+Sem ele, o build passa mas o push (ofertas com o app fechado) não chega no app do Motty.

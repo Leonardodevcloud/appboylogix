@@ -33,6 +33,18 @@
       "env": { "MARCA": "ig" }
     },
 
+    "motty": {
+      "extends": "preview",
+      "channel": "motty",
+      "env": { "MARCA": "motty" },
+      "android": { "buildType": "apk" }
+    },
+    "motty-loja": {
+      "extends": "production",
+      "channel": "motty",
+      "env": { "MARCA": "motty" }
+    },
+
     "cliente-exemplo": {
       "extends": "preview",
       "channel": "cliente-exemplo",

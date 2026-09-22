@@ -14,6 +14,7 @@ import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
 import { api, getToken, API_URL } from '../api';
 import { alertaCorrida } from '../utils/alerta';
+import { T } from '../tema';
 
 // Canal de notificação. IMPORTANTE: as configs de um canal travam após a 1a
 // criação no Android — se precisar mudar som/vibração, troque o ID (sufixo _vN).
@@ -46,7 +47,7 @@ export async function criarCanalAndroid() {
       name: 'Corridas',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 300, 200, 300],
-      lightColor: '#185FA5',
+      lightColor: T.primario,
       sound: 'lx_subida.wav',
       enableVibrate: true,
       enableLights: true,

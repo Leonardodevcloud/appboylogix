@@ -3,10 +3,11 @@ import {
   Modal, View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Pressable,
 } from 'react-native';
 import { assinarAviso, responderAviso } from '../utils/aviso';
+import { T } from '../tema';
 
 // Paleta do app (mesma da home/perfil).
 const C = {
-  navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
+  navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   sup: '#ffffff', sup2: '#f6faff', linha: '#dde9f5', erro: '#D0584F',
 };

@@ -9,9 +9,10 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import { api } from '../src/api';
 import { uploadDireto } from '../src/api/upload';
+import { T } from '../src/tema';
 
 const C = {
-  navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
+  navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   fundo: '#eef4fb', chat: '#e9eff6', sup: '#fff', linha: '#dde9f5', ok: '#1f9d6b', erro: '#D0584F',
 };

@@ -6,9 +6,10 @@ import {
 import { router } from 'expo-router';
 import { api } from '../src/api';
 import FiltroPeriodo from '../src/componentes/FiltroPeriodo';
+import { T } from '../src/tema';
 
 const C = {
-  navy900: '#042C53', azulP: '#185FA5', azulC: '#B5D4F4',
+  navy900: T.profundo, azulP: T.primario, azulC: T.claro,
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   fundo: '#eef4fb', sup: '#fff', linha: '#dde9f5', ok: '#1f9d6b', okV: '#27b67f',
 };

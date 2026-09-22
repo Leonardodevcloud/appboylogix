@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { api, EMPRESA_NOME } from '../src/api';
+import { T } from '../src/tema';
 
 export default function Login() {
   const [email, setEmail]       = useState('');
@@ -29,7 +30,7 @@ export default function Login() {
   if (carregando) return (
     <View style={s.splash}>
       <Image source={require('../assets/marca/logo.png')} style={s.logoImg} resizeMode="contain" />
-      <ActivityIndicator color="#378ADD" size="large" style={{ marginTop: 24 }} />
+      <ActivityIndicator color={T.vivo} size="large" style={{ marginTop: 24 }} />
     </View>
   );
 
@@ -93,9 +94,9 @@ export default function Login() {
   );
 }
 
-const NAV = '#042C53';
-const AZUL = '#185FA5';
-const AZUL_VIVO = '#378ADD';
+const NAV = T.profundo;
+const AZUL = T.primario;
+const AZUL_VIVO = T.vivo;
 
 const s = StyleSheet.create({
   root:       { flex: 1, backgroundColor: NAV },
@@ -119,6 +120,6 @@ const s = StyleSheet.create({
   divisor:    { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 18 },
   divisorLinha: { flex: 1, height: 1, backgroundColor: '#dde9f5' },
   divisorTxt: { color: '#8ba5bc', fontSize: 12, fontWeight: '600' },
-  btnCadastro: { borderWidth: 1.5, borderColor: '#185FA5', paddingVertical: 14, borderRadius: 13, alignItems: 'center' },
-  btnCadastroTxt: { color: '#185FA5', fontSize: 15, fontWeight: '800' },
+  btnCadastro: { borderWidth: 1.5, borderColor: T.primario, paddingVertical: 14, borderRadius: 13, alignItems: 'center' },
+  btnCadastroTxt: { color: T.primario, fontSize: 15, fontWeight: '800' },
 });

@@ -2,15 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Text, View, StyleSheet, TouchableOpacity, PanResponder, Platform, StatusBar } from 'react-native';
 import { router } from 'expo-router';
 import { assinarBanner } from '../state/banner';
+import { T } from '../tema';
 
 // Ícone + cor por tipo de gatilho.
 const TIPOS = {
-  oferta:    { ico: '🛵', cor: '#378ADD' },
+  oferta:    { ico: '🛵', cor: T.vivo },
   atribuida: { ico: '📦', cor: '#1f9d6b' },
   editada:   { ico: '✏️', cor: '#C98A1A' },
   removida:  { ico: '↩️', cor: '#D0584F' },
   ponto:     { ico: '✅', cor: '#6B4FC9' },
-  default:   { ico: '🔔', cor: '#185FA5' },
+  default:   { ico: '🔔', cor: T.primario },
 };
 const DURACAO = 4200; // ms na tela
 

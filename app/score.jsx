@@ -5,9 +5,10 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
+import { T } from '../src/tema';
 
 const C = {
-  navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4', roxo: '#6B4FC9',
+  navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro, roxo: '#6B4FC9',
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   fundo: '#eef4fb', sup: '#ffffff', sup2: '#f6faff', linha: '#dde9f5', ok: '#1f9d6b', erro: '#D0584F',
 };

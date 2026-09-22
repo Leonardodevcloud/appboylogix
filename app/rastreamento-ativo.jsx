@@ -7,8 +7,9 @@ import * as Application from 'expo-application';
 import * as SecureStore from 'expo-secure-store';
 import * as Device from 'expo-device';
 import { backgroundAtivo, garantirUpdatesBackground } from '../src/tasks/gpsTask';
+import { T } from '../src/tema';
 
-const COR = { navy: '#042C53', azul: '#185FA5', ok: '#1F9D6B', erro: '#D0584F', aten: '#C98A1A', tinta: '#0F2740', tinta2: '#486485', tinta3: '#8AA2BE', linha: '#E6EDF5', fundo: '#EEF3F9' };
+const COR = { navy: T.profundo, azul: T.primario, ok: '#1F9D6B', erro: '#D0584F', aten: '#C98A1A', tinta: '#0F2740', tinta2: '#486485', tinta3: '#8AA2BE', linha: '#E6EDF5', fundo: '#EEF3F9' };
 const PKG = Application.applicationId || '';
 
 // Abre a tela de INFO do app (onde ficam Bateria e Permissões) — o mais confiável.

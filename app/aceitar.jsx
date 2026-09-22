@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, StatusBar, Linking } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
+import { T } from '../src/tema';
 
 const C = {
-  navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD',
+  navy900: T.profundo, azulP: T.primario, azulV: T.vivo,
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   fundo: '#eef4fb', sup: '#ffffff', sup2: '#f6faff', linha: '#dde9f5',
   ok: '#1f9d6b', roxo: '#7C3AED',

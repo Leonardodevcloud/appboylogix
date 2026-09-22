@@ -2,9 +2,10 @@ import { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, StatusBar, RefreshControl } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
+import { T } from '../src/tema';
 
 const C = {
-  navy900: '#042C53', azulP: '#185FA5', azulV: '#378ADD', azulC: '#B5D4F4',
+  navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   fundo: '#eef4fb', sup: '#fff', linha: '#dde9f5', erro: '#D0584F',
 };

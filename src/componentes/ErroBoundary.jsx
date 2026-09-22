@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { T } from '../tema';
 
 // Rede de segurança: se alguma tela lançar um erro de RENDER, mostramos uma
 // tela amigável com "tentar de novo" em vez de o app fechar na cara do motoboy.
@@ -38,6 +39,6 @@ const st = StyleSheet.create({
   ico: { fontSize: 46, marginBottom: 12 },
   tit: { fontSize: 18, fontWeight: '800', color: '#0e2138' },
   sub: { fontSize: 13, color: '#46637f', textAlign: 'center', lineHeight: 19, marginTop: 8, marginBottom: 22 },
-  btn: { backgroundColor: '#185FA5', borderRadius: 13, paddingVertical: 14, paddingHorizontal: 28 },
+  btn: { backgroundColor: T.primario, borderRadius: 13, paddingVertical: 14, paddingHorizontal: 28 },
   btnTxt: { color: '#fff', fontSize: 14.5, fontWeight: '800' },
 });

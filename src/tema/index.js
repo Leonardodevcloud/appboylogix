@@ -1,8 +1,12 @@
 // Tema compartilhado das telas da corrida (mockup-app-motoboy-v1, aprovado em 13/09/2026).
-// Paleta = marca.config.js (IG) + verde de ganho que o app já usava. Um lugar só: as telas
-// novas importam daqui; as antigas ainda carregam o `C` local delas e migram aos poucos.
+// As 4 cores de marca vêm do marca.config.js ATIVO (white-label: IG, Motty, …) — nenhuma
+// tela deve ter o azul de um cliente escrito à mão. O resto (ganho, alerta, papel, tinta)
+// é neutro e igual para todas as marcas.
+import marca from '../../marca.config';
+
+const { profundo, primario, vivo, claro } = marca.cores;
 export const T = {
-  profundo: '#042C53', primario: '#185FA5', vivo: '#378ADD', claro: '#B5D4F4',
+  profundo, primario, vivo, claro,
   ganho: '#1f9d6b', ganhoEsc: '#0f6e56', ganhoBg: '#e7f6ef', ganhoBd: '#b6e3ce',
   alerta: '#c9352b', alertaBg: '#fbe8e6', alertaTx: '#a23c34',
   atencaoBg: '#fbf2df', atencaoTx: '#7a5300',

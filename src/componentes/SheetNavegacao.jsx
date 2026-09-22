@@ -1,8 +1,9 @@
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Linking, Pressable } from 'react-native';
+import { T } from '../tema';
 
 const C = {
   tinta: '#0e2138', tinta3: '#8ba5bc', borda: '#dde9f5',
-  gmapsBg: '#e8f0fe', gmaps: '#185FA5',
+  gmapsBg: '#e8f0fe', gmaps: T.primario,
   wazeBg: '#e0f3ff', waze: '#0bb7e8',
 };
 
