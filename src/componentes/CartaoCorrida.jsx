@@ -14,7 +14,7 @@ function ligar(tel) {
   if (n) Linking.openURL(`tel:${n}`).catch(() => {});
 }
 
-export default function CartaoCorrida({ oferta: o, destaque = false, onVer, onMapa }) {
+export default function CartaoCorrida({ oferta: o, destaque = false, onVer, onMapa, mostrarAcoes = true }) {
   const pontos = Array.isArray(o.pontos) ? o.pontos : [];
   const totalDest = pontos.length || Number(o.qtd_pontos) || 1;
   const ateColeta = km(o.distancia_km), rota = Number(o.rota_km) > 0 ? km(o.rota_km) : null;
@@ -87,10 +87,12 @@ export default function CartaoCorrida({ oferta: o, destaque = false, onVer, onMa
         <View style={st.obs}><Text style={st.obsTxt} numberOfLines={3}>{obs.join(' · ')}</Text></View>
       )}
 
-      <View style={st.acoes}>
-        <TouchableOpacity style={st.btnMapa} onPress={onMapa} activeOpacity={0.8}><Text style={st.btnMapaTxt}>🗺️</Text></TouchableOpacity>
-        <TouchableOpacity style={st.btnVer} onPress={onVer} activeOpacity={0.85}><Text style={st.btnVerTxt}>Ver e aceitar</Text></TouchableOpacity>
-      </View>
+      {mostrarAcoes && (
+        <View style={st.acoes}>
+          <TouchableOpacity style={st.btnMapa} onPress={onMapa} activeOpacity={0.8}><Text style={st.btnMapaTxt}>🗺️</Text></TouchableOpacity>
+          <TouchableOpacity style={st.btnVer} onPress={onVer} activeOpacity={0.85}><Text style={st.btnVerTxt}>Ver e aceitar</Text></TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }

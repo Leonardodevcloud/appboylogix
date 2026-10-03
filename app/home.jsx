@@ -153,6 +153,10 @@ export default function Home() {
         (r.paradas || []).forEach(p => { if (p.entrega_id && !ordem.includes(p.entrega_id)) ordem.push(p.entrega_id); });
         setOrdemRota(ordem);
       }).catch(() => {});
+      // Reconta ofertas em TODO refresh (foco ao voltar, pull-to-refresh, polling de 30s).
+      // Sem isto o contador/banner "Disponíveis" ficava preso após aceitar — mostrava um
+      // número que já não existia e, ao tocar, a tela de ofertas vinha vazia.
+      api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
     } catch (e) {
       // Qualquer falha ao carregar os dados do motoboy (token expirado/inválido,
       // sessão perdida) volta para o login. Não depende de casar texto da mensagem.

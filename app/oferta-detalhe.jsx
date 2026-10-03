@@ -62,12 +62,12 @@ export default function OfertaDetalhe() {
     if (aceitando) return;
     setAceitando(true);
     try {
-      const r = await api.aceitarOferta(ofertaId);
+      await api.aceitarOferta(ofertaId);
       setAceita(true);
-      // Vai direto pra tela da corrida pra já começar a rota — sem passar pela
-      // home e ter que reabrir a corrida na mão.
-      if (r && r.entregaId) router.replace({ pathname: '/corrida', params: { entrega_id: r.entregaId } });
-      else router.replace('/home');
+      // NÃO vai direto pra corrida: volta pro carrossel de ofertas pra ele poder
+      // aceitar outras sem refazer o caminho. Se não sobrar nenhuma, a tela de
+      // ofertas cai pra Home sozinha. A corrida aceita aparece em "A caminho".
+      setTimeout(() => router.replace('/ofertas'), 500);
     } catch (e) {
       setAceitando(false);
       const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
