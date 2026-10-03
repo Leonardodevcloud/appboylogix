@@ -201,7 +201,7 @@ const st = StyleSheet.create({
   fato: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 },
   fatoB: { color: '#fff', fontSize: 18, fontWeight: '800' },
   fatoL: { color: T.claro, fontSize: 12, fontWeight: '600' },
-  folha: { flex: 1, backgroundColor: T.sup, borderTopLeftRadius: 24, borderTopRightRadius: 24, marginHorizontal: 8, paddingTop: 18, paddingHorizontal: 18 },
+  folha: { flex: 1, backgroundColor: T.sup, borderRadius: 22, borderWidth: 2, borderColor: T.primario, marginHorizontal: 12, marginBottom: 12, paddingTop: 16, paddingHorizontal: 16, overflow: 'hidden' },
   mapa: { height: 190, borderRadius: 16, marginBottom: 14, overflow: 'hidden' },
   rota: { paddingLeft: 2 },
   p: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', paddingBottom: 12 },
