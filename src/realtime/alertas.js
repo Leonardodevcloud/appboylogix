@@ -22,6 +22,7 @@ function bannerDoEvento(evento) {
     case 'entrega.atribuida': return { tipo: 'atribuida', titulo: 'Corrida atribuída a você', sub: 'Toque para abrir', rota: '/home' };
     case 'entrega.editada':   return { tipo: 'editada',   titulo: 'Corrida atualizada', sub: 'A central alterou uma corrida', rota: '/home' };
     case 'entrega.removida':  return { tipo: 'removida',  titulo: 'Corrida removida', sub: 'A central removeu uma corrida', rota: '/home' };
+    case 'entrega.cancelada': return { tipo: 'cancelada', titulo: 'Corrida cancelada', sub: 'A central cancelou uma corrida', rota: '/home' };
     case 'ponto.liberado':    return { tipo: 'ponto',     titulo: 'Ponto liberado', sub: 'Você já pode marcar a entrega', rota: '/home' };
     default: return null;
   }
@@ -38,6 +39,7 @@ const EVENTOS_ALERTA = new Set([
   'oferta.nova',        // nova corrida ofertada
   'entrega.atribuida',  // corrida atribuída diretamente
   'entrega.removida',   // corrida removida/transferida
+  'entrega.cancelada',  // corrida cancelada pela central
   'entrega.editada',    // corrida alterada pela central
   'ponto.liberado',     // central liberou a marcação de um ponto
 ]);

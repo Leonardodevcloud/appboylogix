@@ -67,6 +67,20 @@ export default function Corrida() {
               } else {
                 carregar();
               }
+            } else if (evento === 'entrega.cancelada') {
+              // A central cancelou ESTA corrida enquanto o motoboy está nela: avisa e volta para a Home.
+              if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
+                Alert.alert('Corrida cancelada', 'Esta corrida foi cancelada pela central.', [
+                  { text: 'OK', onPress: () => router.replace('/home') },
+                ]);
+              } else {
+                carregar();
+              }
+            } else if (evento === 'entrega.concluida') {
+              // Esta corrida foi finalizada (pela central): volta para a Home.
+              if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
+                router.replace('/home');
+              }
             } else if (evento === 'entrega.atribuida') {
               carregar();
             }

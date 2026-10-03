@@ -238,6 +238,12 @@ export default function Home() {
             } else if (evento === 'entrega.removida') {
               // A central removeu/transferiu uma corrida: tira da tela na hora.
               carregar();
+            } else if (evento === 'entrega.cancelada') {
+              // A central cancelou uma corrida do motoboy: tira da tela na hora.
+              carregar();
+            } else if (evento === 'entrega.concluida') {
+              // Corrida concluída (pelo motoboy ou finalizada pela central): tira da tela na hora.
+              carregar();
             } else if (evento === 'cadastro.reenvio') {
               Alert.alert('Ação necessária', dados?.motivo || 'A central pediu uma correção no seu cadastro.', [
                 { text: 'Ver agora', onPress: () => router.replace('/cadastro-status') },
