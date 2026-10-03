@@ -15,6 +15,7 @@ import { AppState } from 'react-native';
 import { api, getToken, API_URL } from '../api';
 import { alertaCorrida } from '../utils/alerta';
 import { T } from '../tema';
+import marca from '../../marca.config';
 
 // Canal de notificação. IMPORTANTE: as configs de um canal travam após a 1a
 // criação no Android — se precisar mudar som/vibração, troque o ID (sufixo _vN).
@@ -133,7 +134,7 @@ export async function testarNotificacaoLocal() {
     await criarCanalAndroid();
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🔔 Teste de notificação Logix',
+        title: `🔔 Teste de notificação · ${marca.nomeApp}`,
         body: 'Ouviu o som e sentiu a vibração? Então o canal está OK.',
         sound: 'default',
         data: { tipo: 'teste' },

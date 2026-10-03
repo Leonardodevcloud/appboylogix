@@ -2,6 +2,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as SecureStore from 'expo-secure-store';
 import * as Location from 'expo-location';
 import { T } from '../tema';
+import marca from '../../marca.config';
 
 // URL do backend (duplicada de propósito para NÃO importar de ../api e evitar
 // dependência circular: api → gpsTask → api).
@@ -186,7 +187,7 @@ export async function garantirUpdatesBackground(emEntrega = false) {
       pausesUpdatesAutomatically: false,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
-        notificationTitle: 'Logix — você está online',
+        notificationTitle: `${marca.nomeApp} — você está online`,
         notificationBody: 'Compartilhando sua localização para receber corridas.',
         notificationColor: T.primario,
         killServiceOnDestroy: false, // mantém o serviço vivo ao fechar/remover o app
