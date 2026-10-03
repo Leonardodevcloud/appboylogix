@@ -18,7 +18,26 @@ function googleServicesFile() {
   return undefined;
 }
 
+// Logo in-app (login/splash JS) = logo da marca ATIVA. O app lê sempre de
+// ./assets/marca/logo.png (require estático do Metro). Para o arquivo nunca ficar com a
+// logo de OUTRA marca (ex.: a IG aparecendo por um instante no app da Motty), copiamos
+// aqui, em todo build/update, a logo da pasta da marca ativa para a raiz.
+function sincronizarLogoInApp() {
+  try {
+    const dir = path.dirname(marca.icones.icon);          // ./assets/marca/<slug>
+    const origem = path.join(__dirname, dir, 'logo.png');
+    const destino = path.join(__dirname, 'assets', 'marca', 'logo.png');
+    if (!fs.existsSync(origem)) {
+      console.warn(`[app.config] logo da marca não encontrada em ${origem} — logo in-app pode ficar desatualizada`);
+      return;
+    }
+    const mesma = fs.existsSync(destino) && fs.readFileSync(origem).equals(fs.readFileSync(destino));
+    if (!mesma) { fs.copyFileSync(origem, destino); console.log(`[app.config] logo in-app sincronizada da marca "${marca.slug}"`); }
+  } catch (e) { console.warn('[app.config] falha ao sincronizar logo in-app:', e.message); }
+}
+
 module.exports = ({ config }) => {
+  sincronizarLogoInApp();
   const gs = googleServicesFile();
   const android = { ...(config.android || {}) };
   if (gs) android.googleServicesFile = gs; else delete android.googleServicesFile;

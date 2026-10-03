@@ -345,6 +345,38 @@ export default function Home() {
     </View>
   );
 
+  // OFFLINE = tela travada: só o card e o botão de ficar online. Nada de corridas,
+  // números, navegação ou abas — o motoboy só acessa o resto depois de ficar online.
+  if (!eu.online) {
+    const h = new Date().getHours();
+    const saud = h < 12 ? 'Bom dia,' : h < 18 ? 'Boa tarde,' : 'Boa noite,';
+    return (
+      <View style={s.offRoot}>
+        <StatusBar barStyle="dark-content" backgroundColor="#eef4fb" />
+        <View style={s.mStatus}>
+          <View style={s.hello}>
+            <Text style={s.helloSmall}>{saud}</Text>
+            <Text style={s.helloB}>{eu.nome_completo.split(' ')[0]}</Text>
+          </View>
+          <Av nome={eu.nome_completo} foto={eu.foto_url} size={38} />
+        </View>
+        <View style={s.offCenter}>
+          <View style={s.offHero}>
+            <View style={s.offBadge}>
+              <View style={s.offRing} />
+              <View style={s.offBar} />
+            </View>
+            <Text style={s.offHeroTit}>Você está offline</Text>
+            <Text style={s.offHeroSub}>Fique online para ver e aceitar corridas. Enquanto estiver offline, o restante do app fica indisponível.</Text>
+            <TouchableOpacity style={s.offHeroBtn} onPress={() => toggleOnline(true)} activeOpacity={0.85}>
+              <Text style={s.offHeroBtnTxt}>Ficar online</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   const novas    = fila.filter(e => e.status === 'aguardando_atribuicao');
   const emColeta = fila.filter(e => ['aguardando_coleta','em_coleta'].includes(e.status));
   const emRota   = fila.filter(e => e.status === 'em_rota');
@@ -611,6 +643,17 @@ const s = StyleSheet.create({
   offlineSub: { color: T.claro, fontSize: 13, textAlign: 'center', lineHeight: 18, marginTop: 6 },
   offlineBtn: { marginTop: 14, backgroundColor: '#1f9d6b', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, alignSelf: 'stretch', alignItems: 'center' },
   offlineBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  // Tela offline travada
+  offRoot: { flex: 1, backgroundColor: '#eef4fb' },
+  offCenter: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 40 },
+  offHero: { backgroundColor: C.navy900, borderRadius: 26, paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(181,212,244,0.18)' },
+  offBadge: { width: 76, height: 76, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(181,212,244,0.28)', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
+  offRing: { width: 30, height: 30, borderRadius: 15, borderWidth: 3, borderColor: T.claro },
+  offBar: { position: 'absolute', top: 19, width: 3, height: 15, borderRadius: 2, backgroundColor: T.claro, borderWidth: 2, borderColor: C.navy900 },
+  offHeroTit: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  offHeroSub: { color: T.claro, fontSize: 14, textAlign: 'center', lineHeight: 20, marginTop: 8, maxWidth: 300 },
+  offHeroBtn: { marginTop: 24, backgroundColor: '#1f9d6b', borderRadius: 16, paddingVertical: 16, alignSelf: 'stretch', alignItems: 'center' },
+  offHeroBtnTxt: { color: '#fff', fontSize: 16.5, fontWeight: '800' },
   ofertaSub: { fontSize: 12, color: '#46637f', marginTop: 1 },
   ofertaSeta: { fontSize: 22, color: '#8ba5bc', fontWeight: '700' },
   mStat:     { flex: 1, backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 11, alignItems: 'center' },
