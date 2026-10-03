@@ -93,7 +93,6 @@ export default function Home() {
   const [eu, setEu]       = useState(null);
   const [fila, setFila]   = useState([]);
   const [ordemRota, setOrdemRota] = useState([]); // entrega_ids na ordem otimizada
-  const [posAtual, setPosAtual] = useState(null); // {lat,lng} do GPS, p/ distância até a coleta
   const [qtdOfertas, setQtdOfertas] = useState(0);
   // "GPS enviado há X s": a validade da posição no servidor é de 10 min (Onda 10); o motoboy
   // vê aqui, antes de descobrir que não recebe corrida.
@@ -153,11 +152,6 @@ export default function Home() {
         const ordem = [];
         (r.paradas || []).forEach(p => { if (p.entrega_id && !ordem.includes(p.entrega_id)) ordem.push(p.entrega_id); });
         setOrdemRota(ordem);
-      }).catch(() => {});
-      // Posição atual (última conhecida — o GPS reporta a cada ~15s) para calcular
-      // a distância até a coleta no card. Não bloqueia; se não houver, o card omite.
-      Location.getLastKnownPositionAsync().then(p => {
-        if (p?.coords) setPosAtual({ lat: p.coords.latitude, lng: p.coords.longitude });
       }).catch(() => {});
     } catch (e) {
       // Qualquer falha ao carregar os dados do motoboy (token expirado/inválido,
@@ -363,25 +357,26 @@ export default function Home() {
     const q = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(endereco || '');
     if (q) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`).catch(() => {});
   };
-  // KPIs do card: distância até o próximo alvo (GPS → coleta, ou → entrega depois
-  // de coletar), distância da rota (coleta → entrega) e o valor a receber.
+  // KPIs do card de uma corrida JÁ ativa: distância total da rota (coleta→entregas),
+  // valor e nº de paradas. A distância "até a coleta" fica só na OFERTA (ao aceitar) —
+  // depois que a corrida é dele, mostrar isso é redundante e some de sentido após coletar.
   const Kpis = (e) => {
     const n = (v) => (v == null || v === '') ? null : Number(v);
-    const jaColetou = e.status === 'em_rota';
-    const pts = e.pontos || [];
-    const proxPonto = jaColetou ? pts.find(p => !p.finalizado_em && p.lat != null) || pts.find(p => p.lat != null) : null;
-    const alvoLat = jaColetou ? n(proxPonto?.lat) : n(e.coleta_lat);
-    const alvoLng = jaColetou ? n(proxPonto?.lng) : n(e.coleta_lng);
-    const ateAlvo = posAtual ? fmtKm(distKm(posAtual.lat, posAtual.lng, alvoLat, alvoLng)) : null;
-    // Rota coleta→entrega: usa a distância calculada; se faltar, estima em linha reta.
-    const rota = e.distancia_km
-      ? fmtKm(Number(e.distancia_km))
-      : fmtKm(distKm(n(e.coleta_lat), n(e.coleta_lng), n(pts[0]?.lat), n(pts[0]?.lng)));
+    // Distância total: usa a rota calculada; se faltar, soma os trechos em linha reta
+    // (coleta → ponto 1 → ponto 2 …), para o card nunca ficar sem distância.
+    let rota = e.distancia_km != null ? Number(e.distancia_km) : null;
+    if (rota == null && n(e.coleta_lat) != null) {
+      const pts = (e.pontos || []).filter(p => p.lat != null && p.lng != null);
+      let soma = 0, pl = n(e.coleta_lat), pg = n(e.coleta_lng);
+      for (const p of pts) { const d = distKm(pl, pg, n(p.lat), n(p.lng)); if (d != null) soma += d; pl = n(p.lat); pg = n(p.lng); }
+      if (pts.length) rota = soma;
+    }
+    const nParadas = (e.pontos || []).length || 1;
     return (
       <View style={s.kpiRow}>
-        <View style={s.kpi}><Text style={s.kpiB}>{ateAlvo || '—'}</Text><Text style={s.kpiL}>{jaColetou ? 'Até a entrega' : 'Até a coleta'}</Text></View>
-        <View style={s.kpi}><Text style={s.kpiB}>{rota || '—'}</Text><Text style={s.kpiL}>Coleta→entrega</Text></View>
+        <View style={s.kpi}><Text style={s.kpiB}>{fmtKm(rota) || '—'}</Text><Text style={s.kpiL}>Distância</Text></View>
         {reais(e.valor_motoboy_cent) ? <View style={s.kpi}><Text style={[s.kpiB, s.kpiVal]}>{reais(e.valor_motoboy_cent)}</Text><Text style={s.kpiL}>Você recebe</Text></View> : null}
+        <View style={s.kpi}><Text style={s.kpiB}>{nParadas}</Text><Text style={s.kpiL}>{nParadas > 1 ? 'Paradas' : 'Parada'}</Text></View>
       </View>
     );
   };
