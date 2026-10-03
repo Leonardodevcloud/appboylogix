@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  RefreshControl, Alert, ActivityIndicator, StatusBar,
+  RefreshControl, Alert, ActivityIndicator, StatusBar, Image,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
@@ -39,8 +39,12 @@ function mascararChave(tipo, chave) {
   return s;
 }
 
-function Avatar({ nome, size = 74 }) {
+function Avatar({ nome, foto, size = 74 }) {
   const ini = (nome || '?').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+  // Foto do entregador (selfie do cadastro) quando houver; senão, as iniciais.
+  if (foto) {
+    return <Image source={{ uri: foto }} style={[st.av, { width: size, height: size, borderRadius: size / 2 }]} />;
+  }
   return (
     <View style={[st.av, { width: size, height: size, borderRadius: size / 2 }]}>
       <Text style={[st.avTxt, { fontSize: size * 0.34 }]}>{ini}</Text>
@@ -116,7 +120,7 @@ export default function Perfil() {
           <View style={{ width: 60 }} />
         </View>
         <View style={st.headerBody}>
-          <Avatar nome={p.nome_completo} size={74} />
+          <Avatar nome={p.nome_completo} foto={p.foto_url} size={74} />
           <Text style={st.nome}>{p.nome_completo}</Text>
           <View style={st.codBadge}><Text style={st.codTxt}>#{String(p.codigo || 0).padStart(3, '0')}</Text></View>
           <View style={[st.statusPill, { backgroundColor: online ? C.okBg : '#e2e8f0' }]}>

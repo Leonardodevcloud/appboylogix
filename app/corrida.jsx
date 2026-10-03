@@ -7,7 +7,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { api, getToken } from '../src/api';
 import SheetNavegacao from '../src/componentes/SheetNavegacao';
-import Parada from '../src/componentes/Parada';
+import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais, hora } from '../src/tema';
 
 
@@ -44,7 +44,7 @@ export default function Corrida() {
     carregar();
     const t = setInterval(carregar, 20000);
 
-    // WebSocket: reage na hora se a central editar ou remover esta corrida.
+    // WebSocket: reage na hora se a central editar, remover, cancelar ou finalizar esta corrida.
     let ws;
     (async () => {
       try {
@@ -99,7 +99,7 @@ export default function Corrida() {
     setBusy(true);
     try {
       await api.patch(`/motoboys/app/entregas/${entrega.id}/status`, { status: prox });
-      carregar();
+      await carregar();
     } catch (e) {
       // A ação pode ter completado no servidor mesmo com falha de resposta
       // (rede instável). Re-sincroniza e só avisa se de fato não avançou.
@@ -140,28 +140,67 @@ export default function Corrida() {
 
   const pontos = entrega.pontos || [];
   const jaColetou = entrega.status === 'em_rota';
-  const concluidos = pontos.filter(p => p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em).length;
+  const feitoDe = (p) => p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
+  const concluidos = pontos.filter(feitoDe).length;
   const totalPontos = pontos.length;
-  const proxPonto = pontos.find(p => !(p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em));
-  // Etapa atual explícita (passo 1..4) para deixar claro onde o motoboy está.
-  let passoN = 1, etapaTxt = 'A caminho da coleta';
-  if (entrega.status === 'aguardando_coleta') { passoN = 1; etapaTxt = 'A caminho da coleta'; }
-  else if (entrega.status === 'em_coleta')    { passoN = 2; etapaTxt = 'Na coleta'; }
-  else if (proxPonto && !proxPonto.chegou_em) { passoN = 3; etapaTxt = 'A caminho da entrega'; }
-  else if (proxPonto)                          { passoN = 4; etapaTxt = 'Na entrega'; }
-  if (!proxPonto) { passoN = 4; etapaTxt = 'Concluída'; }
-  const prazoLabel = entrega.prazo_estado === 'estourado' ? 'Prazo estourado' : entrega.prazo_em ? ('Entregar até ' + hora(entrega.prazo_em)) : null;
+  const proxPonto = pontos.find(p => !feitoDe(p));
+  const idxProx = proxPonto ? pontos.findIndex(p => p.id === proxPonto.id) : -1;
 
-  // Chat só aparece se o módulo estiver ativo para a empresa (a Home já fazia isso; a corrida
-  // mostrava o botão sempre — 11h). `onChat` undefined esconde o botão na Parada.
+  // Etapa atual explícita para a pílula e o rodapé.
+  let etapaTxt = 'A caminho da coleta';
+  if (entrega.status === 'aguardando_coleta') etapaTxt = 'A caminho da coleta';
+  else if (entrega.status === 'em_coleta')    etapaTxt = 'Na coleta';
+  else if (proxPonto && !proxPonto.chegou_em) etapaTxt = 'A caminho da entrega';
+  else if (proxPonto)                          etapaTxt = 'Na entrega';
+  if (!proxPonto) etapaTxt = 'Concluída';
+
+  const prazoLabel = entrega.prazo_estado === 'estourado' ? 'Prazo estourado' : entrega.prazo_em ? ('Entregar até ' + hora(entrega.prazo_em)) : null;
   const abrirChat = chatAtivo ? () => router.push({ pathname: '/chat', params: { entregaId: entrega.id, protocolo: entrega.protocolo } }) : undefined;
-  // Etapas da barra: coleta + cada entrega. feita | agora | depois.
-  const etapas = [jaColetou ? 'feita' : 'agora', ...pontos.map(p => {
-    const feito = p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
-    return feito ? 'feita' : (jaColetou && proxPonto && p.id === proxPonto.id ? 'agora' : 'depois');
-  })];
+
+  // Barra de progresso do header: coleta + cada entrega.
+  const etapasBar = [jaColetou ? 'feita' : 'agora', ...pontos.map(p => feitoDe(p) ? 'feita' : (jaColetou && proxPonto && p.id === proxPonto.id ? 'agora' : 'depois'))];
   const prazoCorTxt = { estourado: T.alertaTx, iminente: '#a35a12', atencao: T.atencaoTx, no_prazo: T.ganhoEsc }[entrega.prazo_estado] || T.tinta2;
   const prazoCorBg = { estourado: T.alertaBg, iminente: '#fdeede', atencao: T.atencaoBg, no_prazo: T.ganhoBg }[entrega.prazo_estado] || T.suave;
+
+  // ─── Nó da trilha (coleta ou entrega) ───
+  function No({ num, tipo, titulo, tag, endereco, detalhes, estado, subs, acoes, ultimo }) {
+    const corDot = estado === 'feita' ? T.ganho : estado === 'agora' ? T.vivo : T.sup;
+    const corBorda = estado === 'feita' ? T.ganho : estado === 'agora' ? T.vivo : T.linha;
+    const corNum = estado === 'depois' ? T.tinta3 : '#fff';
+    return (
+      <View style={st.no}>
+        {!ultimo && <View style={[st.rail, estado === 'feita' && { backgroundColor: T.ganho }]} />}
+        <View style={[st.dot, { backgroundColor: corDot, borderColor: corBorda }]}>
+          <Text style={[st.dotTxt, { color: corNum }]}>{estado === 'feita' ? '✓' : num}</Text>
+        </View>
+        <View style={st.noBody}>
+          <View style={st.noTit}>
+            <Text style={st.noTitTxt}>{titulo}</Text>
+            {!!tag && <View style={[st.tag, tipo === 'col' ? st.tagCol : st.tagEnt]}><Text style={[st.tagTxt, tipo === 'col' ? st.tagColTxt : st.tagEntTxt]}>{tag}</Text></View>}
+          </View>
+          {!!endereco && <Text style={st.noAddr}>{endereco}</Text>}
+          {(detalhes || []).filter(Boolean).map((d, i) => <Text key={i} style={st.noDet}>{d}</Text>)}
+          {(subs || []).map((s, i) => (
+            <Text key={i} style={[st.sub, s.estado === 'feito' && st.subFeito, s.estado === 'agora' && st.subAgora]}>
+              {s.estado === 'feito' ? '✓ ' : s.estado === 'agora' ? '● ' : '○ '}{s.txt}{s.hora ? ` · ${s.hora}` : ''}
+            </Text>
+          ))}
+          {!!(acoes && acoes.length) && (
+            <View style={st.acoes}>
+              {acoes.map((a, i) => (
+                <TouchableOpacity key={i} style={st.acaoBtn} onPress={a.onPress} activeOpacity={0.8}>
+                  <Text style={st.acaoTxt}>{a.icone} {a.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  const coletaEstado = jaColetou ? 'feita' : 'agora';
+  const coletaAtual = !jaColetou;
 
   return (
     <View style={st.root}>
@@ -174,7 +213,7 @@ export default function Corrida() {
           <View style={{ minWidth: 64, alignItems: 'flex-end' }}><View style={st.statusPill}><Text style={st.statusPillTxt}>{etapaTxt}</Text></View></View>
         </View>
         <View style={st.etapas}>
-          {etapas.map((e, i) => <View key={i} style={[st.etapa, e === 'feita' && st.etapaFeita, e === 'agora' && st.etapaAgora]} />)}
+          {etapasBar.map((e, i) => <View key={i} style={[st.etapa, e === 'feita' && st.etapaFeita, e === 'agora' && st.etapaAgora]} />)}
         </View>
         <View style={st.headerLinha}>
           {!!prazoLabel ? (
@@ -187,59 +226,86 @@ export default function Corrida() {
       </View>
 
       <ScrollView style={st.body} contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
-        <Parada
-          numero="C"
+        {/* Coleta */}
+        <No
+          num="C" tipo="col"
           titulo={`Coleta · ${entrega.coleta_nome || entrega.cliente_nome || 'Ponto de coleta'}`}
           endereco={entrega.coleta_endereco}
-          chips={[entrega.chegada_coleta_em ? `Cheguei ${hora(entrega.chegada_coleta_em)}` : null, jaColetou && entrega.iniciada_em ? `Coletado ${hora(entrega.iniciada_em)}` : null]}
-          estado={jaColetou ? 'feita' : 'agora'}
-          onNavegar={() => navegar(entrega.coleta_lat, entrega.coleta_lng, entrega.coleta_endereco)}
-          onChat={abrirChat}
+          estado={coletaEstado}
+          subs={[
+            { txt: 'Cheguei no local', estado: entrega.chegada_coleta_em ? 'feito' : (coletaAtual && entrega.status === 'aguardando_coleta' ? 'agora' : 'depois'), hora: entrega.chegada_coleta_em ? hora(entrega.chegada_coleta_em) : null },
+            { txt: 'Peguei o pedido', estado: jaColetou ? 'feito' : (entrega.status === 'em_coleta' ? 'agora' : 'depois'), hora: jaColetou && entrega.iniciada_em ? hora(entrega.iniciada_em) : null },
+          ]}
+          acoes={coletaAtual ? [
+            { icone: '➤', label: 'Navegar', onPress: () => navegar(entrega.coleta_lat, entrega.coleta_lng, entrega.coleta_endereco) },
+            ...(abrirChat ? [{ icone: '💬', label: 'Central', onPress: abrirChat }] : []),
+          ] : []}
         />
+        {/* Entregas */}
         {pontos.map((p, i) => {
-          const feito = p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
+          const feito = feitoDe(p);
           const atual = jaColetou && !feito && proxPonto && p.id === proxPonto.id;
+          const estado = feito ? 'feita' : atual ? 'agora' : 'depois';
+          const titulo = totalPontos > 1 ? `Entrega ${i + 1}` : 'Entrega';
           return (
-            <Parada key={p.id}
-              numero={i + 1}
-              titulo={p.nome_fantasia ? `${p.nome_fantasia}` : (totalPontos > 1 ? `Entrega ${i + 1}` : 'Entrega')}
+            <No key={p.id}
+              num={i + 1} tipo="ent"
+              titulo={titulo}
+              tag={p.numero_nf ? `NF ${p.numero_nf}` : (p.nome_fantasia || null)}
               endereco={p.endereco + (p.complemento ? ` · ${p.complemento}` : '')}
-              detalhes={[p.nome && p.nome !== p.nome_fantasia ? p.nome : null, p.numero_nf ? `NF ${p.numero_nf}` : null, p.observacoes ? `"${p.observacoes}"` : null]}
-              chips={[p.chegou_em ? `Cheguei ${hora(p.chegou_em)}` : null, feito && p.finalizado_em ? `Entregue ${hora(p.finalizado_em)}` : null, !feito && !atual && i > 0 ? `depois da ${i}` : null]}
-              estado={feito ? 'feita' : atual ? 'agora' : 'depois'}
-              telefone={p.telefone}
-              onNavegar={() => navegar(p.lat, p.lng, p.endereco)}
-              onLigar={() => ligar(p.telefone)}
-              onChat={abrirChat}
+              detalhes={[p.nome && p.nome !== p.nome_fantasia ? p.nome : null, p.observacoes ? `"${p.observacoes}"` : null, !feito && !atual && i > 0 ? `Depois da entrega ${i}` : null]}
+              estado={estado}
+              ultimo={i === pontos.length - 1}
+              subs={[
+                { txt: 'Cheguei no local', estado: p.chegou_em ? 'feito' : (atual && !p.chegou_em ? 'agora' : 'depois'), hora: p.chegou_em ? hora(p.chegou_em) : null },
+                { txt: 'Confirmei a entrega', estado: feito ? 'feito' : (atual && p.chegou_em ? 'agora' : 'depois'), hora: feito && p.finalizado_em ? hora(p.finalizado_em) : null },
+              ]}
+              acoes={atual ? [
+                { icone: '➤', label: 'Navegar', onPress: () => navegar(p.lat, p.lng, p.endereco) },
+                ...(p.telefone ? [{ icone: '📞', label: 'Ligar', onPress: () => ligar(p.telefone) }] : []),
+                ...(abrirChat ? [{ icone: '💬', label: 'Central', onPress: abrirChat }] : []),
+              ] : []}
             />
           );
         })}
       </ScrollView>
 
-      {/* Uma ação só, fixa: muda de texto conforme a etapa */}
+      {/* Ação única — muda conforme a etapa. Chegar = toque; coletar = deslizar; entregar = abrir protocolo. */}
       <View style={st.rodape}>
         {entrega.status === 'aguardando_coleta' ? (
-          <TouchableOpacity style={st.btn} onPress={avancar} disabled={busy} activeOpacity={0.85}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>Cheguei na coleta</Text>}
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={st.btn} onPress={avancar} disabled={busy} activeOpacity={0.85}>
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>Cheguei na coleta</Text>}
+            </TouchableOpacity>
+            <Text style={st.rodapeSub}>Ao chegar, deslize para confirmar a coleta</Text>
+          </>
         ) : entrega.status === 'em_coleta' ? (
-          <TouchableOpacity style={[st.btn, { backgroundColor: T.ganho }]} onPress={avancar} disabled={busy} activeOpacity={0.85}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>Peguei o pedido, saindo</Text>}
-          </TouchableOpacity>
+          <>
+            <DeslizarParaConfirmar
+              rotulo="Deslize: peguei o pedido" rotuloOk="Coleta confirmada ✓"
+              cor={T.ganho} corFundo={T.ganhoBg} corBorda={T.ganhoBd}
+              ocupado={busy} onConfirmar={avancar} icone="✓" />
+            <Text style={st.rodapeSub}>Confirme só com a mercadoria em mãos</Text>
+          </>
         ) : proxPonto && !proxPonto.chegou_em ? (
-          <TouchableOpacity style={st.btn} onPress={() => chegarEntrega(proxPonto.id)} disabled={busy} activeOpacity={0.85}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>Cheguei na entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>}
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={st.btn} onPress={() => chegarEntrega(proxPonto.id)} disabled={busy} activeOpacity={0.85}>
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>Cheguei na entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>}
+            </TouchableOpacity>
+            <Text style={st.rodapeSub}>Ao chegar, abre o protocolo da entrega</Text>
+          </>
         ) : proxPonto ? (
-          <TouchableOpacity style={[st.btn, { backgroundColor: T.ganho }]}
-            onPress={() => router.push({ pathname: '/concluir', params: { entregaId: entrega.id, pontoId: proxPonto.id, endereco: proxPonto.endereco, numero: concluidos + 1, total: totalPontos } })}
-            activeOpacity={0.85}>
-            <Text style={st.btnTxt}>Marcar entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={[st.btn, { backgroundColor: T.ganho }]}
+              onPress={() => router.push({ pathname: '/concluir', params: { entregaId: entrega.id, pontoId: proxPonto.id, endereco: proxPonto.endereco, numero: concluidos + 1, total: totalPontos } })}
+              activeOpacity={0.85}>
+              <Text style={st.btnTxt}>Marcar entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>
+            </TouchableOpacity>
+            <Text style={st.rodapeSub}>Foto, resultado e observação na próxima tela</Text>
+          </>
         ) : (
           <View style={[st.btn, { backgroundColor: T.ganho }]}><Text style={st.btnTxt}>Corrida concluída ✓</Text></View>
         )}
-        {proxPonto && <Text style={st.rodapeSub}>{entrega.status === 'aguardando_coleta' ? 'Ao chegar, o botão vira "Peguei o pedido"' : entrega.status === 'em_coleta' ? 'Depois disso, a entrega 1 entra em foco' : !proxPonto.chegou_em ? 'Ao chegar, o botão vira "Marcar entrega"' : 'Foto de protocolo obrigatória na próxima tela'}</Text>}
       </View>
 
       <SheetNavegacao alvo={navAlvo} aoFechar={() => setNavAlvo(null)} />
@@ -266,6 +332,27 @@ const st = StyleSheet.create({
   prazo: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   prazoTxt: { fontSize: 12.5, fontWeight: '800' },
   body: { flex: 1 },
+
+  // trilha
+  no: { position: 'relative', paddingLeft: 42, paddingBottom: 18 },
+  rail: { position: 'absolute', left: 15, top: 30, bottom: -2, width: 2, backgroundColor: T.linha },
+  dot: { position: 'absolute', left: 3, top: 2, width: 28, height: 28, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  dotTxt: { fontSize: 13, fontWeight: '800' },
+  noBody: { backgroundColor: T.sup, borderWidth: 1, borderColor: T.linha, borderRadius: 14, padding: 13 },
+  noTit: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  noTitTxt: { fontSize: 15, fontWeight: '800', color: T.tinta },
+  tag: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  tagCol: { backgroundColor: '#eaf1fb' }, tagEnt: { backgroundColor: '#eef7f1' },
+  tagTxt: { fontSize: 11, fontWeight: '800' },
+  tagColTxt: { color: '#2b5a95' }, tagEntTxt: { color: '#1f8a5e' },
+  noAddr: { fontSize: 13, color: T.tinta2, marginTop: 3, lineHeight: 18 },
+  noDet: { fontSize: 12.5, color: T.tinta3, marginTop: 2, fontWeight: '600' },
+  sub: { fontSize: 12.5, color: T.tinta3, fontWeight: '700', marginTop: 6 },
+  subFeito: { color: T.ganhoEsc }, subAgora: { color: T.vivo },
+  acoes: { flexDirection: 'row', gap: 8, marginTop: 11, flexWrap: 'wrap' },
+  acaoBtn: { backgroundColor: T.suave, borderWidth: 1, borderColor: T.linha, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 },
+  acaoTxt: { color: T.primario, fontWeight: '800', fontSize: 13 },
+
   rodape: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 26, backgroundColor: T.sup, borderTopWidth: 1, borderTopColor: T.linha },
   btn: { backgroundColor: T.primario, borderRadius: 16, paddingVertical: 18, alignItems: 'center', justifyContent: 'center' },
   btnTxt: { color: '#fff', fontSize: 17, fontWeight: '800' },

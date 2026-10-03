@@ -60,10 +60,25 @@ const PROXIMO = {
   em_coleta:             'em_rota',
 };
 
-function Av({ nome, size = 38 }) {
+// Distância em linha reta (km) entre dois pontos (Haversine). Usada no card para
+// mostrar "até a coleta" a partir da posição atual do GPS do motoboy.
+function distKm(aLat, aLng, bLat, bLng) {
+  if (aLat == null || aLng == null || bLat == null || bLng == null) return null;
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (bLat - aLat) * rad, dLng = (bLng - aLng) * rad;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
+const fmtKm = (v) => (v == null || !isFinite(v)) ? null : (v < 10 ? v.toFixed(1) : Math.round(v)) + ' km';
+
+function Av({ nome, foto, size = 38 }) {
   const ini = (nome || '?').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
   const cores = [C.azulV, C.azulP, '#534AB7', '#0F6E56', '#854F0B'];
   const bg = cores[ini.charCodeAt(0) % cores.length];
+  // Foto do entregador (selfie do cadastro) quando houver; senão, as iniciais.
+  if (foto) {
+    return <Image source={{ uri: foto }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg }} />;
+  }
   return (
     <View style={[s.av, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
       <Text style={[s.avTxt, { fontSize: size * 0.34 }]}>{ini}</Text>
@@ -78,6 +93,7 @@ export default function Home() {
   const [eu, setEu]       = useState(null);
   const [fila, setFila]   = useState([]);
   const [ordemRota, setOrdemRota] = useState([]); // entrega_ids na ordem otimizada
+  const [posAtual, setPosAtual] = useState(null); // {lat,lng} do GPS, p/ distância até a coleta
   const [qtdOfertas, setQtdOfertas] = useState(0);
   // "GPS enviado há X s": a validade da posição no servidor é de 10 min (Onda 10); o motoboy
   // vê aqui, antes de descobrir que não recebe corrida.
@@ -137,6 +153,11 @@ export default function Home() {
         const ordem = [];
         (r.paradas || []).forEach(p => { if (p.entrega_id && !ordem.includes(p.entrega_id)) ordem.push(p.entrega_id); });
         setOrdemRota(ordem);
+      }).catch(() => {});
+      // Posição atual (última conhecida — o GPS reporta a cada ~15s) para calcular
+      // a distância até a coleta no card. Não bloqueia; se não houver, o card omite.
+      Location.getLastKnownPositionAsync().then(p => {
+        if (p?.coords) setPosAtual({ lat: p.coords.latitude, lng: p.coords.longitude });
       }).catch(() => {});
     } catch (e) {
       // Qualquer falha ao carregar os dados do motoboy (token expirado/inválido,
@@ -342,14 +363,28 @@ export default function Home() {
     const q = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(endereco || '');
     if (q) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`).catch(() => {});
   };
-  // KPIs (km / valor / paradas) reusados nos dois cards.
-  const Kpis = (e) => (
-    <View style={s.kpiRow}>
-      <View style={s.kpi}><Text style={s.kpiB}>{e.distancia_km ? Number(e.distancia_km).toFixed(1) + ' km' : '—'}</Text><Text style={s.kpiL}>Distância</Text></View>
-      {reais(e.valor_motoboy_cent) ? <View style={s.kpi}><Text style={[s.kpiB, s.kpiVal]}>{reais(e.valor_motoboy_cent)}</Text><Text style={s.kpiL}>Você recebe</Text></View> : null}
-      <View style={s.kpi}><Text style={s.kpiB}>{(e.pontos || []).length || 1}</Text><Text style={s.kpiL}>{((e.pontos || []).length || 1) > 1 ? 'Paradas' : 'Parada'}</Text></View>
-    </View>
-  );
+  // KPIs do card: distância até o próximo alvo (GPS → coleta, ou → entrega depois
+  // de coletar), distância da rota (coleta → entrega) e o valor a receber.
+  const Kpis = (e) => {
+    const n = (v) => (v == null || v === '') ? null : Number(v);
+    const jaColetou = e.status === 'em_rota';
+    const pts = e.pontos || [];
+    const proxPonto = jaColetou ? pts.find(p => !p.finalizado_em && p.lat != null) || pts.find(p => p.lat != null) : null;
+    const alvoLat = jaColetou ? n(proxPonto?.lat) : n(e.coleta_lat);
+    const alvoLng = jaColetou ? n(proxPonto?.lng) : n(e.coleta_lng);
+    const ateAlvo = posAtual ? fmtKm(distKm(posAtual.lat, posAtual.lng, alvoLat, alvoLng)) : null;
+    // Rota coleta→entrega: usa a distância calculada; se faltar, estima em linha reta.
+    const rota = e.distancia_km
+      ? fmtKm(Number(e.distancia_km))
+      : fmtKm(distKm(n(e.coleta_lat), n(e.coleta_lng), n(pts[0]?.lat), n(pts[0]?.lng)));
+    return (
+      <View style={s.kpiRow}>
+        <View style={s.kpi}><Text style={s.kpiB}>{ateAlvo || '—'}</Text><Text style={s.kpiL}>{jaColetou ? 'Até a entrega' : 'Até a coleta'}</Text></View>
+        <View style={s.kpi}><Text style={s.kpiB}>{rota || '—'}</Text><Text style={s.kpiL}>Coleta→entrega</Text></View>
+        {reais(e.valor_motoboy_cent) ? <View style={s.kpi}><Text style={[s.kpiB, s.kpiVal]}>{reais(e.valor_motoboy_cent)}</Text><Text style={s.kpiL}>Você recebe</Text></View> : null}
+      </View>
+    );
+  };
   // Corridas ativas ordenadas pela rota otimizada (1ª, 2ª, 3ª…).
   const ativas = [...emColeta, ...emRota];
   const ativasOrdenadas = ordemRota.length
@@ -385,7 +420,7 @@ export default function Home() {
           <Switch value={eu.online} onValueChange={toggleOnline}
             trackColor={{ false: '#cbd5e1', true: C.ok }} thumbColor="#fff"
             ios_backgroundColor="#cbd5e1" />
-          <Av nome={eu.nome_completo} size={38} />
+          <Av nome={eu.nome_completo} foto={eu.foto_url} size={38} />
         </View>
       </View>
 
