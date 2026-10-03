@@ -227,8 +227,11 @@ export default function Home() {
             } else if (evento === 'oferta.encerrada') {
               api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
             } else if (evento === 'entrega.atribuida') {
-              // A central atribuiu uma corrida a este motoboy: recarrega a lista na hora.
+              // A central atribuiu uma corrida a este motoboy (ou ele aceitou uma oferta):
+              // recarrega a lista na hora e reconta as ofertas — sem isto, o card de
+              // "corrida disponível" ficava preso na tela depois do aceite até o próximo foco.
               carregar();
+              api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
             } else if (evento === 'entrega.editada') {
               // A central alterou uma corrida ativa: recarrega para mostrar os novos dados.
               carregar();
