@@ -20,7 +20,11 @@ let _somCarregado = null;
 
 function _player_do(nome) {
   const { createAudioPlayer, setAudioModeAsync } = require('expo-audio');
-  try { setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'mixWithOthers' }); } catch {}
+  // shouldPlayInBackground=false de propósito: o alerta interno (expo-audio) é só para o
+  // app em primeiro plano; em segundo plano/fechado quem toca o som é o CANAL de notificação
+  // (lx_subida.wav). Manter true fazia o expo-audio declarar FOREGROUND_SERVICE_MEDIA_PLAYBACK
+  // na Play (impróprio para um som de alerta) — e geraria som duplicado em background.
+  try { setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: false, interruptionMode: 'mixWithOthers' }); } catch {}
   if (_player && _somCarregado === nome) return _player;
   try { _player?.remove?.(); } catch {}
   _player = createAudioPlayer(SONS[nome] || SONS.subida);

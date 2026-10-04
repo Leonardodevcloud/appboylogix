@@ -13,6 +13,10 @@ const { withAndroidManifest } = require('@expo/config-plugins');
 const REMOVER = [
   'android.permission.RECORD_AUDIO',
   'android.permission.MODIFY_AUDIO_SETTINGS',
+  // O expo-audio injeta FOREGROUND_SERVICE_MEDIA_PLAYBACK, mas o app não reproduz mídia:
+  // só toca som de alerta em primeiro plano (em background, o som vem do canal de
+  // notificação). Declarar "reprodução de mídia" na Play seria impróprio — removemos.
+  'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
 ];
 
 module.exports = function removerPermissoes(config) {
