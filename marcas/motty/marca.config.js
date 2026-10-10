@@ -5,7 +5,7 @@
 module.exports = {
   // Identidade no backend e exibição
   slug: 'motty',                            // slug da empresa no Logix (cadastro e login por e-mail)
-  nomeApp: 'Motty Entregas',                // nome sob o ícone / título na loja
+  nomeApp: 'Motty',                         // nome sob o ícone (launcher) + título das notificações push
   nomeExibicao: 'Motty Entregas Rápidas',   // nome no login do app
 
   // Identidade nativa (Play Store) — IMUTÁVEL depois de publicado

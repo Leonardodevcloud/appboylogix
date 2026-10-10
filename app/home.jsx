@@ -363,8 +363,7 @@ export default function Home() {
         <View style={s.offCenter}>
           <View style={s.offHero}>
             <View style={s.offBadge}>
-              <View style={s.offRing} />
-              <View style={s.offBar} />
+              <Image source={require('../assets/icones/power.png')} style={s.offPower} resizeMode="contain" />
             </View>
             <Text style={s.offHeroTit}>Você está offline</Text>
             <Text style={s.offHeroSub}>Fique online para ver e aceitar corridas. Enquanto estiver offline, o restante do app fica indisponível.</Text>
@@ -648,8 +647,9 @@ const s = StyleSheet.create({
   offCenter: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 40 },
   offHero: { backgroundColor: C.navy900, borderRadius: 26, paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(181,212,244,0.18)' },
   offBadge: { width: 76, height: 76, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(181,212,244,0.28)', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
-  offRing: { width: 30, height: 30, borderRadius: 15, borderWidth: 3, borderColor: T.claro },
-  offBar: { position: 'absolute', top: 19, width: 3, height: 15, borderRadius: 2, backgroundColor: T.claro, borderWidth: 2, borderColor: C.navy900 },
+  // Ícone de power como PNG nítido colorido via tintColor — substitui o desenho antigo
+  // (anel + barra com borda de máscara), que renderizava irregular no device.
+  offPower: { width: 40, height: 40, tintColor: T.claro },
   offHeroTit: { color: '#fff', fontSize: 22, fontWeight: '800' },
   offHeroSub: { color: T.claro, fontSize: 14, textAlign: 'center', lineHeight: 20, marginTop: 8, maxWidth: 300 },
   offHeroBtn: { marginTop: 24, backgroundColor: '#1f9d6b', borderRadius: 16, paddingVertical: 16, alignSelf: 'stretch', alignItems: 'center' },

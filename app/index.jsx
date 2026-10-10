@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Image,
-  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
+  Animated, AccessibilityInfo
 } from 'react-native';
 import { router } from 'expo-router';
 import { api, EMPRESA_NOME } from '../src/api';
@@ -14,9 +15,36 @@ export default function Login() {
   const [enviando, setEnviando]     = useState(false);
   const [erro, setErro]             = useState('');
 
+  // Aura azul pulsante atrás da logo (aprovada no mockup em 10/10/2026). Feita com
+  // círculos translúcidos concêntricos (não há lib de blur/gradiente no projeto) que
+  // pulsam juntos em opacidade + escala. Respeita "reduzir movimento": com a opção
+  // ligada, a aura fica estática, sem pulsar.
+  const pulso = useRef(new Animated.Value(0)).current;
+  const [reduzMov, setReduzMov] = useState(false);
+
   useEffect(() => {
     api.isLogado().then(ok => { if (ok) router.replace('/home'); else setCarregando(false); }).catch(e => { console.log('[LOGIN] isLogado erro:', e?.message); setCarregando(false); });
   }, []);
+
+  useEffect(() => {
+    let vivo = true;
+    AccessibilityInfo.isReduceMotionEnabled().then(v => { if (vivo) setReduzMov(!!v); }).catch(() => {});
+    const sub = AccessibilityInfo.addEventListener?.('reduceMotionChanged', v => { if (vivo) setReduzMov(!!v); });
+    return () => { vivo = false; sub?.remove?.(); };
+  }, []);
+
+  useEffect(() => {
+    if (reduzMov) { pulso.stopAnimation(); return; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulso, { toValue: 1, duration: 1900, useNativeDriver: true }),
+      Animated.timing(pulso, { toValue: 0, duration: 1900, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [reduzMov]);
+
+  const auraOp = reduzMov ? 0.45 : pulso.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.6] });
+  const auraSc = reduzMov ? 1    : pulso.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.14] });
 
   async function entrar() {
     setErro('');
@@ -35,11 +63,16 @@ export default function Login() {
   );
 
   return (
-    <KeyboardAvoidingView style={s.root} behavior="padding">
+    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         {/* Marca da empresa (white-label) */}
         <View style={s.hero}>
-          <Image source={require('../assets/marca/logo.png')} style={s.logoImg} resizeMode="contain" />
+          <View style={s.logoWrap}>
+            <Animated.View pointerEvents="none" style={[s.aura, s.auraG, { opacity: auraOp, transform: [{ scale: auraSc }] }]} />
+            <Animated.View pointerEvents="none" style={[s.aura, s.auraM, { opacity: auraOp, transform: [{ scale: auraSc }] }]} />
+            <Animated.View pointerEvents="none" style={[s.aura, s.auraP, { opacity: auraOp, transform: [{ scale: auraSc }] }]} />
+            <Image source={require('../assets/marca/logo.png')} style={s.logoImg} resizeMode="contain" />
+          </View>
           <Text style={s.empresaNome}>{EMPRESA_NOME}</Text>
         </View>
 
@@ -99,12 +132,22 @@ const AZUL = T.primario;
 const AZUL_VIVO = T.vivo;
 
 const s = StyleSheet.create({
-  root:       { flex: 1, backgroundColor: NAV },
+  // Fundo branco: antes era navy e, ao abrir/fechar o teclado, o padding do
+  // KeyboardAvoidingView revelava essa faixa navy embaixo do card branco ("faixa
+  // azul vazando"). Com a raiz branca, nada contrasta — o topo navy vem do hero.
+  root:       { flex: 1, backgroundColor: '#fff' },
   splash:     { flex: 1, backgroundColor: NAV, justifyContent: 'center', alignItems: 'center' },
   scroll:     { flexGrow: 1 },
   hero:       { backgroundColor: NAV, padding: 32, paddingTop: 72, paddingBottom: 44, alignItems: 'center' },
   logoBox:    { width: 72, height: 72, borderRadius: 20, backgroundColor: AZUL, justifyContent: 'center', alignItems: 'center', marginBottom: 18 },
-  logoImg:    { width: 96, height: 96, marginBottom: 16 },
+  logoWrap:   { width: 150, height: 150, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  // Aura azul (decorativa, não é cor de marca — fica fora da paleta de propósito,
+  // como uma sombra). Três círculos: do maior/mais fraco ao menor/mais forte.
+  aura:       { position: 'absolute', borderRadius: 999 },
+  auraG:      { top: 0,  left: 0,  width: 150, height: 150, backgroundColor: 'rgba(55,138,221,0.28)' },
+  auraM:      { top: 17, left: 17, width: 116, height: 116, backgroundColor: 'rgba(55,138,221,0.36)' },
+  auraP:      { top: 32, left: 32, width: 86,  height: 86,  backgroundColor: 'rgba(74,150,230,0.50)' },
+  logoImg:    { width: 96, height: 96 },
   logoTxt:    { color: '#E6F1FB', fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
   empresaNome:{ color: '#fff', fontSize: 22, fontWeight: '800', letterSpacing: -0.3, textAlign: 'center' },
   form:       { flex: 1, backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingTop: 32 },
