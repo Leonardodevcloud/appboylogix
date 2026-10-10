@@ -1,39 +1,38 @@
 // ============================================================
-//  MARCA DO CLIENTE (white-label) — troque ESTE arquivo por build/cliente.
-//  O resto do app lê daqui. Nenhuma cor/nome/slug fica espalhado no código.
+//  MARCA: MOTTY ENTREGAS RÁPIDAS (2º cliente white-label, 22/09/2026)
+//  Ativa com: node scripts/set-marca.js motty  (ou MARCA=motty no profile EAS)
 // ============================================================
 module.exports = {
   // Identidade no backend e exibição
-  slug: 'ig',                              // EMPRESA_SLUG (tenant no Logix)
-  nomeApp: 'IG Entregas',                  // nome sob o ícone / título na loja
-  nomeExibicao: 'IG Entregas Rápidas',     // nome mostrado no login do app
+  slug: 'motty',                            // slug da empresa no Logix (cadastro e login por e-mail)
+  nomeApp: 'Motty',                         // nome sob o ícone (launcher) + título das notificações push
+  nomeExibicao: 'Motty Entregas Rápidas',   // nome no login do app
 
-  // Identidade nativa (Play Store)
-  // 1º cliente reaproveita o package base (casa com o google-services.json atual).
-  // Cada NOVO cliente recebe package próprio + google-services.json próprio.
-  pacote: 'br.com.logix.motoboy',
-  scheme: 'igentregas',
+  // Identidade nativa (Play Store) — IMUTÁVEL depois de publicado
+  pacote: 'br.com.motty.entregador',
+  scheme: 'mottyentregas',
 
-  // Canal do EAS que o app INSTALADO escuta. Não é o slug: o APK em uso foi construído
-  // pelo profile `preview`, então é nesse canal que o OTA precisa ser publicado.
-  // Ao migrar para uma build do profile `ig-loja`, trocar para 'ig'.
-  canal: 'preview',
+  // Canal do EAS que o app instalado escuta = `channel` dos profiles `motty` / `motty-loja`.
+  canal: 'motty',
 
-  // Paleta IG (Manual de Marca v1.0)
+  // Push: google-services.json do app Android `br.com.motty.entregador` (Firebase → Adicionar app).
+  // Enquanto o arquivo não existir, app.config.js cai no da raiz (IG) e o push NÃO chega.
+  googleServices: './marcas/motty/google-services.json',
+
+  // Paleta Motty (mesma do white-label do painel: primária #1A4A83, secundária #12386B,
+  // destaque #FB5012, clara #D8E4F3). No app: profundo = fundo/splash, primario = dominante,
+  // vivo = destaques/ofertas, claro = apoio.
   cores: {
-    profundo: '#042C53',   // fundo/splash/adaptive bg
-    primario: '#185FA5',   // dominante
-    vivo:     '#378ADD',   // destaques
-    claro:    '#B5D4F4',   // apoio
+    profundo: '#12386B',
+    primario: '#1A4A83',
+    vivo:     '#FB5012',
+    claro:    '#D8E4F3',
   },
 
-  // Arte (geradas a partir da logo oficial)
   icones: {
-    icon:     './assets/marca/ig/icon.png',
-    adaptive: './assets/marca/ig/adaptive-icon.png',
-    splash:   './assets/marca/ig/splash-icon.png',
+    icon:     './assets/marca/motty/icon.png',
+    adaptive: './assets/marca/motty/adaptive-icon.png',
+    splash:   './assets/marca/motty/splash-icon.png',
   },
-  // Logo exibida DENTRO do app (login, splash JS, home). Caminho fixo por build:
-  // basta substituir assets/marca/logo.png pela logo do cliente (símbolo transparente).
   logoInApp: './assets/marca/logo.png',
 };

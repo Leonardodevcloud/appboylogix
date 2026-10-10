@@ -32,7 +32,7 @@ function bannerDoEvento(evento) {
 function bannerDaAntecipacao(status) {
   switch (status) {
     case 'paga':      return { tipo: 'dinheiro', titulo: 'Antecipação paga!', sub: 'O Pix foi enviado. Toque para ver quanto caiu.', rota: '/antecipar?aba=historico' };
-    case 'recusada':  return { tipo: 'recusa', titulo: 'Antecipação recusada', sub: 'Toque para ver o motivo', rota: '/antecipar?aba=historico' };
+    case 'recusada':  return { tipo: 'recusa', titulo: 'Antecipação recusada', sub: 'O valor voltou para o seu saldo. Toque para ver o motivo.', rota: '/antecipar?aba=historico' };
     case 'devolvida': return { tipo: 'recusa', titulo: 'O banco devolveu o Pix', sub: 'O valor voltou para o seu saldo. Confira sua chave.', rota: '/antecipar?aba=historico' };
     default: return null;
   }
