@@ -22,6 +22,10 @@ function navegarPorNotificacao(dados) {
       if (dados.entregaId) router.push('/chat?entregaId=' + dados.entregaId + '&tipo=' + (dados.chatTipo || 'suporte'));
       else router.push('/mensagens');
       break;
+    case 'antecipacao':
+      // Paga, recusada ou devolvida: o histórico mostra a conta (pediu, taxa, recebeu).
+      router.push('/antecipar?aba=historico');
+      break;
     case 'atribuida':
     case 'atribuida_lote':
     case 'editada':
@@ -45,6 +49,7 @@ export default function Layout() {
       if (!dados || !dados.tipo) return;
       if (dados.tipo === 'oferta' && dados.ofertaId) anotarDestino('/oferta-detalhe?oferta_id=' + dados.ofertaId);
       else if (dados.tipo === 'chat' && dados.entregaId) anotarDestino('/chat?entregaId=' + dados.entregaId + '&tipo=' + (dados.chatTipo || 'suporte'));
+      else if (dados.tipo === 'antecipacao') anotarDestino('/antecipar?aba=historico');
     });
     // App ja aberto: toque na notificacao.
     const limpar = aoTocarNotificacao(navegarPorNotificacao);

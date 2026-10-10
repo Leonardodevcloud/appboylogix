@@ -14,6 +14,7 @@ import { getToken } from '../api';
 import { abrirSocket, FECHAMENTO_SESSAO } from './socket';
 import { alertaCorrida } from '../utils/alerta';
 import { mostrarBanner } from '../state/banner';
+import { avisarAntecipacao } from '../state/antecipacao';
 
 // Mapeia o evento da central para o banner in-app (ícone/cor/texto/rota).
 function bannerDoEvento(evento) {
@@ -24,6 +25,15 @@ function bannerDoEvento(evento) {
     case 'entrega.removida':  return { tipo: 'removida',  titulo: 'Corrida removida', sub: 'A central removeu uma corrida', rota: '/home' };
     case 'entrega.cancelada': return { tipo: 'cancelada', titulo: 'Corrida cancelada', sub: 'A central cancelou uma corrida', rota: '/home' };
     case 'ponto.liberado':    return { tipo: 'ponto',     titulo: 'Ponto liberado', sub: 'Você já pode marcar a entrega', rota: '/home' };
+    default: return null;
+  }
+}
+
+function bannerDaAntecipacao(status) {
+  switch (status) {
+    case 'paga':      return { tipo: 'dinheiro', titulo: 'Antecipação paga!', sub: 'O Pix foi enviado. Toque para ver quanto caiu.', rota: '/antecipar?aba=historico' };
+    case 'recusada':  return { tipo: 'recusa', titulo: 'Antecipação recusada', sub: 'Toque para ver o motivo', rota: '/antecipar?aba=historico' };
+    case 'devolvida': return { tipo: 'recusa', titulo: 'O banco devolveu o Pix', sub: 'O valor voltou para o seu saldo. Confira sua chave.', rota: '/antecipar?aba=historico' };
     default: return null;
   }
 }
@@ -69,7 +79,15 @@ async function abrir() {
 
     ws.onmessage = (ev) => {
       try {
-        const { evento } = JSON.parse(ev.data);
+        const { evento, dados } = JSON.parse(ev.data);
+        // Antecipação: a tela aberta recarrega e o banner diz o que aconteceu. Sem som de
+        // corrida — não é chamado para trabalhar, é aviso de dinheiro.
+        if (evento === 'antecipacao.atualizada') {
+          avisarAntecipacao(dados);
+          const b = bannerDaAntecipacao(dados && dados.status);
+          if (b) mostrarBanner(b);
+          return;
+        }
         if (EVENTOS_ALERTA.has(evento)) {
           dispararAlerta();
           const b = bannerDoEvento(evento);

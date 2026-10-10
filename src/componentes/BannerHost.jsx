@@ -11,6 +11,8 @@ const TIPOS = {
   editada:   { ico: '✏️', cor: '#C98A1A' },
   removida:  { ico: '↩️', cor: '#D0584F' },
   ponto:     { ico: '✅', cor: '#6B4FC9' },
+  dinheiro:  { ico: '💸', cor: T.ganho },
+  recusa:    { ico: '⚠️', cor: T.alerta },
   default:   { ico: '🔔', cor: T.primario },
 };
 const DURACAO = 4200; // ms na tela

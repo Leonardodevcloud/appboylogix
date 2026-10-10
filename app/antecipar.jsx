@@ -4,21 +4,24 @@
 // A tela bloqueia o que já sabe que falha, para não frustrar; mas quem decide é o
 // servidor, que reavalia no pedido e de novo antes de pagar.
 //
-// Decisões de tela (mockup aprovado em 16/09/2026):
+// Decisões de tela (mockups aprovados em 16/09 e 10/10/2026):
 //  · o saldo é a primeira coisa, grande — é a pergunta que traz ele aqui;
 //  · usar a gratuidade é ESCOLHA dele: o vale se encerra no uso, então às vezes vale
 //    guardar para um saque maior. O texto diz o que ele perde em cada opção;
-//  · a conta (pede / taxa / recebe) aparece enquanto digita, nunca depois;
-//  · sem valores sugeridos: ele digita. O único atalho é "usar o máximo", que é o
-//    número que ele não sabe de cabeça.
+//  · a conta (pede / taxa / recebe) aparece enquanto digita, nunca depois — e a regra da
+//    taxa da central aparece escrita ("4,5% + R$ 0,40"), sem surpresa;
+//  · pedido em análise: dá para DESISTIR. Pagamento a caminho: não dá (o dinheiro já
+//    está saindo) — a tela mostra as etapas em vez do botão;
+//  · a tela se atualiza sozinha quando a central paga/recusa (WebSocket global).
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, StatusBar, RefreshControl, Alert,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
 import { T, reais } from '../src/tema';
+import { ouvirAntecipacao } from '../src/state/antecipacao';
 
 const centavos = (texto) => {
   const n = Math.round(Number(String(texto).replace(/[^\d,]/g, '').replace(',', '.')) * 100);
@@ -32,17 +35,33 @@ const dataHora = (iso) => {
       + ' · ' + d.toLocaleTimeString('pt-BR', { timeZone: 'America/Bahia', hour: '2-digit', minute: '2-digit' });
   } catch { return ''; }
 };
+const horaDe = (iso) => {
+  try { return new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Bahia', hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
+};
+
+// Como cada estado aparece para ELE (palavras dele, não do sistema).
+const SELO = {
+  aguardando: { tx: 'em análise', st: 'seloEspera' },
+  processando: { tx: 'a caminho', st: 'seloInfo' },
+  paga: { tx: 'recebido', st: 'seloOk' },
+  recusada: { tx: 'recusado', st: 'seloErro' },
+  devolvida: { tx: 'devolvido', st: 'seloErro' },
+  cancelada: { tx: 'cancelado', st: 'seloNeutro' },
+  estornada: { tx: 'estornado', st: 'seloNeutro' },
+};
 
 export default function Antecipar() {
-  const [info, setInfo] = useState(null);          // saldo, limites, gratuidade
+  const params = useLocalSearchParams();
+  const [info, setInfo] = useState(null);          // saldo, limites, gratuidade, pedido aberto
   const [sim, setSim] = useState(null);            // taxa e recebe do valor digitado
   const [historico, setHistorico] = useState([]);
   const [valor, setValor] = useState('');
   const [usarGratuidade, setUsarGratuidade] = useState(true);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [aba, setAba] = useState('pedir');
+  const [aba, setAba] = useState(params.aba === 'historico' ? 'historico' : 'pedir');
   const temporizador = useRef(null);
 
   const carregar = useCallback(async () => {
@@ -59,6 +78,9 @@ export default function Antecipar() {
   }, []);
 
   useEffect(() => { carregar(); }, [carregar]);
+  // A central pagou/recusou/o banco devolveu: recarrega sem ele precisar puxar a tela.
+  useEffect(() => ouvirAntecipacao(() => carregar()), [carregar]);
+  useEffect(() => { if (params.aba === 'historico') setAba('historico'); }, [params.aba]);
 
   // Simula no servidor a cada mudança: a taxa, os limites e o vale são regra dele, não
   // da tela. O atraso evita uma chamada por tecla digitada.
@@ -75,25 +97,41 @@ export default function Antecipar() {
     return () => clearTimeout(temporizador.current);
   }, [valor, usarGratuidade]);
 
-  const emAnalise = historico.find((h) => h.status === 'aguardando');
+  // O servidor diz qual pedido está aberto; o histórico é a reserva (versão antiga da API).
+  const aberto = (info && info.pedido_aberto)
+    || historico.find((h) => h.status === 'aguardando' || h.status === 'processando') || null;
 
   async function solicitar() {
     const cent = centavos(valor);
-    if (!cent) return;
+    if (!cent || !sim || !sim.pode) return;
     setEnviando(true);
     try {
       const r = await api.post('/app/antecipacoes', { valor_cent: cent, usar_gratuidade: usarGratuidade });
       setValor('');
       await carregar();
+      const conta = `Você pediu ${reais(r.valor_cent)}${Number(r.taxa_cent) ? `, taxa de ${reais(r.taxa_cent)}` : ' sem taxa'}, e recebe ${reais(r.recebe_cent)} no Pix.`;
       Alert.alert(
         r.status === 'paga' ? 'Pagamento enviado' : 'Pedido recebido',
         r.status === 'paga'
-          ? 'O valor já foi enviado para a sua chave Pix.'
-          : 'Seu pedido está em análise. Você recebe um aviso assim que for pago.',
+          ? `${conta} Já foi enviado para a sua chave Pix. Saíram ${reais(r.valor_cent)} do seu saldo.`
+          : `${conta} Seu pedido está em análise — você recebe um aviso quando o Pix cair.`,
       );
     } catch (e) {
       Alert.alert('Não foi possível', e.message || 'Tente novamente em instantes.');
     } finally { setEnviando(false); }
+  }
+
+  function desistir() {
+    if (!aberto) return;
+    Alert.alert('Desistir do pedido?', `O pedido de ${reais(aberto.valor_cent)} será cancelado. Você pode pedir de novo na hora.`, [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Desistir', style: 'destructive', onPress: async () => {
+        setCancelando(true);
+        try { await api.post(`/app/antecipacoes/${aberto.id}/cancelar`, {}); await carregar(); }
+        catch (e) { Alert.alert('Não foi possível', e.message || 'Tente novamente.'); await carregar(); }
+        finally { setCancelando(false); }
+      } },
+    ]);
   }
 
   if (carregando) {
@@ -104,15 +142,16 @@ export default function Antecipar() {
     );
   }
 
-  const podePedir = sim && sim.pode && !emAnalise && !enviando;
+  const podePedir = sim && sim.pode && !aberto && !enviando;
   const maximo = info && info.maximo_cent ? info.maximo_cent : 0;
+  const aCaminho = aberto && aberto.status === 'processando';
 
   return (
     <View style={st.tela}>
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
 
       <View style={st.cab}>
-        <TouchableOpacity style={st.voltar} onPress={() => router.back()} hitSlop={10}>
+        <TouchableOpacity style={st.voltar} onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar">
           <Text style={st.voltarTx}>‹</Text>
         </TouchableOpacity>
         <Text style={st.cabTitulo}>{aba === 'pedir' ? 'Antecipar saldo' : 'Meus saques'}</Text>
@@ -125,25 +164,45 @@ export default function Antecipar() {
         {aba === 'pedir' ? (
           <>
             <View style={st.hero}>
-              <Text style={st.heroRot}>Disponível para antecipar</Text>
+              <Text style={st.heroRot}>{aCaminho ? 'Seu saldo' : 'Disponível para antecipar'}</Text>
               <Text style={st.heroVal}>{reais(info.saldo_cent || 0)}</Text>
-              <Text style={st.heroNota}>do que você já ganhou em corridas concluídas</Text>
+              <Text style={st.heroNota}>
+                {aCaminho ? `${reais(aberto.valor_cent)} dele estão a caminho da sua conta` : 'do que você já ganhou em corridas concluídas'}
+              </Text>
             </View>
 
             {!info.disponivel ? (
               <Faixa tipo="nega"
                 titulo="Antecipação indisponível"
                 texto="Sua central não está com a antecipação ligada no momento." />
-            ) : emAnalise ? (
+            ) : aCaminho ? (
+              <>
+                <Faixa tipo="info"
+                  titulo="Pagamento a caminho"
+                  texto="A central aprovou seu pedido e o banco está processando o Pix. Você recebe um aviso quando cair." />
+                <View style={[st.bloco, { gap: 14 }]}>
+                  <Passo feito titulo="Pedido recebido" sub={dataHora(aberto.criado_em)} />
+                  <Passo feito titulo="Aprovado pela central" />
+                  <Passo atual numero="3" titulo="Pix sendo enviado" sub="para a sua chave cadastrada" />
+                </View>
+                <View style={st.bloco}>
+                  <Resumo pede={aberto.valor_cent} taxa={aberto.taxa_cent} recebe={aberto.recebe_cent} gratis={aberto.gratuidade} rotuloRecebe="Vai cair na sua conta" />
+                </View>
+                <Text style={st.rodape}>Com o pagamento a caminho não dá mais para desistir — o dinheiro já está saindo.</Text>
+              </>
+            ) : aberto ? (
               <>
                 <Faixa tipo="espera"
                   titulo="Seu pedido está em análise"
-                  texto={`${reais(emAnalise.valor_cent)} solicitados em ${dataHora(emAnalise.criado_em)}. Você recebe um aviso assim que for pago.`} />
+                  texto={`${reais(aberto.valor_cent)} pedidos às ${horaDe(aberto.criado_em)}. Você recebe um aviso assim que o Pix cair.`} />
                 <View style={st.bloco}>
                   <Text style={st.rotulo}>Pedido em análise</Text>
-                  <Resumo pede={emAnalise.valor_cent} taxa={emAnalise.taxa_cent} recebe={emAnalise.recebe_cent} gratis={emAnalise.gratuidade} />
-                  <Text style={st.ajuda}>Enquanto este pedido não for resolvido, não dá para fazer outro.</Text>
+                  <Resumo pede={aberto.valor_cent} taxa={aberto.taxa_cent} recebe={aberto.recebe_cent} gratis={aberto.gratuidade} />
                 </View>
+                <TouchableOpacity style={st.botaoDesistir} activeOpacity={0.85} onPress={desistir} disabled={cancelando}>
+                  {cancelando ? <ActivityIndicator color={T.alerta} /> : <Text style={st.botaoDesistirTx}>Desistir do pedido</Text>}
+                </TouchableOpacity>
+                <Text style={st.rodape}>Dá para desistir enquanto a central não começou a pagar. Desistindo, você pode pedir de novo na hora.</Text>
               </>
             ) : !info.saldo_cent ? (
               <Faixa tipo="nega"
@@ -159,6 +218,9 @@ export default function Antecipar() {
                         style={[st.switch, usarGratuidade && st.switchOn]}
                         activeOpacity={0.8}
                         onPress={() => setUsarGratuidade((v) => !v)}
+                        accessibilityRole="switch"
+                        accessibilityState={{ checked: usarGratuidade }}
+                        accessibilityLabel="Usar a gratuidade neste saque"
                       >
                         <View style={[st.switchBola, usarGratuidade && st.switchBolaOn]} />
                       </TouchableOpacity>
@@ -183,8 +245,13 @@ export default function Antecipar() {
                       keyboardType="numeric"
                       placeholder="0,00"
                       placeholderTextColor={T.tinta3}
+                      accessibilityLabel="Valor que você quer antecipar"
                     />
                   </View>
+
+                  {!!info.taxa_descricao && (
+                    <Text style={st.ajuda}>{`Taxa da central: ${info.taxa_descricao}. A taxa é descontada do valor.`}</Text>
+                  )}
 
                   {maximo > 0 && (
                     <>
@@ -204,7 +271,10 @@ export default function Antecipar() {
                   )}
 
                   {sim && sim.pode && (
-                    <Resumo pede={sim.valor_cent} taxa={sim.taxa_cent} recebe={sim.recebe_cent} gratis={sim.gratuidade} />
+                    <>
+                      <Resumo pede={sim.valor_cent} taxa={sim.taxa_cent} recebe={sim.recebe_cent} gratis={sim.gratuidade} />
+                      <Text style={st.ajuda}>{`Saem ${reais(sim.valor_cent)} do seu saldo quando o Pix cair.`}</Text>
+                    </>
                   )}
                   {sim && !sim.pode && <Text style={st.erro}>{sim.motivo}</Text>}
                 </View>
@@ -217,12 +287,12 @@ export default function Antecipar() {
                 >
                   {enviando
                     ? <ActivityIndicator color="#fff" />
-                    : <Text style={st.botaoTx}>{sim && sim.pode ? `Solicitar ${reais(sim.recebe_cent)}` : 'Solicitar'}</Text>}
+                    : <Text style={st.botaoTx}>{sim && sim.pode ? `Solicitar · recebo ${reais(sim.recebe_cent)}` : 'Solicitar'}</Text>}
                 </TouchableOpacity>
 
                 <Text style={st.rodape}>
                   {`Mínimo ${reais(info.minimo_cent)} por pedido`}
-                  {info.pedidos_restantes_dia > 0 ? ` · resta ${info.pedidos_restantes_dia} pedido hoje` : ''}
+                  {info.pedidos_restantes_dia > 0 ? ` · ${info.pedidos_restantes_dia === 1 ? 'resta 1 pedido' : `restam ${info.pedidos_restantes_dia} pedidos`} hoje` : ''}
                 </Text>
               </>
             )}
@@ -238,22 +308,29 @@ export default function Antecipar() {
               {historico.length === 0 && (
                 <Text style={st.vazio}>Você ainda não pediu nenhuma antecipação.</Text>
               )}
-              {historico.map((h) => (
-                <View key={h.id} style={st.item}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={st.itemValor}>{reais(h.valor_cent)}</Text>
-                    <Text style={st.itemQuando}>
-                      {`${dataHora(h.criado_em)} · ${h.gratuidade ? 'sem taxa (gratuidade)' : (h.taxa_cent ? 'taxa ' + reais(h.taxa_cent) : 'sem taxa')}`}
-                    </Text>
-                    {h.status === 'recusada' && !!h.motivo_recusa && (
-                      <Text style={st.itemMotivo}>{h.motivo_recusa}</Text>
-                    )}
+              {historico.map((h) => {
+                const selo = SELO[h.status] || { tx: h.status, st: 'seloNeutro' };
+                const taxaTx = h.gratuidade ? 'sem taxa (gratuidade)' : (h.taxa_cent ? 'taxa ' + reais(h.taxa_cent) : 'sem taxa');
+                return (
+                  <View key={h.id} style={st.item}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={st.itemValor}>{reais(h.valor_cent)}</Text>
+                      <Text style={st.itemQuando}>
+                        {`${dataHora(h.criado_em)} · ${h.status === 'cancelada' ? 'você desistiu' : taxaTx}`}
+                      </Text>
+                      {h.status === 'paga' && (
+                        <Text style={st.itemOk}>{`Caiu ${reais(h.recebe_cent)} no Pix · saíram ${reais(h.valor_cent)} do saldo`}</Text>
+                      )}
+                      {h.status === 'recusada' && !!h.motivo_recusa && <Text style={st.itemMotivo}>{h.motivo_recusa}</Text>}
+                      {h.status === 'devolvida' && (
+                        <Text style={st.itemMotivo}>{h.erro_pagamento || 'O banco devolveu o Pix. O valor voltou para o seu saldo — confira sua chave.'}</Text>
+                      )}
+                      {h.status === 'estornada' && <Text style={st.itemNeutro}>O valor voltou para o seu saldo.</Text>}
+                    </View>
+                    <Text style={[st.selo, st[selo.st]]}>{selo.tx}</Text>
                   </View>
-                  <Text style={[st.selo, h.status === 'paga' ? st.seloOk : h.status === 'recusada' ? st.seloErro : st.seloEspera]}>
-                    {h.status === 'paga' ? 'recebido' : h.status}
-                  </Text>
-                </View>
-              ))}
+                );
+              })}
             </View>
             <TouchableOpacity style={st.linkAba} onPress={() => setAba('pedir')}>
               <Text style={st.linkAbaTx}>Voltar para antecipar</Text>
@@ -265,9 +342,9 @@ export default function Antecipar() {
   );
 }
 
-// Pede, taxa, recebe — os três sempre juntos. Com gratuidade, a taxa cheia aparece
-// riscada: ele vê o quanto está economizando, não só que está de graça.
-function Resumo({ pede, taxa, recebe, gratis }) {
+// Pede, taxa, recebe — os três sempre juntos. Com gratuidade, a taxa aparece como
+// "grátis": ele vê que está economizando, não só que está de graça.
+function Resumo({ pede, taxa, recebe, gratis, rotuloRecebe = 'Você recebe' }) {
   return (
     <View style={st.resumo}>
       <View style={st.resumoLinha}>
@@ -276,13 +353,27 @@ function Resumo({ pede, taxa, recebe, gratis }) {
       </View>
       <View style={[st.resumoLinha, st.resumoBorda]}>
         <Text style={st.resumoRot}>{gratis ? 'Taxa (gratuidade)' : 'Taxa'}</Text>
-        <Text style={[st.resumoVal, gratis ? st.resumoGratis : st.resumoTaxa]}>
-          {gratis ? 'grátis' : `− ${reais(taxa)}`}
+        <Text style={[st.resumoVal, gratis || !taxa ? st.resumoGratis : st.resumoTaxa]}>
+          {gratis || !taxa ? 'grátis' : `− ${reais(taxa)}`}
         </Text>
       </View>
       <View style={[st.resumoLinha, st.resumoBorda, st.resumoRecebe]}>
-        <Text style={st.resumoRot}>Você recebe</Text>
+        <Text style={st.resumoRot}>{rotuloRecebe}</Text>
         <Text style={st.resumoRecebeVal}>{reais(recebe)}</Text>
+      </View>
+    </View>
+  );
+}
+
+function Passo({ feito, atual, numero, titulo, sub }) {
+  return (
+    <View style={st.passo}>
+      <View style={[st.bola, feito ? st.bolaFeita : atual ? st.bolaAtual : null]}>
+        <Text style={st.bolaTx}>{feito ? '✓' : numero}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[st.passoTitulo, atual && { color: T.primario }]}>{titulo}</Text>
+        {!!sub && <Text style={st.passoSub}>{sub}</Text>}
       </View>
     </View>
   );
@@ -298,7 +389,7 @@ function ResumoMes({ linhas }) {
   return (
     <View style={st.resumoMes}>
       <View style={st.resumoMesCard}>
-        <Text style={st.resumoMesRot}>Antecipado</Text>
+        <Text style={st.resumoMesRot}>Antecipado no mês</Text>
         <Text style={st.resumoMesVal}>{reais(total)}</Text>
       </View>
       <View style={st.resumoMesCard}>
@@ -318,6 +409,7 @@ function Faixa({ tipo, titulo, texto }) {
     espera: { bg: T.atencaoBg, bd: '#efdcb0', tx: T.atencaoTx },
     nega: { bg: T.alertaBg, bd: '#f0cdc8', tx: T.alertaTx },
     bom: { bg: T.ganhoBg, bd: T.ganhoBd, tx: T.ganhoEsc },
+    info: { bg: T.suave, bd: T.linha, tx: T.primario },
   }[tipo];
   return (
     <View style={[st.faixa, { backgroundColor: cores.bg, borderColor: cores.bd }]}>
@@ -369,9 +461,19 @@ const st = StyleSheet.create({
   botao: { marginHorizontal: 14, marginTop: 16, backgroundColor: T.ganho, borderRadius: 15, paddingVertical: 16, alignItems: 'center' },
   botaoOff: { backgroundColor: '#c7d6e4' },
   botaoTx: { color: '#fff', fontSize: 15.5, fontWeight: '800' },
+  botaoDesistir: { marginHorizontal: 14, marginTop: 16, borderRadius: 15, paddingVertical: 15, alignItems: 'center', borderWidth: 1.5, borderColor: '#e4b4ae', backgroundColor: T.sup },
+  botaoDesistirTx: { color: T.alerta, fontSize: 15, fontWeight: '800' },
   rodape: { fontSize: 11.5, color: T.tinta3, textAlign: 'center', marginTop: 9, marginHorizontal: 18, lineHeight: 17 },
   ajuda: { fontSize: 11.5, color: T.tinta3, marginTop: 12, lineHeight: 17 },
   erro: { fontSize: 13, color: T.alertaTx, fontWeight: '700', marginTop: 12 },
+
+  passo: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  bola: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: T.linha },
+  bolaFeita: { backgroundColor: T.ganho },
+  bolaAtual: { backgroundColor: T.primario },
+  bolaTx: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  passoTitulo: { fontSize: 14, fontWeight: '800', color: T.tinta },
+  passoSub: { fontSize: 12, color: T.tinta3, marginTop: 1 },
 
   faixa: { marginHorizontal: 14, marginTop: 14, borderRadius: 14, borderWidth: 1, paddingHorizontal: 15, paddingVertical: 13 },
   faixaTitulo: { fontSize: 13.5, fontWeight: '800' },
@@ -382,16 +484,20 @@ const st = StyleSheet.create({
 
   resumoMes: { flexDirection: 'row', gap: 9, marginHorizontal: 14, marginTop: 14 },
   resumoMesCard: { flex: 1, backgroundColor: T.sup, borderRadius: 15, padding: 13, alignItems: 'center' },
-  resumoMesRot: { fontSize: 11, color: T.tinta3, fontWeight: '700' },
+  resumoMesRot: { fontSize: 11, color: T.tinta3, fontWeight: '700', textAlign: 'center' },
   resumoMesVal: { fontSize: 17, fontWeight: '800', marginTop: 3, color: T.tinta },
 
   item: { backgroundColor: T.sup, borderRadius: 15, padding: 14, marginBottom: 9, flexDirection: 'row', alignItems: 'center', gap: 10 },
   itemValor: { fontSize: 15, fontWeight: '800', color: T.tinta },
   itemQuando: { fontSize: 11.5, color: T.tinta3, fontWeight: '600', marginTop: 2 },
+  itemOk: { fontSize: 12, color: T.ganhoEsc, marginTop: 4, lineHeight: 17, fontWeight: '600' },
   itemMotivo: { fontSize: 12, color: T.alertaTx, marginTop: 4, lineHeight: 17 },
+  itemNeutro: { fontSize: 12, color: T.tinta2, marginTop: 4, lineHeight: 17 },
   selo: { fontSize: 10.5, fontWeight: '800', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
   seloOk: { backgroundColor: T.ganhoBg, color: T.ganhoEsc },
   seloEspera: { backgroundColor: T.atencaoBg, color: T.atencaoTx },
+  seloInfo: { backgroundColor: T.suave, color: T.primario },
   seloErro: { backgroundColor: T.alertaBg, color: T.alertaTx },
+  seloNeutro: { backgroundColor: T.linha, color: T.tinta2 },
   vazio: { fontSize: 13, color: T.tinta3, textAlign: 'center', paddingVertical: 30 },
 });
