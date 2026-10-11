@@ -35,6 +35,8 @@ function mascararChave(tipo, chave) {
   if (!chave) return null;
   const s = String(chave);
   if (tipo === 'cpf') { const n = s.replace(/\D/g, ''); return n.length === 11 ? `•••.•••.${n.slice(6, 9)}-${n.slice(9)}` : s; }
+  // O servidor grava o celular como +55DDDNÚMERO (formato do banco); a tela mostra legível.
+  if (tipo === 'telefone') return fmtTel(s.replace(/^\+?55(?=\d{10,11}$)/, ''));
   if (tipo === 'email') { const [u, d] = s.split('@'); return u ? `${u.slice(0, 2)}•••@${d || ''}` : s; }
   return s;
 }
