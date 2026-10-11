@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { api, EMPRESA_SLUG } from '../src/api';
 import { uploadDireto } from '../src/api/upload';
 import { T } from '../src/tema';
+import { mascararPix, conferirPix, campoPix } from '../src/utils/pix';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66',
@@ -111,6 +112,7 @@ export default function Cadastro() {
     if (etapa === 3) {
       // Dados bancários são OPCIONAIS — só valida formato leve se preenchido.
       if (form.pix_chave.trim() && !form.pix_tipo) return 'Escolha o tipo da chave Pix';
+      if (conferirPix(form.pix_tipo, form.pix_chave)) return conferirPix(form.pix_tipo, form.pix_chave);
       return null;
     }
     if (etapa === 4) {
@@ -253,9 +255,10 @@ export default function Cadastro() {
               <Text style={st.label}>Tipo de chave Pix</Text>
               <Segmento
                 opcoes={[['cpf', 'CPF'], ['cnpj', 'CNPJ'], ['email', 'E-mail'], ['telefone', 'Telefone'], ['aleatoria', 'Aleatória']]}
-                valor={form.pix_tipo} onEscolher={v => set('pix_tipo', v)} />
+                valor={form.pix_tipo} onEscolher={v => setForm(f => ({ ...f, pix_tipo: v, pix_chave: mascararPix(v, f.pix_chave) }))} />
               <View style={{ height: 12 }} />
-              <Campo label="Chave Pix" value={form.pix_chave} onChangeText={t => set('pix_chave', t)} autoCapitalize="none" />
+              <Campo label="Chave Pix" value={form.pix_chave} onChangeText={t => set('pix_chave', mascararPix(form.pix_tipo, t))}
+                autoCapitalize="none" autoCorrect={false} {...campoPix(form.pix_tipo)} />
 
               <TouchableOpacity style={st.chkline} activeOpacity={0.8}
                 onPress={() => setForm(f => ({ ...f, titular_nome: f.nome_completo || f.titular_nome, titular_doc: f.cpf || f.titular_doc }))}>

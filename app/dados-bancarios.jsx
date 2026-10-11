@@ -6,6 +6,7 @@ import {
 import { router } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
+import { mascararPix, conferirPix, campoPix, mesmaChavePix } from '../src/utils/pix';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66', azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -50,7 +51,7 @@ export default function DadosBancarios() {
     api.perfil().then(p => {
       setF(s => ({
         ...s,
-        pix_tipo: p.pix_tipo || 'cpf', pix_chave: p.pix_chave || '',
+        pix_tipo: p.pix_tipo || 'cpf', pix_chave: mascararPix(p.pix_tipo || 'cpf', p.pix_chave || ''),
         titular_nome: p.titular_nome || '', titular_doc: p.titular_doc || '',
         banco_codigo: p.banco_codigo || '', banco_nome: p.banco_nome || '',
         agencia: p.agencia || '', conta: p.conta || '', conta_tipo: p.conta_tipo || 'corrente',
@@ -61,6 +62,8 @@ export default function DadosBancarios() {
   }, []);
 
   async function salvar() {
+    const erroPix = conferirPix(f.pix_tipo, f.pix_chave);
+    if (erroPix) { Alert.alert('Confira a chave Pix', erroPix); return; }
     setSalvando(true);
     const payload = {
       pix_tipo: f.pix_tipo, pix_chave: f.pix_chave, titular_nome: f.titular_nome, titular_doc: f.titular_doc,
@@ -77,7 +80,7 @@ export default function DadosBancarios() {
         // Confere no servidor antes de assustar o motoboy com "Erro".
         try {
           const p = await api.perfil();
-          if ((p.pix_chave || '') === (payload.pix_chave || '').trim()) { sucesso(); setSalvando(false); return; }
+          if (mesmaChavePix(payload.pix_tipo, p.pix_chave, payload.pix_chave)) { sucesso(); setSalvando(false); return; }
         } catch {}
         Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro, não duplica.');
       } else {
@@ -104,9 +107,11 @@ export default function DadosBancarios() {
           <Text style={st.secSub}>É a conta que a central usa para pagar seus repasses. Ao salvar, a central é avisada.</Text>
 
           <Text style={st.label}>Tipo de chave Pix</Text>
-          <Segmento opcoes={[['cpf', 'CPF'], ['cnpj', 'CNPJ'], ['email', 'E-mail'], ['telefone', 'Telefone'], ['aleatoria', 'Aleatória']]} valor={f.pix_tipo} onEscolher={v => set('pix_tipo', v)} />
+          <Segmento opcoes={[['cpf', 'CPF'], ['cnpj', 'CNPJ'], ['email', 'E-mail'], ['telefone', 'Telefone'], ['aleatoria', 'Aleatória']]} valor={f.pix_tipo}
+            onEscolher={v => setF(s => ({ ...s, pix_tipo: v, pix_chave: mascararPix(v, s.pix_chave) }))} />
           <View style={{ height: 12 }} />
-          <Campo label="Chave Pix" value={f.pix_chave} onChangeText={t => set('pix_chave', t)} autoCapitalize="none" />
+          <Campo label="Chave Pix" value={f.pix_chave} onChangeText={t => set('pix_chave', mascararPix(f.pix_tipo, t))}
+            autoCapitalize="none" autoCorrect={false} {...campoPix(f.pix_tipo)} />
 
           <TouchableOpacity style={st.chkline} activeOpacity={0.8} onPress={() => setF(s => ({ ...s, titular_nome: s.nome_completo || s.titular_nome, titular_doc: s.cpf || s.titular_doc }))}>
             <View style={st.chk}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>✓</Text></View>
