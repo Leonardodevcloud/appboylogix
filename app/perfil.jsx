@@ -94,6 +94,29 @@ export default function Perfil() {
     ]);
   }
 
+  // Exclusão de conta (LGPD / Play Store): o pedido manda um link de confirmação para o
+  // e-mail cadastrado. Nada é apagado aqui — só quando ele confirmar pelo link.
+  const [pedindoExclusao, setPedindoExclusao] = useState(false);
+  function excluirConta() {
+    Alert.alert(
+      'Excluir minha conta',
+      'Vamos mandar um link de confirmação para o seu e-mail. Confirmando: o acesso ao app é encerrado na hora, o que você tem a receber é pago no próximo fechamento e seus dados pessoais são apagados em até 15 dias.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Enviar link', style: 'destructive', onPress: async () => {
+          if (pedindoExclusao) return;
+          setPedindoExclusao(true);
+          try {
+            const r = await api.pedirExclusaoConta();
+            Alert.alert('Confira seu e-mail', `Enviamos o link de confirmação para ${r.enviado_para}. Ele vale por ${r.horas || 48} horas. Sem confirmar, nada é excluído.`);
+          } catch (e) {
+            Alert.alert('Não foi possível', e.message || 'Tente de novo em instantes.');
+          } finally { setPedindoExclusao(false); }
+        } },
+      ],
+    );
+  }
+
   if (!p) return (
     <View style={st.splash}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
@@ -179,6 +202,9 @@ export default function Perfil() {
         </View>
 
         <TouchableOpacity style={st.btnSair} onPress={sair} activeOpacity={0.85}><Text style={st.btnSairTxt}>Sair da conta</Text></TouchableOpacity>
+        <TouchableOpacity style={st.btnExcluir} onPress={excluirConta} activeOpacity={0.7} disabled={pedindoExclusao} accessibilityRole="button">
+          <Text style={st.btnExcluirTxt}>{pedindoExclusao ? 'Enviando…' : 'Excluir minha conta'}</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Bottom nav */}
@@ -230,6 +256,8 @@ const st = StyleSheet.create({
   breve: { backgroundColor: '#eef2f7', color: C.tinta3, fontSize: 9.5, fontWeight: '800', borderRadius: 99, paddingVertical: 2, paddingHorizontal: 7, overflow: 'hidden' },
 
   btnSair: { marginTop: 18, padding: 15, alignItems: 'center', borderRadius: 13, borderWidth: 1.5, borderColor: C.erroBg, backgroundColor: C.erroBg },
+  btnExcluir: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
+  btnExcluirTxt: { color: C.tinta3, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' },
   btnSairTxt: { color: C.erro, fontSize: 14, fontWeight: '700' },
 
   tab: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.sup, borderTopWidth: 1, borderTopColor: C.linha, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 11, paddingBottom: 28 },

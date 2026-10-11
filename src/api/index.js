@@ -114,6 +114,16 @@ export const api = {
   },
 
   // Contexto de cadastro (modalidades + campos obrigatórios) — público.
+  // Esqueci minha senha: código de 6 dígitos por e-mail (resposta sempre igual).
+  async esqueciSenha(email) {
+    return this.post('/motoboys/auth/senha/esqueci', { slug: EMPRESA_SLUG, email });
+  },
+  async redefinirSenha(email, codigo, senha) {
+    return this.post('/motoboys/auth/senha/redefinir', { slug: EMPRESA_SLUG, email, codigo, senha });
+  },
+  // Exclusão de conta: manda o link de confirmação para o e-mail cadastrado.
+  async pedirExclusaoConta() { return this.post('/motoboys/app/conta/exclusao', {}); },
+
   async contextoCadastro() {
     return this.get('/motoboys/cadastro/contexto/' + EMPRESA_SLUG);
   },

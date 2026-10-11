@@ -102,6 +102,11 @@ export default function Login() {
             onSubmitEditing={entrar}
           />
 
+          <TouchableOpacity onPress={() => router.push({ pathname: '/esqueci-senha', params: { email: email.trim() } })}
+            style={s.esqueci} hitSlop={8} accessibilityRole="button">
+            <Text style={s.esqueciTxt}>Esqueci minha senha</Text>
+          </TouchableOpacity>
+
           {!!erro && (
             <View style={s.erroBox}>
               <Text style={s.erroTxt}>{erro}</Text>
@@ -155,6 +160,8 @@ const s = StyleSheet.create({
   formSub:    { fontSize: 13.5, color: '#64748B', marginBottom: 24, lineHeight: 20 },
   label:      { fontSize: 12, fontWeight: '700', color: '#0F172A', marginBottom: 7 },
   inp:        { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12, padding: 14, fontSize: 15, color: '#0F172A', backgroundColor: '#F8FAFC' },
+  esqueci:    { alignSelf: 'flex-end', marginTop: 10, paddingVertical: 4 },
+  esqueciTxt: { color: T.primario, fontSize: 13, fontWeight: '700' },
   erroBox:    { backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12, marginTop: 14, borderWidth: 1, borderColor: '#FECACA' },
   erroTxt:    { color: '#DC2626', fontSize: 13, fontWeight: '500', textAlign: 'center' },
   btn:        { backgroundColor: AZUL, borderRadius: 14, padding: 15, marginTop: 20, alignItems: 'center' },
