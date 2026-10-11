@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  RefreshControl, Alert, Switch, ActivityIndicator, StatusBar,
-  Image, AppState, Linking,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Switch, ActivityIndicator, StatusBar, Image, AppState, Linking,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
@@ -16,6 +14,7 @@ import { consumirDestino, marcarOfertaAberta, ofertaJaAberta } from '../src/stat
 import { registrarPush } from '../src/push';
 import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
 import { T } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 // Paleta exata do protótipo
 const C = {
@@ -264,7 +263,7 @@ export default function Home() {
               // Corrida concluída (pelo motoboy ou finalizada pela central): tira da tela na hora.
               carregar();
             } else if (evento === 'cadastro.reenvio') {
-              Alert.alert('Ação necessária', dados?.motivo || 'A central pediu uma correção no seu cadastro.', [
+              Alerta.alert('Ação necessária', dados?.motivo || 'A central pediu uma correção no seu cadastro.', [
                 { text: 'Ver agora', onPress: () => router.replace('/cadastro-status') },
               ]);
             } else if (evento === 'cadastro.recusado') {
@@ -320,13 +319,13 @@ export default function Home() {
     if (!prox) return;
     setBusy(p => ({ ...p, [entrega.id]: true }));
     try { await api.patch(`/motoboys/app/entregas/${entrega.id}/status`, { status: prox }); carregar(); }
-    catch (e) { Alert.alert('Erro', e.message); }
+    catch (e) { Alerta.alert('Erro', e.message); }
     setBusy(p => ({ ...p, [entrega.id]: false }));
   }
 
   const saindoRef = useRef(false);
   async function sair() {
-    Alert.alert('Sair', 'Encerrar sessão?', [
+    Alerta.alert('Sair', 'Encerrar sessão?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: async () => {
         if (saindoRef.current) return;   // trava: um toque só (evitava 3 logouts)

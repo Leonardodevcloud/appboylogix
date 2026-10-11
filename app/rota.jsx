@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, StatusBar, Linking, Alert,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
 try {
@@ -49,7 +49,7 @@ export default function Rota() {
 
   // Monta a URL do Google Maps com todas as paradas (coleta + entregas na ordem).
   function seguirRota() {
-    if (!paradas.length) { Alert.alert('Sem rota', 'Você não tem corridas ativas com endereço.'); return; }
+    if (!paradas.length) { Alerta.alert('Sem rota', 'Você não tem corridas ativas com endereço.'); return; }
     const pts = [];
     if (dados?.coleta?.lat) pts.push(`${dados.coleta.lat},${dados.coleta.lng}`);
     paradas.forEach(p => pts.push(`${p.lat},${p.lng}`));

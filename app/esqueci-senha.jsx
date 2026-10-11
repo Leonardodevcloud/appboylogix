@@ -6,12 +6,12 @@
 // isso a tela não diz "e-mail não encontrado" — diz para conferir a caixa de entrada.
 import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
-  KeyboardAvoidingView, Platform, ScrollView, Alert, StatusBar,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 const SENHA_MIN = 6;
 const emailValido = (v) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(String(v || '').trim());
@@ -47,7 +47,7 @@ export default function EsqueciSenha() {
     setEnviando(true);
     try {
       await api.redefinirSenha(email.trim(), codigo.trim(), senha);
-      Alert.alert('Senha alterada', 'Pronto. Entre com o seu e-mail e a senha nova.', [
+      Alerta.alert('Senha alterada', 'Pronto. Entre com o seu e-mail e a senha nova.', [
         { text: 'Entrar', onPress: () => router.replace('/') },
       ]);
     } catch (e) { setErro(e.message || 'Não foi possível salvar. Tente de novo.'); }

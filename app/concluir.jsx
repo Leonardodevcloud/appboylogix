@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { abrirSocket } from '../src/realtime/socket';
 import {
-  KeyboardAvoidingView, Platform,
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, ActivityIndicator, Image, StatusBar, PixelRatio,
+  KeyboardAvoidingView, Platform, View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Image, StatusBar, PixelRatio,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -14,6 +12,7 @@ import { api, getToken } from '../src/api';
 import { uploadDiretoVarios } from '../src/api/upload';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 export default function ConcluirScreen() {
   const router = useRouter();
@@ -67,7 +66,7 @@ export default function ConcluirScreen() {
             const m = JSON.parse(ev.data);
             if (m.evento === 'ponto.liberado' && String(m.dados?.pontoId) === String(pontoId)) {
               setLiberado(true); setBloqueio(null); setLiberSolic(false);
-              Alert.alert('Ponto liberado', 'A central liberou a marcação. Você já pode confirmar.');
+              Alerta.alert('Ponto liberado', 'A central liberou a marcação. Você já pode confirmar.');
             }
           } catch {}
         };
@@ -105,9 +104,9 @@ export default function ConcluirScreen() {
         motivo: observacao.trim() || null,
       });
       setLiberSolic(true);
-      Alert.alert('Solicitação enviada', 'A central foi avisada. Assim que liberarem, você poderá marcar este ponto.');
+      Alerta.alert('Solicitação enviada', 'A central foi avisada. Assim que liberarem, você poderá marcar este ponto.');
     } catch (e) {
-      Alert.alert('Erro', e?.message || 'Não foi possível solicitar a liberação.');
+      Alerta.alert('Erro', e?.message || 'Não foi possível solicitar a liberação.');
     } finally {
       setSolicitando(false);
     }
@@ -120,7 +119,7 @@ export default function ConcluirScreen() {
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permissão necessária', 'Autorize o acesso à câmera nas configurações.');
+        Alerta.alert('Permissão necessária', 'Autorize o acesso à câmera nas configurações.');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -175,7 +174,7 @@ export default function ConcluirScreen() {
     } catch (e) {
       // Nunca deixa uma exceção da câmera/processamento derrubar o app.
       setACarimbar(null);
-      Alert.alert('Não consegui processar a foto', 'Tente tirar novamente. Se continuar, feche e abra o app.');
+      Alerta.alert('Não consegui processar a foto', 'Tente tirar novamente. Se continuar, feche e abra o app.');
     }
   }
 
@@ -184,9 +183,9 @@ export default function ConcluirScreen() {
   }
 
   async function concluir() {
-    if (!ocSel) { Alert.alert('Atenção', 'Selecione o resultado da entrega.'); return; }
-    if (!ehInsucesso && !recebedor.trim()) { Alert.alert('Atenção', 'Informe quem recebeu.'); return; }
-    if (fotos.length === 0) { Alert.alert('Atenção', 'A foto de protocolo é obrigatória.'); return; }
+    if (!ocSel) { Alerta.alert('Atenção', 'Selecione o resultado da entrega.'); return; }
+    if (!ehInsucesso && !recebedor.trim()) { Alerta.alert('Atenção', 'Informe quem recebeu.'); return; }
+    if (fotos.length === 0) { Alerta.alert('Atenção', 'A foto de protocolo é obrigatória.'); return; }
 
     setEnviando(true);
     try {
@@ -215,7 +214,7 @@ export default function ConcluirScreen() {
       const msg = geraRetorno
         ? 'Foi criado um ponto de retorno à coleta. A corrida só finaliza quando você concluir o retorno.'
         : 'Protocolo registrado com sucesso.';
-      Alert.alert(titulo, msg, [{ text: 'OK', onPress: () => router.replace('/home') }]);
+      Alerta.alert(titulo, msg, [{ text: 'OK', onPress: () => router.replace('/home') }]);
     } catch (err) {
       // Fora do raio configurado pela loja: bloqueia e oferece solicitar liberação.
       // Detecta pelo corpo do erro (err.dados) OU, como reforço, pela mensagem —
@@ -232,9 +231,9 @@ export default function ConcluirScreen() {
         // NÃO volta para a home: ficar nesta tela preserva a foto e os dados
         // preenchidos. O motoboy só toca em "Confirmar" de novo — e o api já
         // repete sozinho (o backend é idempotente), então costuma ir de primeira.
-        Alert.alert('Falha ao enviar', 'A conexão oscilou. Sua foto e os dados continuam aqui — toque em "Confirmar entrega" novamente.');
+        Alerta.alert('Falha ao enviar', 'A conexão oscilou. Sua foto e os dados continuam aqui — toque em "Confirmar entrega" novamente.');
       } else {
-        Alert.alert('Erro', err?.message || 'Não foi possível registrar.');
+        Alerta.alert('Erro', err?.message || 'Não foi possível registrar.');
       }
     } finally {
       setEnviando(false);

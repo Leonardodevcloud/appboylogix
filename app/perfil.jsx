@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  RefreshControl, Alert, ActivityIndicator, StatusBar, Image,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator, StatusBar, Image,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
@@ -9,6 +8,7 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { assinarOnline } from '../src/state/online';
 import { T } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 const VERSAO_APP = Constants.expoConfig?.version || '?';
 const ID_UPDATE = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'base';
@@ -85,7 +85,7 @@ export default function Perfil() {
 
   const saindoRef = useRef(false);
   function sair() {
-    Alert.alert('Sair', 'Encerrar sessão?', [
+    Alerta.alert('Sair', 'Encerrar sessão?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: async () => {
         if (saindoRef.current) return;
@@ -100,7 +100,7 @@ export default function Perfil() {
   // e-mail cadastrado. Nada é apagado aqui — só quando ele confirmar pelo link.
   const [pedindoExclusao, setPedindoExclusao] = useState(false);
   function excluirConta() {
-    Alert.alert(
+    Alerta.alert(
       'Excluir minha conta',
       'Vamos mandar um link de confirmação para o seu e-mail. Confirmando: o acesso ao app é encerrado na hora, o que você tem a receber é pago no próximo fechamento e seus dados pessoais são apagados em até 15 dias.',
       [
@@ -110,9 +110,9 @@ export default function Perfil() {
           setPedindoExclusao(true);
           try {
             const r = await api.pedirExclusaoConta();
-            Alert.alert('Confira seu e-mail', `Enviamos o link de confirmação para ${r.enviado_para}. Ele vale por ${r.horas || 48} horas. Sem confirmar, nada é excluído.`);
+            Alerta.alert('Confira seu e-mail', `Enviamos o link de confirmação para ${r.enviado_para}. Ele vale por ${r.horas || 48} horas. Sem confirmar, nada é excluído.`);
           } catch (e) {
-            Alert.alert('Não foi possível', e.message || 'Tente de novo em instantes.');
+            Alerta.alert('Não foi possível', e.message || 'Tente de novo em instantes.');
           } finally { setPedindoExclusao(false); }
         } },
       ],

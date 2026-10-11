@@ -3,9 +3,10 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, StatusBar, RefreshControl,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
 import FiltroPeriodo from '../src/componentes/FiltroPeriodo';
+import ExtratoFinanceiro from '../src/componentes/ExtratoFinanceiro';
 import { T } from '../src/tema';
 
 const C = {
@@ -26,7 +27,12 @@ function hora(iso) {
 const brData = (s) => { if (!s) return ''; const [a, m, d] = s.split('-'); return `${d}/${m}`; };
 const rotuloPeriodo = (f) => f.tipo === 'hoje' ? 'hoje' : f.tipo === 'semana' ? 'últimos 7 dias' : f.tipo === 'mes' ? 'este mês' : `${brData(f.de)} – ${brData(f.ate)}`;
 
+// Duas abas (11/10/2026): "Corridas" (o que já era a tela) e "Extrato" — toda entrada e
+// saída do saldo, com saques, débitos e acertos (src/componentes/ExtratoFinanceiro).
 export default function Ganhos() {
+  const params = useLocalSearchParams();
+  const [aba, setAba] = useState(params.aba === 'extrato' ? 'extrato' : 'corridas');
+  const [puxou, setPuxou] = useState(0);   // puxar para baixo no extrato recarrega
   const [eu, setEu] = useState(null);
   const [filtro, setFiltro] = useState({ tipo: 'mes' });
   const [hist, setHist] = useState({ corridas: [], total_cent: 0, quantidade: 0 });
@@ -50,6 +56,7 @@ export default function Ganhos() {
   }, []);
 
   useEffect(() => { setCarregando(true); carregar(filtro); }, [filtro]);
+  useEffect(() => { if (params.aba === 'extrato') setAba('extrato'); }, [params.aba]);
 
   const media = hist.quantidade > 0 ? Math.round(hist.total_cent / hist.quantidade) : 0;
 
@@ -67,14 +74,25 @@ export default function Ganhos() {
         <Text style={st.headerTit}>Meus ganhos</Text>
         <View style={{ width: 38 }} />
       </View>
+      <View style={st.abasBox}>
+        <View style={st.abas} accessibilityRole="tablist">
+          {[['corridas', 'Corridas'], ['extrato', 'Extrato']].map(([id, rot]) => (
+            <TouchableOpacity key={id} style={[st.aba, aba === id && st.abaOn]} onPress={() => setAba(id)}
+              accessibilityRole="tab" accessibilityState={{ selected: aba === id }}>
+              <Text style={[st.abaTx, aba === id && st.abaTxOn]}>{rot}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
       <View style={st.filtroBox}>
         <FiltroPeriodo valor={filtro} aoSelecionar={(f) => setFiltro(f)} />
       </View>
 
       <ScrollView style={st.body} contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); carregar(filtro); }} />}>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); if (aba === 'extrato') setPuxou((n) => n + 1); carregar(filtro); }} />}>
 
+        {aba === 'extrato' ? <ExtratoFinanceiro filtro={filtro} recarregarToken={puxou} /> : (<>
         <Text style={st.periodoTit}>Mostrando: <Text style={{ color: C.azulP, fontWeight: '800' }}>{rotuloPeriodo(filtro)}</Text></Text>
 
         {/* Resumo do período */}
@@ -137,6 +155,7 @@ export default function Ganhos() {
             </View>
           ))
         )}
+        </>)}
       </ScrollView>
     </View>
   );
@@ -152,7 +171,13 @@ const st = StyleSheet.create({
   cardMini: { flex: 1, borderRadius: 14, padding: 12 },
   miniLbl: { fontSize: 10.5, fontWeight: '700', color: C.tinta3, textTransform: 'uppercase' },
   miniVal: { fontSize: 17, fontWeight: '800', color: C.tinta, marginTop: 2 },
-  header: { backgroundColor: C.navy900, paddingTop: 52, paddingBottom: 16, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  abasBox: { backgroundColor: C.navy900, paddingHorizontal: 16, paddingBottom: 14 },
+  abas: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12, padding: 3 },
+  aba: { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 9 },
+  abaOn: { backgroundColor: '#fff' },
+  abaTx: { color: '#fff', fontSize: 13, fontWeight: '800', opacity: 0.8 },
+  abaTxOn: { color: C.navy900, opacity: 1 },
+  header: { backgroundColor: C.navy900, paddingTop: 52, paddingBottom: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   btnVoltar: { width: 38, height: 38, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   btnVoltarTxt: { color: '#fff', fontSize: 26, fontWeight: '700', marginTop: -2 },
   headerTit: { color: '#fff', fontSize: 17, fontWeight: '800' },

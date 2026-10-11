@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator, Alert, StatusBar, Image, KeyboardAvoidingView, Platform,
+  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, StatusBar, Image, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +8,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { api } from '../src/api';
 import { uploadDireto } from '../src/api/upload';
 import { T } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -91,8 +91,8 @@ export default function MeusDados() {
       const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
       if (conexao) {
         try { const p = await api.perfil(); if ((p.telefone_principal || '').replace(/\D/g, '') === (payload.telefone_principal || '').replace(/\D/g, '')) { setEditPessoal(false); await carregar(); setSalvando(false); return; } } catch {}
-        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro.');
-      } else Alert.alert('Erro', e?.message || 'Não foi possível salvar.');
+        Alerta.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro.');
+      } else Alerta.alert('Erro', e?.message || 'Não foi possível salvar.');
     }
     setSalvando(false);
   }
@@ -104,8 +104,8 @@ export default function MeusDados() {
       const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
       if (conexao) {
         try { const p = await api.perfil(); if ((p.cidade || '') === (payload.cidade || '') && (p.logradouro || '') === (payload.logradouro || '')) { setEditEndereco(false); await carregar(); setSalvando(false); return; } } catch {}
-        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro.');
-      } else Alert.alert('Erro', e?.message || 'Não foi possível salvar.');
+        Alerta.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro.');
+      } else Alerta.alert('Erro', e?.message || 'Não foi possível salvar.');
     }
     setSalvando(false);
   }
@@ -115,7 +115,7 @@ export default function MeusDados() {
       let res;
       if (d.soCamera) {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) { Alert.alert('Permissão', 'Autorize a câmera para enviar a selfie.'); return; }
+        if (!perm.granted) { Alerta.alert('Permissão', 'Autorize a câmera para enviar a selfie.'); return; }
         res = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.5, cameraType: ImagePicker.CameraType?.front });
       } else {
         res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.5 });
@@ -127,8 +127,8 @@ export default function MeusDados() {
       const key = await uploadDireto({ fonte: img.uri, mime: 'image/jpeg', finalidade: 'documento' });
       await api.enviarDocumento(d.tipo, key || `data:image/jpeg;base64,${img.base64}`);
       await carregar();
-      Alert.alert('Enviado', 'Documento enviado. A central vai revisar.');
-    } catch (e) { Alert.alert('Erro', e?.message || 'Não foi possível enviar o documento.'); }
+      Alerta.alert('Enviado', 'Documento enviado. A central vai revisar.');
+    } catch (e) { Alerta.alert('Erro', e?.message || 'Não foi possível enviar o documento.'); }
     setEnviandoDoc(null);
   }
 

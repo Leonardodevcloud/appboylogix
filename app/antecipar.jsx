@@ -21,15 +21,27 @@
 //    for recusado ou ele desistir, "voltou para o seu saldo";
 //  · a taxa aparece com a conta por extenso ("4,5% de R$ 50,00 (R$ 2,25) + R$ 0,40
 //    fixo = R$ 2,65") — a mesma que o servidor cobra.
+//
+// Ajustes de 11/10/2026 (mockup aprovado):
+//  · a tela acompanha o pedido ao vivo: WebSocket e, se ele cair, conferência a cada 15 s
+//    enquanto houver pedido aberto. Paga → tela "Caiu na sua conta!"; recusada/devolvida
+//    → folha com o motivo e o valor que voltou; aprovada → a linha do tempo anda;
+//  · avisos e confirmações com a cara do app (sem a caixa do sistema).
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, StatusBar, RefreshControl, Alert,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, RefreshControl,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
 import { T, reais } from '../src/tema';
 import { ouvirAntecipacao } from '../src/state/antecipacao';
+import Comemoracao from '../src/componentes/Comemoracao';
+import { mascararPix } from '../src/utils/pix';
+
+const ROTULO_PIX = { cpf: 'CPF', cnpj: 'CNPJ', telefone: 'Cel.', email: 'E-mail', aleatoria: 'Chave' };
+const chaveTexto = (tipo, chave) => (chave ? `${ROTULO_PIX[tipo] || 'Chave'} ${(() => { try { return mascararPix(tipo, chave); } catch { return chave; } })()}` : null);
+const VIVO_MS = 15000;   // conferência enquanto há pedido aberto (cobre o WebSocket caído)
+import { Alerta } from '../src/utils/avisar';
 
 const centavos = (texto) => {
   const n = Math.round(Number(String(texto).replace(/[^\d,]/g, '').replace(',', '.')) * 100);
@@ -71,6 +83,29 @@ export default function Antecipar() {
   const [refreshing, setRefreshing] = useState(false);
   const [aba, setAba] = useState(params.aba === 'historico' ? 'historico' : 'pedir');
   const temporizador = useRef(null);
+  const [festa, setFesta] = useState(null);       // pedido que acabou de cair (tela cheia)
+  const acompanhando = useRef(new Map());         // id → último status visto do pedido aberto
+  const focada = useRef(false);
+
+  // Desfecho do pedido que ele estava acompanhando: comemora, ou explica o que voltou.
+  const anunciar = useCallback((p) => {
+    if (p.status === 'paga') {
+      setFesta({ ...p, chave: chaveTexto(p.pix_tipo, p.pix_chave) });
+    } else if (p.status === 'recusada' || p.status === 'devolvida') {
+      const voltou = p.saldo_devolvido || p.abatido_no_pedido;
+      Alerta.alert(p.status === 'recusada' ? 'Pedido recusado' : 'O banco devolveu o Pix', '', [
+        { text: 'Conferir minha chave', onPress: () => router.push('/dados-bancarios') },
+        { text: 'Fechar', style: 'cancel' },
+      ], {
+        tom: 'perigo',
+        lead: p.status === 'recusada' ? 'Confira sua chave Pix em Perfil › Dados bancários e peça de novo.' : 'Confira sua chave Pix e peça de novo.',
+        linhas: [
+          { rot: 'Motivo', val: p.motivo_recusa || (p.status === 'devolvida' ? 'Pix devolvido pelo banco' : 'Não informado') },
+          ...(voltou ? [{ rot: 'Voltou para o saldo', val: `+ ${reais(p.valor_cent)}`, cor: 'ok' }] : []),
+        ],
+      });
+    }
+  }, []);
 
   const carregar = useCallback(async () => {
     try {
@@ -78,17 +113,33 @@ export default function Antecipar() {
         api.get('/app/antecipacoes'),
         api.get('/app/antecipacoes/historico'),
       ]);
+      const linhas = (h && h.linhas) || [];
+      // Pedido que estava aberto e mudou de estado: é o momento de avisar na tela.
+      for (const [id, antes] of acompanhando.current) {
+        const agora = linhas.find((l) => l.id === id);
+        if (!agora || agora.status === antes) continue;
+        if (['paga', 'recusada', 'devolvida', 'cancelada', 'estornada'].includes(agora.status)) {
+          acompanhando.current.delete(id);
+          anunciar(agora);
+        } else acompanhando.current.set(id, agora.status);
+      }
+      const aberta = (i && i.pedido_aberto) || linhas.find((l) => l.status === 'aguardando' || l.status === 'processando');
+      if (aberta && !acompanhando.current.has(aberta.id)) acompanhando.current.set(aberta.id, aberta.status);
       setInfo(i);
-      setHistorico((h && h.linhas) || []);
+      setHistorico(linhas);
     } catch (e) {
       setInfo({ disponivel: false, erro: e.message });
     } finally { setCarregando(false); setRefreshing(false); }
-  }, []);
+  }, [anunciar]);
 
   // Recarrega sempre que a tela volta ao foco: é assim que ele cadastra a chave Pix e,
   // ao voltar, já encontra o campo liberado.
-  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
-  // A central pagou/recusou/o banco devolveu: recarrega sem ele precisar puxar a tela.
+  useFocusEffect(useCallback(() => {
+    focada.current = true;
+    carregar();
+    return () => { focada.current = false; };
+  }, [carregar]));
+  // A central aprovou/pagou/recusou/o banco devolveu: recarrega sem ele precisar puxar a tela.
   useEffect(() => ouvirAntecipacao(() => carregar()), [carregar]);
   useEffect(() => { if (params.aba === 'historico') setAba('historico'); }, [params.aba]);
 
@@ -111,6 +162,15 @@ export default function Antecipar() {
   const aberto = (info && info.pedido_aberto)
     || historico.find((h) => h.status === 'aguardando' || h.status === 'processando') || null;
 
+  // Pedido aberto e tela na frente: confere a cada 15 s. É o plano B do WebSocket — se a
+  // conexão caiu (túnel, troca de rede), o "caiu na conta" aparece do mesmo jeito.
+  const temAberto = !!aberto;
+  useEffect(() => {
+    if (!temAberto) return undefined;
+    const t = setInterval(() => { if (focada.current) carregar(); }, VIVO_MS);
+    return () => clearInterval(t);
+  }, [temAberto, carregar]);
+
   async function solicitar() {
     const cent = centavos(valor);
     if (!cent || !sim || !sim.pode) return;
@@ -119,31 +179,35 @@ export default function Antecipar() {
       const r = await api.post('/app/antecipacoes', { valor_cent: cent, usar_gratuidade: usarGratuidade });
       setValor('');
       await carregar();
-      const taxa = Number(r.taxa_cent) ? `, taxa de ${reais(r.taxa_cent)}${r.taxa_regra ? ` (${r.taxa_regra})` : ''}` : ' sem taxa';
-      const conta = `Você pediu ${reais(r.valor_cent)}${taxa}, e recebe ${reais(r.recebe_cent)} no Pix.`;
+      const cobra = !r.gratuidade && Number(r.taxa_cent);
       const saldo = r.abatido_no_pedido
-        ? `${reais(r.valor_cent)} já saíram do seu saldo. Se o pedido for recusado, o valor volta.`
+        ? `${reais(r.valor_cent)} já saíram do seu saldo. Se o pedido for recusado, voltam na hora.`
         : `Saem ${reais(r.valor_cent)} do seu saldo quando o Pix cair.`;
-      Alert.alert(
-        r.status === 'paga' ? 'Pagamento enviado' : 'Pedido recebido',
-        r.status === 'paga'
-          ? `${conta} Já foi enviado para a sua chave Pix. Saíram ${reais(r.valor_cent)} do seu saldo.`
-          : `${conta} ${saldo} Você recebe um aviso quando o Pix cair.`,
-      );
+      if (r.status === 'paga') { setFesta({ ...r, chave: chaveTexto(r.pix_tipo, r.pix_chave) }); return; }
+      if (r.id) acompanhando.current.set(r.id, r.status || 'aguardando');
+      Alerta.alert('Pedido recebido', `${saldo} Você recebe um aviso quando o Pix cair.`, [{ text: 'Entendi' }], {
+        tom: 'ok', sub: 'A central vai analisar',
+        linhas: [
+          { rot: 'Você pediu', val: reais(r.valor_cent) },
+          { rot: cobra ? `Taxa${r.taxa_regra ? ` (${r.taxa_regra})` : ''}` : 'Taxa', val: cobra ? `− ${reais(r.taxa_cent)}` : 'grátis', cor: cobra ? 'perigo' : 'ok' },
+          { rot: 'Cai no seu Pix', val: reais(r.recebe_cent), cor: 'ok', forte: true },
+        ],
+      });
     } catch (e) {
-      Alert.alert('Não foi possível', e.message || 'Tente novamente em instantes.');
+      Alerta.alert('Não foi possível', e.message || 'Tente novamente em instantes.');
     } finally { setEnviando(false); }
   }
 
   function desistir() {
     if (!aberto) return;
     const volta = aberto.abatido_no_pedido ? ` Os ${reais(aberto.valor_cent)} voltam para o seu saldo na hora.` : '';
-    Alert.alert('Desistir do pedido?', `O pedido de ${reais(aberto.valor_cent)} será cancelado.${volta} Você pode pedir de novo quando quiser.`, [
+    Alerta.alert('Desistir do pedido?', `O pedido de ${reais(aberto.valor_cent)} será cancelado.${volta} Você pode pedir de novo quando quiser.`, [
       { text: 'Voltar', style: 'cancel' },
-      { text: 'Desistir', style: 'destructive', onPress: async () => {
+      { text: 'Desistir do pedido', style: 'destructive', onPress: async () => {
+        acompanhando.current.delete(aberto.id);   // foi ele que desistiu: não precisa de aviso
         setCancelando(true);
         try { await api.post(`/app/antecipacoes/${aberto.id}/cancelar`, {}); await carregar(); }
-        catch (e) { Alert.alert('Não foi possível', e.message || 'Tente novamente.'); await carregar(); }
+        catch (e) { Alerta.alert('Não foi possível', e.message || 'Tente novamente.'); await carregar(); }
         finally { setCancelando(false); }
       } },
     ]);
@@ -167,6 +231,8 @@ export default function Antecipar() {
   return (
     <View style={st.tela}>
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
+      <Comemoracao pedido={festa} aoFechar={() => setFesta(null)}
+        aoVerExtrato={() => { setFesta(null); router.push({ pathname: '/ganhos', params: { aba: 'extrato' } }); }} />
 
       <View style={st.cab}>
         <TouchableOpacity style={st.voltar} onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar">
@@ -198,11 +264,11 @@ export default function Antecipar() {
             ) : aCaminho ? (
               <>
                 <Faixa tipo="info"
-                  titulo="Pagamento a caminho"
-                  texto="A central aprovou seu pedido e o banco está processando o Pix. Você recebe um aviso quando cair." />
+                  titulo="Aprovado · o Pix está saindo"
+                  texto="A central aprovou seu pedido e o banco está processando o Pix. Esta tela atualiza sozinha quando cair." />
                 <View style={[st.bloco, { gap: 14 }]}>
                   <Passo feito titulo="Pedido recebido" sub={dataHora(aberto.criado_em)} />
-                  <Passo feito titulo="Aprovado pela central" />
+                  <Passo feito titulo="Aprovado pela central" sub={aberto.decidido_em ? dataHora(aberto.decidido_em) : null} />
                   <Passo atual numero="3" titulo="Pix sendo enviado" sub="para a sua chave cadastrada" />
                 </View>
                 <View style={st.bloco}>
@@ -218,6 +284,11 @@ export default function Antecipar() {
                   texto={reservado
                     ? `${reais(aberto.valor_cent)} pedidos às ${horaDe(aberto.criado_em)} — esse valor já saiu do seu saldo. Se o pedido for recusado ou você desistir, ele volta na hora.`
                     : `${reais(aberto.valor_cent)} pedidos às ${horaDe(aberto.criado_em)}. Você recebe um aviso assim que o Pix cair.`} />
+                <View style={[st.bloco, { gap: 14 }]}>
+                  <Passo feito titulo="Pedido recebido" sub={dataHora(aberto.criado_em)} />
+                  <Passo atual numero="2" titulo="Análise da central" sub="você recebe um aviso na hora que aprovarem" />
+                  <Passo numero="3" titulo="Pix na sua conta" />
+                </View>
                 <View style={st.bloco}>
                   <Text style={st.rotulo}>Pedido em análise</Text>
                   <Resumo pede={aberto.valor_cent} taxa={aberto.taxa_cent} recebe={aberto.recebe_cent} gratis={aberto.gratuidade}

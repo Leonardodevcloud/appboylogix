@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { abrirSocket } from '../src/realtime/socket';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList,
-  ActivityIndicator, Alert, StatusBar, Linking, useWindowDimensions,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList, ActivityIndicator, StatusBar, Linking, useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { api, getToken } from '../src/api';
@@ -10,6 +9,7 @@ import { alertaCorrida, pararAlerta } from '../src/utils/alerta';
 import CartaoCorrida from '../src/componentes/CartaoCorrida';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 function abrirMapa(lat, lng, endereco) {
   const q = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(endereco || '');
@@ -67,17 +67,17 @@ export default function Ofertas() {
       setAceitandoId(null);
       const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
       if (conexao) {
-        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Tente de novo — é seguro (se já tiver aceitado, a corrida aparece nas suas corridas).');
+        Alerta.alert('Conexão instável', 'Não deu pra confirmar agora. Tente de novo — é seguro (se já tiver aceitado, a corrida aparece nas suas corridas).');
       } else {
         // Já era (outro aceitou / saiu da fila): tira da pilha e segue.
-        Alert.alert('Ops', e.message || 'Essa corrida já não está disponível');
+        Alerta.alert('Ops', e.message || 'Essa corrida já não está disponível');
         removerOferta(o.oferta_id);
       }
     }
   }
 
   function recusar(o) {
-    Alert.alert('Recusar esta corrida?', 'Ela some da sua lista; outros motoboys continuam vendo.', [
+    Alerta.alert('Recusar esta corrida?', 'Ela some da sua lista; outros motoboys continuam vendo.', [
       { text: 'Voltar', style: 'cancel' },
       { text: 'Recusar', style: 'destructive', onPress: async () => { try { await api.recusarOferta(o.oferta_id); } catch {} removerOferta(o.oferta_id); } },
     ]);

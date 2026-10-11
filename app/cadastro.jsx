@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Image, StatusBar,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Image, StatusBar,
 } from 'react-native';
 import { router } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -10,6 +9,7 @@ import { api, EMPRESA_SLUG } from '../src/api';
 import { uploadDireto } from '../src/api/upload';
 import { T } from '../src/tema';
 import { mascararPix, conferirPix, campoPix } from '../src/utils/pix';
+import { Alerta } from '../src/utils/avisar';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66',
@@ -50,14 +50,14 @@ export default function Cadastro() {
   useEffect(() => {
     api.contextoCadastro()
       .then(c => { setCtx(c); setCarregando(false); })
-      .catch(e => { Alert.alert('Erro', e.message || 'Não foi possível carregar o cadastro'); router.back(); });
+      .catch(e => { Alerta.alert('Erro', e.message || 'Não foi possível carregar o cadastro'); router.back(); });
   }, []);
 
   const obrig = (campo) => ctx?.campos?.[campo] !== false;
 
   // ── Captura de documentos ──
   async function tirarFoto(tipo) {
-    if (!permCam?.granted) { const r = await pedirPermCam(); if (!r.granted) { Alert.alert('Permissão', 'Precisamos da câmera para a foto.'); return; } }
+    if (!permCam?.granted) { const r = await pedirPermCam(); if (!r.granted) { Alerta.alert('Permissão', 'Precisamos da câmera para a foto.'); return; } }
     setCamAberta(tipo);
   }
   async function capturar() {
@@ -124,7 +124,7 @@ export default function Cadastro() {
 
   function avancar() {
     const err = validarEtapa();
-    if (err) { Alert.alert('Atenção', err); return; }
+    if (err) { Alerta.alert('Atenção', err); return; }
     if (etapa < 4) setEtapa(etapa + 1);
     else enviar();
   }
@@ -147,10 +147,10 @@ export default function Cadastro() {
       // já entrar logado e ver a tela de "em análise" sem precisar relogar.
       let logou = false;
       try { await api.loginEmail(form.email.trim(), form.senha); logou = true; } catch {}
-      Alert.alert('Cadastro enviado!', `Seu cadastro foi enviado para análise.${modalidade}\n\nVocê receberá um aviso quando for aprovado.`, [
+      Alerta.alert('Cadastro enviado!', `Seu cadastro foi enviado para análise.${modalidade}\n\nVocê receberá um aviso quando for aprovado.`, [
         { text: 'OK', onPress: () => router.replace(logou ? '/cadastro-status' : '/') },
       ]);
-    } catch (e) { Alert.alert('Erro', e.message || 'Falha ao enviar'); }
+    } catch (e) { Alerta.alert('Erro', e.message || 'Falha ao enviar'); }
     setEnviando(false);
   }
 

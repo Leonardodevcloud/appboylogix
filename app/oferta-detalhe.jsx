@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert, StatusBar, Linking, Platform,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, Linking, Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais, hora, km, curto } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 // Carrega react-native-maps com segurança (não existe no Expo Go).
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
@@ -30,7 +30,7 @@ export default function OfertaDetalhe() {
   const [mostrarMapa] = useState(true); // 11f: o mapa da corrida já aparece aberto
 
   async function recusar() {
-    Alert.alert('Recusar esta corrida?', 'Ela some da sua lista; outros motoboys continuam vendo.', [
+    Alerta.alert('Recusar esta corrida?', 'Ela some da sua lista; outros motoboys continuam vendo.', [
       { text: 'Voltar', style: 'cancel' },
       { text: 'Recusar', style: 'destructive', onPress: async () => { try { await api.recusarOferta(ofertaId); } catch {} router.replace('/ofertas'); } },
     ]);
@@ -43,7 +43,7 @@ export default function OfertaDetalhe() {
         const r = await api.detalheOferta(ofertaId);
         setDados(r);
       } catch (e) {
-        Alert.alert('Ops', e.message || 'Não foi possível carregar', [{ text: 'OK', onPress: () => router.back() }]);
+        Alerta.alert('Ops', e.message || 'Não foi possível carregar', [{ text: 'OK', onPress: () => router.back() }]);
       }
       setCarregando(false);
     })();
@@ -51,7 +51,7 @@ export default function OfertaDetalhe() {
 
   function abrirMapaExterno(lat, lng, label) {
     const q = lat && lng ? `${lat},${lng}` : encodeURIComponent(label || '');
-    Alert.alert('Abrir navegação', 'Escolha o app de mapas', [
+    Alerta.alert('Abrir navegação', 'Escolha o app de mapas', [
       { text: 'Google Maps', onPress: () => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`) },
       { text: 'Waze', onPress: () => Linking.openURL(`https://waze.com/ul?ll=${q}&navigate=yes`) },
       { text: 'Cancelar', style: 'cancel' },
@@ -72,9 +72,9 @@ export default function OfertaDetalhe() {
       setAceitando(false);
       const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
       if (conexao) {
-        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Aceitar" de novo — é seguro (se já tiver aceitado, a corrida aparece nas suas corridas).');
+        Alerta.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Aceitar" de novo — é seguro (se já tiver aceitado, a corrida aparece nas suas corridas).');
       } else {
-        Alert.alert('Ops', e.message || 'Não foi possível aceitar essa corrida', [{ text: 'OK', onPress: () => router.replace('/ofertas') }]);
+        Alerta.alert('Ops', e.message || 'Não foi possível aceitar essa corrida', [{ text: 'OK', onPress: () => router.replace('/ofertas') }]);
       }
     }
   }

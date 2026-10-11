@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { abrirSocket } from '../src/realtime/socket';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Alert, StatusBar, Linking,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, Linking,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api, getToken } from '../src/api';
 import SheetNavegacao from '../src/componentes/SheetNavegacao';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais, hora } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 
 const PROXIMO = { aguardando_coleta: 'em_coleta', em_coleta: 'em_rota' };
@@ -56,12 +56,12 @@ export default function Corrida() {
             const { evento, dados } = JSON.parse(ev.data);
             if (evento === 'entrega.editada') {
               if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
-                Alert.alert('Corrida atualizada', 'A central alterou esta corrida. Atualizando os dados.');
+                Alerta.alert('Corrida atualizada', 'A central alterou esta corrida. Atualizando os dados.');
                 carregar();
               }
             } else if (evento === 'entrega.removida') {
               if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
-                Alert.alert('Corrida removida', 'Esta corrida foi removida de você pela central.', [
+                Alerta.alert('Corrida removida', 'Esta corrida foi removida de você pela central.', [
                   { text: 'OK', onPress: () => router.replace('/home') },
                 ]);
               } else {
@@ -70,7 +70,7 @@ export default function Corrida() {
             } else if (evento === 'entrega.cancelada') {
               // A central cancelou ESTA corrida enquanto o motoboy está nela: avisa e volta para a Home.
               if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
-                Alert.alert('Corrida cancelada', 'Esta corrida foi cancelada pela central.', [
+                Alerta.alert('Corrida cancelada', 'Esta corrida foi cancelada pela central.', [
                   { text: 'OK', onPress: () => router.replace('/home') },
                 ]);
               } else {
@@ -105,7 +105,7 @@ export default function Corrida() {
       // (rede instável). Re-sincroniza e só avisa se de fato não avançou.
       const atual = await carregar();
       const avancou = atual && atual.status !== entrega.status;
-      if (!avancou) Alert.alert('Ops', e.message || 'Não foi possível avançar. Verifique sua conexão e tente de novo.');
+      if (!avancou) Alerta.alert('Ops', e.message || 'Não foi possível avançar. Verifique sua conexão e tente de novo.');
     }
     setBusy(false);
   }
@@ -119,7 +119,7 @@ export default function Corrida() {
     } catch (e) {
       const atual = await carregar();
       const p = atual && (atual.pontos || []).find(x => x.id === pontoId);
-      if (!(p && p.chegou_em)) Alert.alert('Ops', e.message || 'Não foi possível registrar a chegada. Verifique sua conexão e tente de novo.');
+      if (!(p && p.chegou_em)) Alerta.alert('Ops', e.message || 'Não foi possível registrar a chegada. Verifique sua conexão e tente de novo.');
     }
     setBusy(false);
   }

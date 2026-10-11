@@ -14,7 +14,7 @@ import { getToken } from '../api';
 import { abrirSocket, FECHAMENTO_SESSAO } from './socket';
 import { alertaCorrida } from '../utils/alerta';
 import { mostrarBanner } from '../state/banner';
-import { avisarAntecipacao } from '../state/antecipacao';
+import { avisarAntecipacao, telaDeAntecipacaoAberta } from '../state/antecipacao';
 
 // Mapeia o evento da central para o banner in-app (ícone/cor/texto/rota).
 function bannerDoEvento(evento) {
@@ -31,6 +31,7 @@ function bannerDoEvento(evento) {
 
 function bannerDaAntecipacao(status) {
   switch (status) {
+    case 'processando': return { tipo: 'dinheiro', titulo: 'Pedido aprovado', sub: 'O Pix está a caminho. Toque para acompanhar.', rota: '/antecipar' };
     case 'paga':      return { tipo: 'dinheiro', titulo: 'Antecipação paga!', sub: 'O Pix foi enviado. Toque para ver quanto caiu.', rota: '/antecipar?aba=historico' };
     case 'recusada':  return { tipo: 'recusa', titulo: 'Antecipação recusada', sub: 'O valor voltou para o seu saldo. Toque para ver o motivo.', rota: '/antecipar?aba=historico' };
     case 'devolvida': return { tipo: 'recusa', titulo: 'O banco devolveu o Pix', sub: 'O valor voltou para o seu saldo. Confira sua chave.', rota: '/antecipar?aba=historico' };
@@ -83,8 +84,10 @@ async function abrir() {
         // Antecipação: a tela aberta recarrega e o banner diz o que aconteceu. Sem som de
         // corrida — não é chamado para trabalhar, é aviso de dinheiro.
         if (evento === 'antecipacao.atualizada') {
+          const naTela = telaDeAntecipacaoAberta();
           avisarAntecipacao(dados);
-          const b = bannerDaAntecipacao(dados && dados.status);
+          // Pagamento automático: o "aprovado" e o "pago" chegam juntos — só o pago vira banner.
+          const b = naTela || (dados && dados.automatica && dados.status === 'processando') ? null : bannerDaAntecipacao(dados && dados.status);
           if (b) mostrarBanner(b);
           return;
         }

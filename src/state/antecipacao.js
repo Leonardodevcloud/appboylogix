@@ -4,6 +4,10 @@ const _subs = new Set();
 
 export function ouvirAntecipacao(fn) { _subs.add(fn); return () => _subs.delete(fn); }
 
+// A tela de antecipação está aberta? Aí ela mesma mostra o desfecho (comemoração/folha) e
+// o banner do topo só repetiria a mesma coisa.
+export function telaDeAntecipacaoAberta() { return _subs.size > 0; }
+
 export function avisarAntecipacao(dados) {
   _subs.forEach((f) => { try { f(dados || {}); } catch {} });
 }

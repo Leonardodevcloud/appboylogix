@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Modal, View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Pressable,
+  Modal, View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Pressable, ScrollView,
 } from 'react-native';
 import { assinarAviso, responderAviso } from '../utils/aviso';
 import { T } from '../tema';
@@ -9,10 +9,28 @@ import { T } from '../tema';
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
-  sup: '#ffffff', sup2: '#f6faff', linha: '#dde9f5', erro: '#D0584F',
+  sup: '#ffffff', sup2: '#f6faff', linha: '#dde9f5', erro: '#c9352b', ok: '#1f9d6b', okEsc: '#0f6e56', atencao: '#c98a1a',
 };
 
-// Modal "folha inferior" (bottom sheet) nativo do app — substitui o Alert cru.
+// Ícone por tom (símbolo desenhado com texto: igual em todo Android, sem emoji).
+const TONS = {
+  info:    { fundo: C.azulP,   simbolo: 'i' },
+  ok:      { fundo: C.ok,      simbolo: '✓' },
+  atencao: { fundo: C.atencao, simbolo: '!' },
+  perigo:  { fundo: C.erro,    simbolo: '×' },
+};
+
+// Modal "folha inferior" (bottom sheet) nativo do app — substitui o Alert do sistema.
+//
+// Config (todos opcionais, menos titulo):
+//   tom: 'info' | 'ok' | 'atencao' | 'perigo'   → cor e símbolo do ícone
+//   icone: texto livre no ícone (legado: disclosure.js)
+//   titulo, sub, chip, lead
+//   linhas: [{ rot, val, cor: 'ok'|'perigo'|null, forte }]   → caixa de conta
+//   itens:  [{ ico, txt }], destaque, destaqueIco            → legado
+//   botoes: [{ chave, texto, estilo: 'primario'|'perigo'|'ok'|'secundario'|'ghost' }]
+//   botaoPrimario, botaoGhost                                → legado (2 botões)
+//   fecharPorFora (padrão true), chaveFechar (o que "tocar fora/voltar" responde)
 export default function AvisoHost() {
   const [cfg, setCfg] = useState(null);
   const y = useRef(new Animated.Value(1)).current; // 1 = escondido embaixo, 0 = visível
@@ -35,57 +53,89 @@ export default function AvisoHost() {
 
   const translateY = y.interpolate({ inputRange: [0, 1], outputRange: [0, 600] });
   const podeFecharFora = cfg.fecharPorFora !== false;
+  const chaveFora = cfg.chaveFechar || (cfg.botaoGhost ? 'ghost' : 'fechar');
+  const tom = TONS[cfg.tom] || (cfg.icone ? null : TONS.info);
+  const botoes = Array.isArray(cfg.botoes) && cfg.botoes.length
+    ? cfg.botoes
+    : [{ chave: 'primario', texto: cfg.botaoPrimario || 'OK', estilo: 'primario' },
+      ...(cfg.botaoGhost ? [{ chave: 'ghost', texto: cfg.botaoGhost, estilo: 'ghost' }] : [])];
 
   return (
     <Modal transparent visible animationType="fade" statusBarTranslucent
-      onRequestClose={() => fechar(cfg.botaoGhost ? 'ghost' : 'fechar')}>
+      onRequestClose={() => fechar(chaveFora)}>
       <View style={st.dim}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => podeFecharFora && fechar('fechar')} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => podeFecharFora && fechar(chaveFora)} />
         <Animated.View style={[st.sheet, { transform: [{ translateY }] }]}>
           <View style={st.grip} />
-
-          <View style={st.titrow}>
-            {!!cfg.icone && <View style={st.badge}><Text style={st.badgeTxt}>{cfg.icone}</Text></View>}
-            <View style={{ flex: 1 }}>
-              <Text style={st.ttl}>{cfg.titulo}</Text>
-              {!!cfg.chip && (
-                <View style={st.chip}>
-                  <View style={st.chipDot} />
-                  <Text style={st.chipTxt}>{cfg.chip}</Text>
-                </View>
+          <ScrollView bounces={false} style={{ maxHeight: 520 }}>
+            <View style={st.titrow}>
+              {tom ? (
+                <View style={[st.badge, { backgroundColor: tom.fundo, shadowColor: tom.fundo }]}><Text style={st.badgeSimb}>{tom.simbolo}</Text></View>
+              ) : !!cfg.icone && (
+                <View style={st.badge}><Text style={st.badgeTxt}>{cfg.icone}</Text></View>
               )}
+              <View style={{ flex: 1 }}>
+                <Text style={st.ttl}>{cfg.titulo}</Text>
+                {!!cfg.sub && <Text style={[st.sub, cfg.tom === 'ok' && { color: C.okEsc }]}>{cfg.sub}</Text>}
+                {!!cfg.chip && (
+                  <View style={st.chip}>
+                    <View style={st.chipDot} />
+                    <Text style={st.chipTxt}>{cfg.chip}</Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
 
-          {!!cfg.lead && <Text style={st.lead}>{cfg.lead}</Text>}
+            {Array.isArray(cfg.linhas) && cfg.linhas.length > 0 && (
+              <View style={st.conta}>
+                {cfg.linhas.map((l, i) => (
+                  <View key={i} style={[st.contaLinha, l.forte && st.contaForte]}>
+                    <Text style={[st.contaRot, l.forte && { color: C.tinta, fontWeight: '800' }]}>{l.rot}</Text>
+                    <Text style={[st.contaVal, l.cor === 'ok' && { color: C.okEsc }, l.cor === 'perigo' && { color: C.erro }, l.forte && { fontSize: 15 }]}>{l.val}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
-          {Array.isArray(cfg.itens) && cfg.itens.length > 0 && (
-            <View style={st.rows}>
-              {cfg.itens.map((it, i) => (
-                <View key={i} style={st.row}>
-                  <View style={st.rico}><Text style={st.ricoTxt}>{it.ico}</Text></View>
-                  <Text style={st.rtx}>{it.txt}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+            {!!cfg.lead && <Text style={st.lead}>{cfg.lead}</Text>}
 
-          {!!cfg.destaque && (
-            <View style={st.hi}>
-              <Text style={st.hiK}>{cfg.destaqueIco || '✅'}</Text>
-              <Text style={st.hiTxt}>{cfg.destaque}</Text>
-            </View>
-          )}
+            {Array.isArray(cfg.itens) && cfg.itens.length > 0 && (
+              <View style={st.rows}>
+                {cfg.itens.map((it, i) => (
+                  <View key={i} style={st.row}>
+                    <View style={st.rico}><Text style={st.ricoTxt}>{it.ico}</Text></View>
+                    <Text style={st.rtx}>{it.txt}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {!!cfg.destaque && (
+              <View style={st.hi}>
+                {!!cfg.destaqueIco && <Text style={st.hiK}>{cfg.destaqueIco}</Text>}
+                <Text style={st.hiTxt}>{cfg.destaque}</Text>
+              </View>
+            )}
+          </ScrollView>
 
           <View style={st.acts}>
-            <TouchableOpacity style={[st.btn, st.primary]} activeOpacity={0.85} onPress={() => fechar('primario')}>
-              <Text style={st.primaryTxt}>{cfg.botaoPrimario || 'OK'}</Text>
-            </TouchableOpacity>
-            {!!cfg.botaoGhost && (
-              <TouchableOpacity style={st.ghost} activeOpacity={0.7} onPress={() => fechar('ghost')}>
-                <Text style={st.ghostTxt}>{cfg.botaoGhost}</Text>
-              </TouchableOpacity>
-            )}
+            {botoes.map((b, i) => {
+              const est = b.estilo || (i === 0 ? 'primario' : 'ghost');
+              const chave = b.chave || (i === 0 ? 'primario' : 'ghost');
+              if (est === 'ghost') {
+                return (
+                  <TouchableOpacity key={chave} style={st.ghost} activeOpacity={0.7} onPress={() => fechar(chave)} accessibilityRole="button">
+                    <Text style={st.ghostTxt}>{b.texto}</Text>
+                  </TouchableOpacity>
+                );
+              }
+              const fundo = est === 'perigo' ? st.perigo : est === 'ok' ? st.okBtn : est === 'secundario' ? st.secundario : st.primary;
+              return (
+                <TouchableOpacity key={chave} style={[st.btn, fundo]} activeOpacity={0.85} onPress={() => fechar(chave)} accessibilityRole="button">
+                  <Text style={est === 'secundario' ? st.secundarioTxt : st.primaryTxt}>{b.texto}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </Animated.View>
       </View>
@@ -109,12 +159,20 @@ const st = StyleSheet.create({
     shadowColor: C.azulP, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.34, shadowRadius: 12, elevation: 6,
   },
   badgeTxt: { fontSize: 24 },
+  badgeSimb: { fontSize: 26, fontWeight: '900', color: '#fff', lineHeight: 30 },
   ttl: { fontSize: 17, fontWeight: '800', color: C.tinta, lineHeight: 22 },
+  sub: { fontSize: 12, fontWeight: '700', color: C.tinta2, marginTop: 2 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: '#eaf1f9', borderRadius: 99, paddingVertical: 4, paddingHorizontal: 10, marginTop: 6 },
   chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.azulP },
   chipTxt: { color: C.azulP, fontSize: 10.5, fontWeight: '800' },
 
-  lead: { fontSize: 12.5, color: C.tinta2, lineHeight: 19, marginTop: 14 },
+  conta: { marginTop: 14, backgroundColor: '#eef4fb', borderRadius: 14, paddingHorizontal: 13, paddingVertical: 8 },
+  contaLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 5, gap: 10 },
+  contaForte: { borderTopWidth: 1, borderTopColor: C.linha, marginTop: 4, paddingTop: 9 },
+  contaRot: { fontSize: 13, color: C.tinta2, flexShrink: 1 },
+  contaVal: { fontSize: 13.5, fontWeight: '800', color: C.tinta },
+
+  lead: { fontSize: 13, color: C.tinta2, lineHeight: 19, marginTop: 14 },
 
   rows: { marginTop: 14, gap: 9 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11 },
@@ -129,7 +187,11 @@ const st = StyleSheet.create({
   acts: { marginTop: 20, gap: 8 },
   btn: { borderRadius: 13, padding: 15, alignItems: 'center' },
   primary: { backgroundColor: C.azulP, shadowColor: C.azulP, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.26, shadowRadius: 12, elevation: 4 },
+  perigo: { backgroundColor: C.erro },
+  okBtn: { backgroundColor: C.ok },
+  secundario: { backgroundColor: C.sup, borderWidth: 1.5, borderColor: C.azulP },
   primaryTxt: { color: '#fff', fontSize: 14.5, fontWeight: '800' },
+  secundarioTxt: { color: C.azulP, fontSize: 14.5, fontWeight: '800' },
   ghost: { padding: 11, alignItems: 'center' },
-  ghostTxt: { color: C.tinta3, fontSize: 13, fontWeight: '700' },
+  ghostTxt: { color: C.tinta3, fontSize: 13.5, fontWeight: '700' },
 });

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, StatusBar, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, StatusBar, Linking } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo,
@@ -31,7 +32,7 @@ export default function Aceitar() {
     setAceitando(true);
     try {
       await api.patch(`/motoboys/app/entregas/${entregaId}/status`, { status: 'aguardando_coleta' });
-      Alert.alert('Corrida aceita!', 'Vá até o ponto de coleta.', [
+      Alerta.alert('Corrida aceita!', 'Vá até o ponto de coleta.', [
         { text: 'OK', onPress: () => router.back() }
       ]);
     } catch (e) {
@@ -39,9 +40,9 @@ export default function Aceitar() {
       if (conexao) {
         // O backend é idempotente: se já tiver aceitado, tocar de novo devolve
         // sucesso. Então não assusta o motoboy com "Erro" — orienta a repetir.
-        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Aceitar" de novo — é seguro. Se já tiver aceitado, a corrida aparece nas suas corridas.');
+        Alerta.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Aceitar" de novo — é seguro. Se já tiver aceitado, a corrida aparece nas suas corridas.');
       } else {
-        Alert.alert('Erro', e.message);
+        Alerta.alert('Erro', e.message);
       }
     }
     setAceitando(false);
@@ -49,7 +50,7 @@ export default function Aceitar() {
 
   function abrirMaps(end) {
     const q = encodeURIComponent(end);
-    Alert.alert('Abrir em', 'Escolha o app de navegação', [
+    Alerta.alert('Abrir em', 'Escolha o app de navegação', [
       { text: 'Google Maps', onPress: () => Linking.openURL(`https://maps.google.com/?q=${q}`) },
       { text: 'Waze', onPress: () => Linking.openURL(`https://waze.com/ul?q=${q}&navigate=yes`) },
       { text: 'Cancelar', style: 'cancel' },

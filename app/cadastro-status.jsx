@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { abrirSocket } from '../src/realtime/socket';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, Image, Alert, StatusBar,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Image, StatusBar,
 } from 'react-native';
 import { router } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { api, getToken } from '../src/api';
 import { T } from '../src/tema';
+import { Alerta } from '../src/utils/avisar';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -57,7 +57,7 @@ export default function CadastroStatus() {
         ws.onmessage = (ev) => {
           try {
             const { evento } = JSON.parse(ev.data);
-            if (evento === 'cadastro.aprovado') { Alert.alert('Aprovado!', 'Seu cadastro foi aprovado. Bem-vindo!', [{ text: 'Começar', onPress: () => router.replace('/home') }]); }
+            if (evento === 'cadastro.aprovado') { Alerta.alert('Aprovado!', 'Seu cadastro foi aprovado. Bem-vindo!', [{ text: 'Começar', onPress: () => router.replace('/home') }]); }
             else if (evento === 'cadastro.reenvio' || evento === 'cadastro.recusado') { carregar(); }
           } catch {}
         };
@@ -68,7 +68,7 @@ export default function CadastroStatus() {
 
   // ── Captura de documentos (só no modo reenvio) ──
   async function tirarFoto(tipo) {
-    if (!permCam?.granted) { const r = await pedirPermCam(); if (!r.granted) { Alert.alert('Permissão', 'Precisamos da câmera.'); return; } }
+    if (!permCam?.granted) { const r = await pedirPermCam(); if (!r.granted) { Alerta.alert('Permissão', 'Precisamos da câmera.'); return; } }
     setCamAberta(tipo);
   }
   async function capturar() {
@@ -86,10 +86,10 @@ export default function CadastroStatus() {
     setEnviando(true);
     try {
       await api.reenviarCadastro({ documentos: docs });
-      Alert.alert('Reenviado!', 'Seus dados foram reenviados para análise.', [{ text: 'OK' }]);
+      Alerta.alert('Reenviado!', 'Seus dados foram reenviados para análise.', [{ text: 'OK' }]);
       setDocs({});
       carregar();
-    } catch (e) { Alert.alert('Erro', e.message || 'Falha ao reenviar'); }
+    } catch (e) { Alerta.alert('Erro', e.message || 'Falha ao reenviar'); }
     setEnviando(false);
   }
 

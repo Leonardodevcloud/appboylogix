@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator, Alert, StatusBar, KeyboardAvoidingView, Platform,
+  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, StatusBar, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
 import { mascararPix, conferirPix, campoPix, mesmaChavePix } from '../src/utils/pix';
+import { Alerta } from '../src/utils/avisar';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66', azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -63,13 +63,13 @@ export default function DadosBancarios() {
 
   async function salvar() {
     const erroPix = conferirPix(f.pix_tipo, f.pix_chave);
-    if (erroPix) { Alert.alert('Confira a chave Pix', erroPix); return; }
+    if (erroPix) { Alerta.alert('Confira a chave Pix', erroPix); return; }
     setSalvando(true);
     const payload = {
       pix_tipo: f.pix_tipo, pix_chave: f.pix_chave, titular_nome: f.titular_nome, titular_doc: f.titular_doc,
       banco_codigo: f.banco_codigo, banco_nome: f.banco_nome, agencia: f.agencia, conta: f.conta, conta_tipo: f.conta_tipo,
     };
-    const sucesso = () => Alert.alert('Pronto', 'Dados bancários atualizados. A central foi avisada.', [{ text: 'OK', onPress: () => router.back() }]);
+    const sucesso = () => Alerta.alert('Pronto', 'Dados bancários atualizados. A central foi avisada.', [{ text: 'OK', onPress: () => router.back() }]);
     try {
       await api.atualizarMeusDados(payload);
       sucesso();
@@ -82,9 +82,9 @@ export default function DadosBancarios() {
           const p = await api.perfil();
           if (mesmaChavePix(payload.pix_tipo, p.pix_chave, payload.pix_chave)) { sucesso(); setSalvando(false); return; }
         } catch {}
-        Alert.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro, não duplica.');
+        Alerta.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Salvar" de novo — é seguro, não duplica.');
       } else {
-        Alert.alert('Erro', e?.message || 'Não foi possível salvar.');
+        Alerta.alert('Erro', e?.message || 'Não foi possível salvar.');
       }
     }
     setSalvando(false);
