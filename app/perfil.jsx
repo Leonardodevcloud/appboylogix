@@ -9,6 +9,10 @@ import * as Updates from 'expo-updates';
 import { assinarOnline } from '../src/state/online';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import BarraAbas from '../src/componentes/BarraAbas';
+import { itensDaFila } from '../src/state/filaConclusao';
+import { assinarNavegacao, escolherNavegacao, APPS } from '../src/state/navegacao';
+import Icone from '../src/componentes/Icone';
 
 const VERSAO_APP = Constants.expoConfig?.version || '?';
 const ID_UPDATE = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'base';
@@ -21,6 +25,8 @@ const C = {
   fundo: '#eef4fb', sup: '#ffffff', sup2: '#f6faff', linha: '#dde9f5',
   ok: '#1f9d6b', okBg: '#e7f6ef', erro: '#dc2626', erroBg: '#fef2f2',
 };
+
+const LOGO_NAV = { waze: require('../assets/navegacao/waze.png'), google: require('../assets/navegacao/google-maps.png') };
 
 const PIX_LABEL = { cpf: 'CPF', cnpj: 'CNPJ', email: 'E-mail', telefone: 'Telefone', aleatoria: 'Aleatória' };
 
@@ -55,16 +61,16 @@ function Avatar({ nome, foto, size = 74 }) {
 }
 
 // Linha do menu de acessos.
-function Item({ ico, tt, sub, onPress, badge, breve }) {
+function Item({ ico, imagem, tt, sub, onPress, badge, breve }) {
   return (
     <TouchableOpacity style={[st.item, breve && st.itemOff]} activeOpacity={breve ? 1 : 0.7} onPress={breve ? undefined : onPress}>
-      <View style={st.itIco}><Text style={{ fontSize: 16 }}>{ico}</Text></View>
+      <View style={st.itIco}>{imagem ? <Image source={imagem} style={{ width: 22, height: 22, borderRadius: 5 }} /> : <Icone nome={ico} tam={17} cor={C.azulP} />}</View>
       <View style={{ flex: 1 }}>
         <Text style={st.itTt}>{tt}</Text>
         {!!sub && <Text style={st.itSub}>{sub}</Text>}
       </View>
       {breve ? <Text style={st.breve}>em breve</Text> : (badge ? <Text style={st.badgeAt}>{badge}</Text> : null)}
-      {!breve && <Text style={st.itSeta}>›</Text>}
+      {!breve && <Icone nome="seta" tam={18} cor={C.tinta3} />}
     </TouchableOpacity>
   );
 }
@@ -73,6 +79,8 @@ export default function Perfil() {
   const [p, setP] = useState(null);
   const [online, setOn] = useState(false);
   const [refresh, setRef] = useState(false);
+  const [nav, setNav] = useState(null);       // Waze ou Google Maps escolhido (ou perguntar)
+  useEffect(() => assinarNavegacao(setNav), []);
 
   const carregar = useCallback(async () => {
     try { const perfil = await api.perfil(); setP(perfil); if (perfil) setOn(!!perfil.online); }
@@ -85,7 +93,11 @@ export default function Perfil() {
 
   const saindoRef = useRef(false);
   function sair() {
-    Alerta.alert('Sair', 'Encerrar sessão?', [
+    // Entrega guardada sem sinal: avisa antes (ela só sai quando ele entrar de novo aqui).
+    const guardadas = itensDaFila().length;
+    Alerta.alert('Sair', guardadas
+      ? `Você tem ${guardadas === 1 ? '1 entrega guardada' : guardadas + ' entregas guardadas'} esperando o sinal. Saindo agora, ${guardadas === 1 ? 'ela só é enviada' : 'elas só são enviadas'} quando você entrar de novo neste celular.`
+      : 'Encerrar sessão?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: async () => {
         if (saindoRef.current) return;
@@ -140,7 +152,7 @@ export default function Perfil() {
       {/* Header identidade */}
       <View style={st.header}>
         <View style={st.headerTop}>
-          <TouchableOpacity onPress={() => router.replace('/home')} style={st.voltar}><Text style={st.voltarTxt}>‹ Início</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.replace('/home')} style={st.voltar}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={C.azulC} traco={2.4} /><Text style={st.voltarTxt}>Início</Text></View></TouchableOpacity>
           <Text style={st.headerTitle}>Meu perfil</Text>
           <View style={{ width: 60 }} />
         </View>
@@ -161,7 +173,7 @@ export default function Perfil() {
         {/* Cards editáveis */}
         <TouchableOpacity style={st.card} activeOpacity={0.85} onPress={() => router.push('/dados-bancarios')}>
           <View style={st.cardHd}>
-            <Text style={st.cardTt}>🏦  Dados bancários</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icone nome="banco" tam={16} cor={C.azulP} /><Text style={st.cardTt}>Dados bancários</Text></View>
             <Text style={st.editar}>Editar</Text>
           </View>
           <Text style={st.cardMini} numberOfLines={1}>{resumoBanco}</Text>
@@ -169,8 +181,8 @@ export default function Perfil() {
 
         <TouchableOpacity style={st.card} activeOpacity={0.85} onPress={() => router.push('/meus-dados')}>
           <View style={st.cardHd}>
-            <Text style={st.cardTt}>👤  Meus dados</Text>
-            <Text style={st.itSeta}>›</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icone nome="usuario" tam={16} cor={C.azulP} /><Text style={st.cardTt}>Meus dados</Text></View>
+            <Icone nome="seta" tam={18} cor={C.tinta3} />
           </View>
           <Text style={st.cardMini} numberOfLines={1}>{resumoDados}</Text>
         </TouchableOpacity>
@@ -178,24 +190,25 @@ export default function Perfil() {
         {/* Operação */}
         <Text style={st.secLbl}>Operação</Text>
         <View style={st.menu}>
-          <Item ico="📡" tt="Rastreamento sempre ativo" sub="Evita que o celular bloqueie o app" badge="ação" onPress={() => router.push('/rastreamento-ativo')} />
-          <Item ico="🔔" tt="Notificações e som" sub="Alerta, vibração e som de corrida" onPress={() => router.push('/notificacoes')} />
+          <Item ico="sinal" tt="Rastreamento sempre ativo" sub="Evita que o celular bloqueie o app" badge="ação" onPress={() => router.push('/rastreamento-ativo')} />
+          <Item ico="sino" tt="Notificações e som" sub="Alerta, vibração e som de corrida" onPress={() => router.push('/notificacoes')} />
+          <Item ico="mapa" imagem={nav ? LOGO_NAV[nav] : null} tt="Navegação" sub={nav ? `${APPS[nav].nome} · toque para trocar` : 'Pergunta qual app abrir a cada rota'} onPress={escolherNavegacao} />
         </View>
 
         {/* Mais */}
         <Text style={st.secLbl}>Mais</Text>
         <View style={st.menu}>
-          <Item ico="⚡" tt="Antecipar saldo" sub="Receba antes do fechamento" onPress={() => router.push('/antecipar')} />
-          <Item ico="🏆" tt="Score e metas" sub="Seu nível e pontuação" onPress={() => router.push('/score')} />
-          <Item ico="🎁" tt="Indique e ganhe" breve />
+          <Item ico="raio" tt="Antecipar saldo" sub="Receba antes do fechamento" onPress={() => router.push('/antecipar')} />
+          <Item ico="trofeu" tt="Score e metas" sub="Seu nível e pontuação" onPress={() => router.push('/score')} />
+          <Item ico="presente" tt="Indique e ganhe" breve />
         </View>
 
         {/* Suporte */}
         <Text style={st.secLbl}>Suporte</Text>
         <View style={st.menu}>
-          <Item ico="❓" tt="Ajuda e suporte" breve />
+          <Item ico="ajuda" tt="Ajuda e suporte" breve />
           <View style={[st.item, { borderBottomWidth: 0 }]}>
-            <View style={st.itIco}><Text style={{ fontSize: 16 }}>ℹ️</Text></View>
+            <View style={st.itIco}><Icone nome="info" tam={17} cor={C.azulP} /></View>
             <View style={{ flex: 1 }}>
               <Text style={st.itTt}>Sobre o app</Text>
               <Text style={st.itSub}>v{VERSAO_APP} · {ID_UPDATE} · {CANAL}</Text>
@@ -210,12 +223,7 @@ export default function Perfil() {
       </ScrollView>
 
       {/* Bottom nav */}
-      <View style={st.tab}>
-        <TouchableOpacity style={st.tabItem} onPress={() => router.replace('/home')}><Text style={st.tabIco}>🏠</Text><Text style={st.tabLbl}>Início</Text></TouchableOpacity>
-        <TouchableOpacity style={st.tabItem} onPress={() => router.push('/historico')}><Text style={st.tabIco}>🗂</Text><Text style={st.tabLbl}>Histórico</Text></TouchableOpacity>
-        <TouchableOpacity style={st.tabItem} onPress={() => router.push('/ganhos')}><Text style={st.tabIco}>💰</Text><Text style={st.tabLbl}>Ganhos</Text></TouchableOpacity>
-        <View style={[st.tabItem, st.tabOn]}><Text style={st.tabIco}>👤</Text><Text style={[st.tabLbl, { color: C.azulP }]}>Perfil</Text></View>
-      </View>
+      <BarraAbas ativa="perfil" />
     </View>
   );
 }
@@ -262,9 +270,4 @@ const st = StyleSheet.create({
   btnExcluirTxt: { color: C.tinta3, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' },
   btnSairTxt: { color: C.erro, fontSize: 14, fontWeight: '700' },
 
-  tab: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.sup, borderTopWidth: 1, borderTopColor: C.linha, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 11, paddingBottom: 28 },
-  tabItem: { alignItems: 'center', gap: 3 },
-  tabOn: {},
-  tabIco: { fontSize: 20 },
-  tabLbl: { fontSize: 9.5, fontWeight: '700', color: C.tinta3 },
 });

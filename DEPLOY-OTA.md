@@ -61,6 +61,19 @@ outras de receberem a correção.
 - **Nunca antes do backend.** Se a tela nova chamar endpoint que ainda não existe, o
   profissional vê erro. A ordem é: deploy do Logix, depois o update.
 
+## Versão 1.1.0 (12/10/2026): build novo, não OTA
+
+A 1.1.0 entra com três módulos nativos novos (`react-native-svg` para os ícones,
+`expo-file-system` e `expo-network` para concluir entrega sem sinal) e o plugin
+`plugins/consultarApps.js` (deixa o app saber se o Waze está instalado). Por isso a
+`version` do `app.json` subiu de 1.0.0 para 1.1.0: com a política `appVersion`, o
+`runtimeVersion` muda junto e **quem ainda está na 1.0.0 não recebe o JavaScript novo**
+(que quebraria sem os módulos nativos). A 1.0.0 continua recebendo só os updates
+publicados para ela; a partir da 1.1.0 instalada, os updates seguem pelo mesmo canal.
+
+Ordem: deploy do backend (ADR-050) → build da 1.1.0 → Play Store → depois disso, OTA
+normalmente.
+
 ## Conferir depois
 
 ```powershell

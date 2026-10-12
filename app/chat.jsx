@@ -10,6 +10,7 @@ import * as Location from 'expo-location';
 import { api } from '../src/api';
 import { uploadDireto } from '../src/api/upload';
 import { T } from '../src/tema';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -162,7 +163,7 @@ export default function Chat() {
         {m.tipo === 'foto' && m.midia_url
           ? <TouchableOpacity onPress={() => Linking.openURL(m.midia_url).catch(() => {})}><Image source={{ uri: m.midia_url }} style={st.foto} /></TouchableOpacity>
           : m.tipo === 'local' && m.lat != null
-            ? <TouchableOpacity onPress={() => Linking.openURL(`https://maps.google.com/?q=${m.lat},${m.lng}`).catch(() => {})}><Text style={st.locTxt}>📍 Ver localização no mapa</Text></TouchableOpacity>
+            ? <TouchableOpacity onPress={() => Linking.openURL(`https://maps.google.com/?q=${m.lat},${m.lng}`).catch(() => {})}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><Icone nome="pin" tam={14} cor={C.azulP} /><Text style={st.locTxt}>Ver localização no mapa</Text></View></TouchableOpacity>
             : <Texto>{m.texto}</Texto>}
         <Text style={st.hora}>{hora(m.criado_em)}</Text>
       </View>
@@ -174,7 +175,7 @@ export default function Chat() {
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
         <View style={st.hTop}>
-          <TouchableOpacity onPress={() => router.back()}><Text style={st.bk}>←</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()}><Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} /></TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={st.htit}>{tipo === 'solicitante' ? 'Loja (solicitante)' : tipo === 'suporte' ? 'Suporte' : 'Chat'}</Text>
             {!!protocolo && <Text style={st.hsub}>Corrida {protocolo}</Text>}
@@ -202,10 +203,10 @@ export default function Chat() {
           </View>
         ) : (
           <>
-            {estado === 'aguardando' && <View style={[st.faixa, st.faixaAguarda]}><Text style={st.faixaTxt}>⏳ Aguardando atendimento — é um retorno rápido pra esta corrida.</Text></View>}
-            {estado === 'em_atendimento' && <View style={[st.faixa, st.faixaAtend]}><Text style={st.faixaTxt}>💬 Em atendimento — pode falar.</Text></View>}
+            {estado === 'aguardando' && <View style={[st.faixa, st.faixaAguarda]}><Text style={st.faixaTxt}>Aguardando atendimento — é um retorno rápido pra esta corrida.</Text></View>}
+            {estado === 'em_atendimento' && <View style={[st.faixa, st.faixaAtend]}><Text style={st.faixaTxt}>Em atendimento — pode falar.</Text></View>}
             <ScrollView ref={scrollRef} style={st.msgs} contentContainerStyle={{ padding: 14, gap: 8 }} keyboardShouldPersistTaps="handled">
-              {msgs.length === 0 && <Text style={st.vazio}>Nenhuma mensagem ainda. Diga oi 👋</Text>}
+              {msgs.length === 0 && <Text style={st.vazio}>Nenhuma mensagem ainda. Mande a primeira.</Text>}
               {msgs.map(m => <Bolha key={m.id} m={m} />)}
             </ScrollView>
           </>
@@ -215,10 +216,10 @@ export default function Chat() {
           encerrada
             ? <View style={st.encBar}><Text style={st.encTxt}>Conversa encerrada — a corrida foi finalizada.</Text></View>
             : <View style={st.comp}>
-                <TouchableOpacity style={st.cIco} onPress={enviarFoto} disabled={enviando}><Text style={st.cIcoTxt}>📎</Text></TouchableOpacity>
-                <TouchableOpacity style={st.cIco} onPress={enviarLocal} disabled={enviando}><Text style={st.cIcoTxt}>📍</Text></TouchableOpacity>
+                <TouchableOpacity style={st.cIco} onPress={enviarFoto} disabled={enviando}><Icone nome="clipe" tam={20} cor={C.azulP} /></TouchableOpacity>
+                <TouchableOpacity style={st.cIco} onPress={enviarLocal} disabled={enviando}><Icone nome="pin" tam={20} cor={C.azulP} /></TouchableOpacity>
                 <TextInput style={st.compIn} value={texto} onChangeText={setTexto} placeholder="Mensagem…" placeholderTextColor={C.tinta3} multiline />
-                <TouchableOpacity style={st.cSend} onPress={enviarTexto} disabled={enviando}>{enviando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={st.cSendTxt}>➤</Text>}</TouchableOpacity>
+                <TouchableOpacity style={st.cSend} onPress={enviarTexto} disabled={enviando}>{enviando ? <ActivityIndicator color="#fff" size="small" /> : <Icone nome="enviar" tam={18} cor={'#fff'} />}</TouchableOpacity>
               </View>
         )}
       </KeyboardAvoidingView>

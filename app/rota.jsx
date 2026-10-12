@@ -6,6 +6,8 @@ import { router } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import { abrirNavegacao } from '../src/state/navegacao';
+import Icone from '../src/componentes/Icone';
 
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
 try {
@@ -47,17 +49,15 @@ export default function Rota() {
     setReordenado(true);
   }
 
-  // Monta a URL do Google Maps com todas as paradas (coleta + entregas na ordem).
+  // Rota inteira (coleta + entregas na ordem) no app escolhido: o Google Maps recebe todas
+  // as paradas; o Waze, que não aceita paradas pela URL, vai para a primeira.
   function seguirRota() {
     if (!paradas.length) { Alerta.alert('Sem rota', 'Você não tem corridas ativas com endereço.'); return; }
     const pts = [];
-    if (dados?.coleta?.lat) pts.push(`${dados.coleta.lat},${dados.coleta.lng}`);
-    paradas.forEach(p => pts.push(`${p.lat},${p.lng}`));
+    if (dados?.coleta?.lat) pts.push({ lat: dados.coleta.lat, lng: dados.coleta.lng });
+    paradas.forEach(p => pts.push({ lat: p.lat, lng: p.lng }));
     const destino = pts[pts.length - 1];
-    const waypoints = pts.slice(0, -1).join('|');
-    let url = `https://www.google.com/maps/dir/?api=1&destination=${destino}&travelmode=driving`;
-    if (waypoints) url += `&waypoints=${encodeURIComponent(waypoints)}`;
-    Linking.openURL(url);
+    abrirNavegacao({ ...destino, label: paradas[paradas.length - 1]?.endereco, paradas: pts.slice(0, -1), primeira: pts[0] });
   }
 
   if (carregando) {
@@ -104,7 +104,7 @@ export default function Rota() {
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
         <TouchableOpacity onPress={() => router.replace('/home')} style={st.btnVoltar}>
-          <Text style={st.btnVoltarTxt}>‹</Text>
+          <Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} />
         </TouchableOpacity>
         <Text style={st.headerTit}>Minha rota</Text>
         <View style={{ width: 38 }} />
@@ -112,7 +112,7 @@ export default function Rota() {
 
       {paradas.length === 0 ? (
         <View style={st.vazio}>
-          <Text style={st.vazioIco}>🗺️</Text>
+          <View style={st.vazioIco}><Icone nome="mapa" tam={32} cor={C.azulP} traco={1.8} /></View>
           <Text style={st.vazioTxt}>Você não tem corridas ativas no momento</Text>
           <TouchableOpacity style={st.vazioBtn} onPress={() => router.replace('/home')}>
             <Text style={st.vazioBtnTxt}>Voltar ao início</Text>
@@ -229,7 +229,7 @@ const st = StyleSheet.create({
   dicaAlt: { fontSize: 11, color: '#854F0B', textAlign: 'center', marginTop: 6, lineHeight: 16, backgroundColor: '#FAEEDA', padding: 8, borderRadius: 8 },
 
   vazio: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
-  vazioIco: { fontSize: 42, marginBottom: 14 },
+  vazioIco: { width: 64, height: 64, borderRadius: 18, backgroundColor: '#eef4fb', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   vazioTxt: { fontSize: 14, color: C.tinta2, textAlign: 'center', marginBottom: 18 },
   vazioBtn: { backgroundColor: C.azulP, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 },
   vazioBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '700' },

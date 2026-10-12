@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { T } from '../tema';
+import Icone from './Icone';
 
 const C = { navy: T.profundo, azulP: T.primario, azulV: T.vivo, tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc', fundo: '#eef4fb', sup: '#fff', sup2: '#f6faff', linha: '#dde9f5', ok: '#1f9d6b' };
 const MES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -30,9 +31,9 @@ function Calendario({ de, ate, aoMudar }) {
   return (
     <View>
       <View style={s.calTopo}>
-        <TouchableOpacity onPress={() => setRef(new Date(ano, mes - 1, 1))} style={s.calNav}><Text style={s.calNavTxt}>‹</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setRef(new Date(ano, mes - 1, 1))} style={s.calNav}><Icone nome="voltar" tam={20} cor={C.azulP} traco={2.4} /></TouchableOpacity>
         <Text style={s.calMes}>{MES[mes]} {ano}</Text>
-        <TouchableOpacity onPress={() => setRef(new Date(ano, mes + 1, 1))} style={s.calNav}><Text style={s.calNavTxt}>›</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setRef(new Date(ano, mes + 1, 1))} style={s.calNav}><Icone nome="seta" tam={20} cor={C.azulP} traco={2.4} /></TouchableOpacity>
       </View>
       <View style={s.calSemana}>{DOW.map((d, i) => <Text key={i} style={s.calDow}>{d}</Text>)}</View>
       <View style={s.calGrid}>
@@ -66,7 +67,10 @@ export default function FiltroPeriodo({ valor, aoSelecionar }) {
       <View style={s.chips}>
         {chip('hoje', 'Hoje')}{chip('semana', 'Semana')}{chip('mes', 'Mês')}
         <TouchableOpacity style={[s.chip, tipo === 'custom' && s.chipOn]} onPress={() => { setDe(valor?.de || null); setAte(valor?.ate || null); setModal(true); }}>
-          <Text style={[s.chipTxt, tipo === 'custom' && s.chipTxtOn]}>📅 Período</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Icone nome="calendario" tam={13} cor={tipo === 'custom' ? '#fff' : C.tinta2} />
+            <Text style={[s.chipTxt, tipo === 'custom' && s.chipTxtOn]}>Período</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -76,7 +80,7 @@ export default function FiltroPeriodo({ valor, aoSelecionar }) {
             <Text style={s.sheetTit}>Escolha o período</Text>
             <View style={s.rangeInfo}>
               <View style={s.rangeCol}><Text style={s.rangeLbl}>De</Text><Text style={s.rangeVal}>{br(de)}</Text></View>
-              <Text style={s.rangeSeta}>→</Text>
+              <Icone nome="setaDireita" tam={16} cor={C.tinta3} />
               <View style={s.rangeCol}><Text style={s.rangeLbl}>Até</Text><Text style={s.rangeVal}>{br(ate)}</Text></View>
             </View>
             <Calendario de={de} ate={ate} aoMudar={(d, a) => { setDe(d); setAte(a); }} />

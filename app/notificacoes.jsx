@@ -11,6 +11,7 @@ import { garantirPrefs, setPref, assinarPrefs, SONS } from '../src/state/prefsAl
 import { alertaCorrida } from '../src/utils/alerta';
 import { testarNotificacaoLocal } from '../src/push';
 import { T } from '../src/tema';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -56,14 +57,14 @@ export default function Notificacoes() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={st.bk}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} /></TouchableOpacity>
         <Text style={st.htitle}>Notificações e som</Text>
       </View>
 
       <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Status da permissão */}
         <View style={[st.stat, ativo ? st.statOk : st.statBad]}>
-          <View style={[st.sIco, { backgroundColor: ativo ? C.ok : C.erro }]}><Text style={st.sIcoTxt}>{ativo ? '✓' : '!'}</Text></View>
+          <View style={[st.sIco, { backgroundColor: ativo ? C.ok : C.erro }]}><Icone nome={ativo ? 'check' : 'alerta'} tam={20} cor="#fff" traco={2.6} /></View>
           <View style={{ flex: 1 }}>
             <Text style={[st.sTt, { color: ativo ? '#0f6e56' : '#a23c34' }]}>{ativo ? 'Notificações ativas' : 'Notificações desligadas'}</Text>
             <Text style={st.sSub}>{ativo ? 'Você recebe corridas mesmo com o app fechado.' : 'Você pode perder corridas. Toque em ativar.'}</Text>
@@ -75,12 +76,12 @@ export default function Notificacoes() {
         <Text style={st.secLbl}>Alerta dentro do app</Text>
         <View style={st.box}>
           <View style={st.row}>
-            <View style={st.rIco}><Text style={{ fontSize: 15 }}>🔊</Text></View>
+            <View style={st.rIco}><Icone nome="som" tam={16} cor={C.azulP} /></View>
             <View style={{ flex: 1 }}><Text style={st.rTt}>Som de corrida</Text></View>
             <Switch value={prefs.som} onValueChange={v => setPref('som', v)} trackColor={{ false: '#cbd5e1', true: C.ok }} thumbColor="#fff" ios_backgroundColor="#cbd5e1" />
           </View>
           <View style={[st.row, { borderBottomWidth: 0 }]}>
-            <View style={st.rIco}><Text style={{ fontSize: 15 }}>📳</Text></View>
+            <View style={st.rIco}><Icone nome="vibrar" tam={16} cor={C.azulP} /></View>
             <View style={{ flex: 1 }}><Text style={st.rTt}>Vibração</Text><Text style={st.rSub}>Funciona mesmo com o som desligado</Text></View>
             <Switch value={prefs.vibracao} onValueChange={v => setPref('vibracao', v)} trackColor={{ false: '#cbd5e1', true: C.ok }} thumbColor="#fff" ios_backgroundColor="#cbd5e1" />
           </View>
@@ -117,14 +118,14 @@ export default function Notificacoes() {
         <Text style={st.secLbl}>Sistema</Text>
         <View style={st.box}>
           <TouchableOpacity style={[st.row, { borderBottomWidth: 0 }]} activeOpacity={0.7} onPress={abrirAjustesAndroid}>
-            <View style={st.rIco}><Text style={{ fontSize: 15 }}>⚙️</Text></View>
+            <View style={st.rIco}><Icone nome="engrenagem" tam={16} cor={C.azulP} /></View>
             <View style={{ flex: 1 }}><Text style={st.rTt}>Ajustes do Android</Text><Text style={st.rSub}>Som e prioridade do sistema</Text></View>
-            <Text style={st.seta}>›</Text>
+            <Icone nome="seta" tam={18} cor={C.tinta3} />
           </TouchableOpacity>
         </View>
 
         <View style={st.tip}>
-          <Text style={{ fontSize: 15 }}>💡</Text>
+          <Icone nome="lampada" tam={15} cor={C.azulP} />
           <Text style={st.tipTxt}>O som escolhido toca com o app aberto/online. Com o app fechado, quem toca é o Android. Sumindo notificação? Veja "Rastreamento sempre ativo" no perfil.</Text>
         </View>
       </ScrollView>
@@ -143,7 +144,6 @@ const st = StyleSheet.create({
   statOk: { backgroundColor: C.okBg, borderColor: '#b6e3ce' },
   statBad: { backgroundColor: C.erroBg, borderColor: '#f2c4be' },
   sIco: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  sIcoTxt: { color: '#fff', fontSize: 18, fontWeight: '800' },
   sTt: { fontSize: 13.5, fontWeight: '800' },
   sSub: { fontSize: 11, color: C.tinta2, marginTop: 2 },
   sBtn: { backgroundColor: C.erro, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 13 },

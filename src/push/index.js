@@ -134,7 +134,7 @@ export async function testarNotificacaoLocal() {
     await criarCanalAndroid();
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: `🔔 Teste de notificação · ${marca.nomeApp}`,
+        title: `Teste de notificação · ${marca.nomeApp}`,
         body: 'Ouviu o som e sentiu a vibração? Então o canal está OK.',
         sound: 'default',
         data: { tipo: 'teste' },

@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { api } from '../src/api';
 import FiltroPeriodo from '../src/componentes/FiltroPeriodo';
 import { T } from '../src/tema';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulC: T.claro,
@@ -62,7 +63,7 @@ export default function Historico() {
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
         <TouchableOpacity onPress={() => router.replace('/home')} style={st.btnVoltar}>
-          <Text style={st.btnVoltarTxt}>‹</Text>
+          <Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} />
         </TouchableOpacity>
         <Text style={st.headerTit}>Histórico</Text>
         <View style={{ width: 38 }} />
@@ -81,8 +82,9 @@ export default function Historico() {
 
           {dados.corridas.length === 0 ? (
             <View style={st.vazio}>
-              <Text style={st.vazioIco}>📦</Text>
-              <Text style={st.vazioTxt}>Nenhuma corrida concluída neste período</Text>
+              <View style={st.vazioIco}><Icone nome="caixa" tam={30} cor={C.azulP} traco={1.8} /></View>
+              <Text style={st.vazioTit}>Nenhuma corrida neste período</Text>
+              <Text style={st.vazioTxt}>Troque o período acima ou fique online para receber corridas.</Text>
             </View>
           ) : (
             grupos.map(g => (
@@ -92,7 +94,10 @@ export default function Historico() {
                   <Text style={st.diaSepTot}>{reais(g.total)} · {g.corridas.length}</Text>
                 </View>
                 {g.corridas.map(c => (
-                  <View key={c.id} style={st.card}>
+                  <TouchableOpacity key={c.id} style={st.card} activeOpacity={0.8}
+                    onPress={() => router.push({ pathname: '/corrida-detalhe', params: { id: c.id } })}
+                    accessibilityRole="button" accessibilityLabel={`Corrida ${c.protocolo}, ver detalhe`}>
+                    <View style={{ flex: 1 }}>
                     <View style={st.cardTopo}>
                       <Text style={st.cardProto}>{c.protocolo}</Text>
                       <Text style={st.cardValor}>{reais(c.valor_motoboy_cent)}</Text>
@@ -104,8 +109,13 @@ export default function Historico() {
                         {Number.isFinite(Number(c.distancia_km)) && Number(c.distancia_km) > 0 ? ` · ${Number(c.distancia_km).toFixed(1)} km` : ''}
                       </Text>
                     </View>
-                    <Text style={st.cardEnd} numberOfLines={1}>→ {c.ultimo_destino || c.coleta_endereco}</Text>
-                  </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <Icone nome="pin" tam={11} cor={C.tinta3} />
+                      <Text style={[st.cardEnd, { marginTop: 0, flex: 1 }]} numberOfLines={1}>{c.ultimo_destino || c.coleta_endereco}</Text>
+                    </View>
+                    </View>
+                    <Icone nome="seta" tam={18} cor={C.tinta3} />
+                  </TouchableOpacity>
                 ))}
               </View>
             ))
@@ -121,7 +131,6 @@ const st = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { backgroundColor: C.navy900, paddingTop: 52, paddingBottom: 16, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   btnVoltar: { width: 38, height: 38, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
-  btnVoltarTxt: { color: '#fff', fontSize: 26, fontWeight: '700', marginTop: -2 },
   headerTit: { color: '#fff', fontSize: 17, fontWeight: '800' },
 
   filtroBox: { padding: 16, paddingBottom: 4 },
@@ -132,7 +141,7 @@ const st = StyleSheet.create({
   diaSepTxt: { fontSize: 11.5, fontWeight: '800', color: C.tinta3, textTransform: 'uppercase', letterSpacing: 0.3 },
   diaSepTot: { fontSize: 11.5, fontWeight: '800', color: C.ok },
 
-  card: { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 13, marginBottom: 9 },
+  card: { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 13, marginBottom: 9, flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardProto: { fontSize: 15, fontWeight: '800', color: C.navy900 },
   cardValor: { fontSize: 15, fontWeight: '800', color: C.ok },
@@ -141,6 +150,7 @@ const st = StyleSheet.create({
   cardEnd: { fontSize: 12, color: C.tinta2, marginTop: 4 },
 
   vazio: { alignItems: 'center', paddingVertical: 50 },
-  vazioIco: { fontSize: 36, marginBottom: 10 },
+  vazioIco: { width: 56, height: 56, borderRadius: 16, backgroundColor: '#eef4fb', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  vazioTit: { fontSize: 14.5, fontWeight: '800', color: C.tinta, marginBottom: 4 },
   vazioTxt: { fontSize: 13.5, color: C.tinta3, textAlign: 'center' },
 });

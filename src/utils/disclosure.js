@@ -22,17 +22,17 @@ export async function garantirDisclosureLocalizacao() {
   } catch {}
 
   const escolha = await mostrarAviso({
-    icone: '📍',
+    icone: 'pin',
     titulo: 'Uso da sua localização',
     chip: 'Antes de continuar',
     lead: 'Para funcionar, o app coleta a sua localização — inclusive em segundo plano, com o app fechado — para:',
     itens: [
-      { ico: '📡', txt: 'Enviar sua posição à central durante as entregas' },
-      { ico: '🛵', txt: 'Deixar você receber corridas próximas' },
-      { ico: '🗺️', txt: 'Registrar o trajeto de cada entrega' },
+      { ico: 'sinal', txt: 'Enviar sua posição à central durante as entregas' },
+      { ico: 'moto', txt: 'Deixar você receber corridas próximas' },
+      { ico: 'mapa', txt: 'Registrar o trajeto de cada entrega' },
     ],
     destaque: 'O compartilhamento acontece só enquanto você está ONLINE. Fique offline quando quiser para parar.',
-    destaqueIco: '🔒',
+    destaqueIco: 'cadeado',
     botaoPrimario: 'Entendi e permito',
     botaoGhost: 'Agora não',
     fecharPorFora: false,
@@ -46,14 +46,14 @@ export async function garantirDisclosureLocalizacao() {
 // ── Localização "o tempo todo" OBRIGATÓRIA para operar ──────────────────────
 async function avisarPermissaoSempre() {
   const escolha = await mostrarAviso({
-    icone: '📍',
+    icone: 'pin',
     titulo: 'Ative a localização “o tempo todo”',
     chip: 'Necessário para ficar online',
     lead: 'Com o app fechado, é assim que você continua recebendo corridas e o trajeto fica registrado.',
     itens: [
-      { ico: '🛵', txt: 'Recebe corridas mesmo com a tela apagada' },
-      { ico: '📡', txt: 'Sua posição chega à central em tempo real' },
-      { ico: '🗺️', txt: 'O trajeto de cada entrega é registrado' },
+      { ico: 'moto', txt: 'Recebe corridas mesmo com a tela apagada' },
+      { ico: 'sinal', txt: 'Sua posição chega à central em tempo real' },
+      { ico: 'mapa', txt: 'O trajeto de cada entrega é registrado' },
     ],
     destaque: 'Na tela que abrir, escolha “Permitir o tempo todo” — não só “enquanto usa o app”.',
     botaoPrimario: 'Abrir configurações',

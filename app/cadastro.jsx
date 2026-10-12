@@ -10,6 +10,7 @@ import { uploadDireto } from '../src/api/upload';
 import { T } from '../src/tema';
 import { mascararPix, conferirPix, campoPix } from '../src/utils/pix';
 import { Alerta } from '../src/utils/avisar';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66',
@@ -181,7 +182,7 @@ export default function Cadastro() {
       <View style={st.header}>
         <View style={st.headerTop}>
           <TouchableOpacity onPress={() => etapa === 0 ? router.back() : setEtapa(etapa - 1)} style={{ width: 60 }}>
-            <Text style={st.voltarTxt}>‹ Voltar</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={C.azulC} traco={2.4} /><Text style={st.voltarTxt}>Voltar</Text></View>
           </TouchableOpacity>
           <Text style={st.headerTitle}>Criar conta</Text>
           <View style={{ width: 60 }} />
@@ -262,7 +263,7 @@ export default function Cadastro() {
 
               <TouchableOpacity style={st.chkline} activeOpacity={0.8}
                 onPress={() => setForm(f => ({ ...f, titular_nome: f.nome_completo || f.titular_nome, titular_doc: f.cpf || f.titular_doc }))}>
-                <View style={st.chk}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>✓</Text></View>
+                <View style={st.chk}><Icone nome="check" tam={13} cor={'#fff'} traco={3} /></View>
                 <Text style={st.chkTxt}>A conta é minha (usar meu nome e CPF do cadastro)</Text>
               </TouchableOpacity>
 
@@ -287,7 +288,7 @@ export default function Cadastro() {
                 valor={form.conta_tipo} onEscolher={v => set('conta_tipo', v)} />
 
               <View style={st.infoBox}>
-                <Text style={{ fontSize: 15 }}>🔒</Text>
+                <Icone nome="cadeado" tam={15} cor={C.azulP} />
                 <Text style={st.infoTxt}>Usamos esses dados só para pagar seus repasses. Você pode alterar depois no seu perfil.</Text>
               </View>
             </View>
@@ -304,19 +305,19 @@ export default function Cadastro() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                       {enviado
                         ? <Image source={{ uri: docs[d.tipo] }} style={st.docThumb} />
-                        : <View style={[st.docThumb, st.docThumbVazio]}><Text style={{ fontSize: 22 }}>{d.tipo === 'selfie' ? '🤳' : '📄'}</Text></View>}
+                        : <View style={[st.docThumb, st.docThumbVazio]}><Icone nome={d.tipo === 'selfie' ? 'selfie' : 'documento'} tam={22} cor={C.azulP} /></View>}
                       <View style={{ flex: 1 }}>
                         <Text style={st.docNome}>{d.rotulo}</Text>
-                        <Text style={st.docSub}>{enviado ? '✓ Enviado' : d.sub}</Text>
+                        <Text style={st.docSub}>{enviado ? 'Enviado' : d.sub}</Text>
                       </View>
                     </View>
                     <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
                       <TouchableOpacity style={st.docBtn} onPress={() => tirarFoto(d.tipo)}>
-                        <Text style={st.docBtnTxt}>{enviado ? 'Refazer foto' : '📷 Câmera'}</Text>
+                        <Text style={st.docBtnTxt}>{enviado ? 'Refazer foto' : 'Câmera'}</Text>
                       </TouchableOpacity>
                       {!d.soCamera && (
                         <TouchableOpacity style={[st.docBtn, st.docBtnAlt]} onPress={() => daGaleria(d.tipo)}>
-                          <Text style={[st.docBtnTxt, { color: C.azulP }]}>🖼 Galeria</Text>
+                          <Text style={[st.docBtnTxt, { color: C.azulP }]}>Galeria</Text>
                         </TouchableOpacity>
                       )}
                     </View>

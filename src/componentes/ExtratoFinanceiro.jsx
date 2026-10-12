@@ -11,6 +11,7 @@ import { api } from '../api';
 import { T, reais } from '../tema';
 import { Alerta } from '../utils/avisar';
 import { mascararPix } from '../utils/pix';
+import Icone from '../src/componentes/Icone';
 
 const FILTROS = [['tudo', 'Tudo'], ['entradas', 'Entradas'], ['saidas', 'Saídas'], ['saques', 'Saques'], ['acertos', 'Acertos']];
 const STATUS = {
@@ -87,9 +88,10 @@ function abrirDetalhe(i) {
   });
 }
 
-function Icone({ tipo, valor }) {
-  const cfg = tipo === 'corridas' ? ['neutro', '›'] : tipo === 'acerto' ? ['acerto', '≡'] : valor >= 0 ? ['entra', '↑'] : ['sai', '↓'];
-  return <View style={[st.ico, st['ico_' + cfg[0]]]}><Text style={[st.icoTx, st['icoTx_' + cfg[0]]]}>{cfg[1]}</Text></View>;
+const COR_LINHA = { entra: T.ganhoEsc, sai: T.alerta, acerto: T.primario, neutro: T.tinta2 };
+function IconeLinha({ tipo, valor }) {
+  const cfg = tipo === 'corridas' ? ['neutro', 'moto'] : tipo === 'acerto' ? ['acerto', 'lista'] : valor >= 0 ? ['entra', 'entrada'] : ['sai', 'saida'];
+  return <View style={[st.ico, st['ico_' + cfg[0]]]}><Icone nome={cfg[1]} tam={17} cor={COR_LINHA[cfg[0]]} traco={2.4} /></View>;
 }
 
 export default function ExtratoFinanceiro({ filtro: periodo, recarregarToken }) {
@@ -147,7 +149,7 @@ export default function ExtratoFinanceiro({ filtro: periodo, recarregarToken }) 
               return (
                 <TouchableOpacity key={i.id} style={st.mv} activeOpacity={0.8} onPress={() => abrirDetalhe(i)} accessibilityRole="button"
                   accessibilityLabel={`${i.titulo}, ${sinal(i.valor_cent)}`}>
-                  <Icone tipo={i.tipo} valor={i.valor_cent} />
+                  <IconeLinha tipo={i.tipo} valor={i.valor_cent} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={st.mvTit} numberOfLines={1}>{i.titulo}</Text>
@@ -185,8 +187,6 @@ const st = StyleSheet.create({
   mv: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: T.sup, borderWidth: 1, borderColor: T.linha, borderRadius: 13, padding: 12, marginBottom: 7 },
   ico: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   ico_entra: { backgroundColor: T.ganhoBg }, ico_sai: { backgroundColor: T.alertaBg }, ico_acerto: { backgroundColor: T.suave }, ico_neutro: { backgroundColor: T.suave },
-  icoTx: { fontSize: 17, fontWeight: '900' },
-  icoTx_entra: { color: T.ganhoEsc }, icoTx_sai: { color: T.alerta }, icoTx_acerto: { color: T.primario }, icoTx_neutro: { color: T.tinta2 },
   mvTit: { fontSize: 13.5, fontWeight: '800', color: T.tinta, flexShrink: 1 },
   mvSub: { fontSize: 11.5, color: T.tinta2, marginTop: 2 },
   mvVal: { fontSize: 14, fontWeight: '800' },

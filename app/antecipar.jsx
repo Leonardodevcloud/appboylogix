@@ -42,6 +42,7 @@ const ROTULO_PIX = { cpf: 'CPF', cnpj: 'CNPJ', telefone: 'Cel.', email: 'E-mail'
 const chaveTexto = (tipo, chave) => (chave ? `${ROTULO_PIX[tipo] || 'Chave'} ${(() => { try { return mascararPix(tipo, chave); } catch { return chave; } })()}` : null);
 const VIVO_MS = 15000;   // conferência enquanto há pedido aberto (cobre o WebSocket caído)
 import { Alerta } from '../src/utils/avisar';
+import Icone from '../src/componentes/Icone';
 
 const centavos = (texto) => {
   const n = Math.round(Number(String(texto).replace(/[^\d,]/g, '').replace(',', '.')) * 100);
@@ -236,7 +237,7 @@ export default function Antecipar() {
 
       <View style={st.cab}>
         <TouchableOpacity style={st.voltar} onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar">
-          <Text style={st.voltarTx}>‹</Text>
+          <Icone nome="voltar" tam={22} cor={'#fff'} traco={2.4} />
         </TouchableOpacity>
         <Text style={st.cabTitulo}>{aba === 'pedir' ? 'Antecipar saldo' : 'Meus saques'}</Text>
       </View>
@@ -502,7 +503,7 @@ function Passo({ feito, atual, numero, titulo, sub }) {
   return (
     <View style={st.passo}>
       <View style={[st.bola, feito ? st.bolaFeita : atual ? st.bolaAtual : null]}>
-        <Text style={st.bolaTx}>{feito ? '✓' : numero}</Text>
+        {feito ? <Icone nome="check" tam={13} cor={'#fff'} traco={3} /> : <Text style={st.bolaTx}>{numero}</Text>}
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[st.passoTitulo, atual && { color: T.primario }]}>{titulo}</Text>

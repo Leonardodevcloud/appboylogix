@@ -2,7 +2,7 @@
   "expo": {
     "name": "Logix Motoboy",
     "slug": "logix-motoboy",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -64,7 +64,8 @@
           ]
         }
       ],
-      "./plugins/removerPermissoes"
+      "./plugins/removerPermissoes",
+      "./plugins/consultarApps"
     ],
     "scheme": "logix-motoboy",
     "extra": {

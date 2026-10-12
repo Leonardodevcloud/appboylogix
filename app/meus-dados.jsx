@@ -9,6 +9,7 @@ import { api } from '../src/api';
 import { uploadDireto } from '../src/api/upload';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -18,10 +19,10 @@ const C = {
 };
 
 const DOCS = [
-  { tipo: 'selfie', rotulo: 'Selfie', ico: '🤳', soCamera: true },
-  { tipo: 'habilitacao', rotulo: 'Habilitação (CNH)', ico: '📄' },
-  { tipo: 'comprovante_endereco', rotulo: 'Comprovante de endereço', ico: '📄' },
-  { tipo: 'antecedentes', rotulo: 'Antecedentes criminais', ico: '📄' },
+  { tipo: 'selfie', rotulo: 'Selfie', ico: 'selfie', soCamera: true },
+  { tipo: 'habilitacao', rotulo: 'Habilitação (CNH)', ico: 'documento' },
+  { tipo: 'comprovante_endereco', rotulo: 'Comprovante de endereço', ico: 'documento' },
+  { tipo: 'antecedentes', rotulo: 'Antecedentes criminais', ico: 'documento' },
 ];
 
 function fmtTel(t) {
@@ -140,7 +141,7 @@ export default function MeusDados() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={st.bk}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} /></TouchableOpacity>
         <Text style={st.htitle}>Meus dados</Text>
       </View>
 
@@ -148,7 +149,7 @@ export default function MeusDados() {
         <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
 
           {/* Dados pessoais */}
-          <View style={st.grpHd}><Text style={st.grpTt}>👤  Dados pessoais</Text></View>
+          <View style={[st.grpHd, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}><Icone nome="usuario" tam={13} cor={C.tinta2} /><Text style={st.grpTt}>Dados pessoais</Text></View>
           <View style={st.box}>
             <Linha rot="Nome" val={p.nome_completo} lock />
             <Linha rot="CPF" val={fmtCpf(p.cpf)} lock />
@@ -165,7 +166,7 @@ export default function MeusDados() {
               </View>
             )}
           </View>
-          <Text style={st.lockNota}>🔒 Nome, CPF e nascimento só a central altera.</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><Icone nome="cadeado" tam={11} cor={C.tinta3} style={{ marginTop: 6 }} /><Text style={st.lockNota}>Nome, CPF e nascimento só a central altera.</Text></View>
           {!editPessoal
             ? <TouchableOpacity style={st.editaBtn} onPress={() => setEditPessoal(true)}><Text style={st.editaTxt}>Editar telefones</Text></TouchableOpacity>
             : <View style={st.edRow}>
@@ -174,7 +175,7 @@ export default function MeusDados() {
               </View>}
 
           {/* Endereço */}
-          <View style={st.grpHd}><Text style={st.grpTt}>📍  Endereço</Text></View>
+          <View style={[st.grpHd, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}><Icone nome="pin" tam={13} cor={C.tinta2} /><Text style={st.grpTt}>Endereço</Text></View>
           <View style={st.box}>
             {!editEndereco ? (
               <>
@@ -207,7 +208,7 @@ export default function MeusDados() {
               </View>}
 
           {/* Documentos */}
-          <View style={st.grpHd}><Text style={st.grpTt}>🧾  Documentos</Text></View>
+          <View style={[st.grpHd, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}><Icone nome="nota" tam={13} cor={C.tinta2} /><Text style={st.grpTt}>Documentos</Text></View>
           <View style={st.box}>
             {DOCS.map((d, i) => {
               const stt = docs[d.tipo];
@@ -215,7 +216,7 @@ export default function MeusDados() {
               const enviando = enviandoDoc === d.tipo;
               return (
                 <View key={d.tipo} style={[st.docRow, i === DOCS.length - 1 && { borderBottomWidth: 0 }]}>
-                  <View style={st.docIco}><Text style={{ fontSize: 15 }}>{d.ico}</Text></View>
+                  <View style={st.docIco}><Icone nome={d.ico} tam={15} cor={C.azulP} /></View>
                   <Text style={st.docNome}>{d.rotulo}</Text>
                   {meta && <View style={[st.stTag, { backgroundColor: meta.s[0] }]}><Text style={[st.stTxt, { color: meta.s[1] }]}>{meta.txt}</Text></View>}
                   {enviando
@@ -238,7 +239,7 @@ function Linha({ rot, val, lock, ultimo }) {
       <Text style={st.dlR}>{rot}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
         <Text style={st.dlV}>{val}</Text>
-        {lock && <Text style={st.lockIco}>🔒</Text>}
+        {lock && <Icone nome="cadeado" tam={11} cor={C.tinta3} />}
       </View>
     </View>
   );
@@ -258,7 +259,6 @@ const st = StyleSheet.create({
   dl: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.linha },
   dlR: { fontSize: 12, color: C.tinta2, fontWeight: '600' },
   dlV: { fontSize: 12.5, color: C.tinta, fontWeight: '700' },
-  lockIco: { fontSize: 10 },
   lockNota: { fontSize: 10.5, color: C.tinta3, marginTop: 6, marginLeft: 2, lineHeight: 15 },
 
   label: { fontSize: 12, fontWeight: '700', color: C.tinta2, marginBottom: 6 },

@@ -10,11 +10,11 @@ import CartaoCorrida from '../src/componentes/CartaoCorrida';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import { abrirNavegacao } from '../src/state/navegacao';
+import Icone from '../src/componentes/Icone';
 
 function abrirMapa(lat, lng, endereco) {
-  const q = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(endereco || '');
-  if (!q) return;
-  Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`).catch(() => {});
+  abrirNavegacao({ lat, lng, label: endereco });
 }
 
 export default function Ofertas() {
@@ -120,7 +120,7 @@ export default function Ofertas() {
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
       <View style={st.header}>
         <TouchableOpacity onPress={() => { pararAlerta(); router.replace('/home'); }} style={{ minWidth: 72 }}>
-          <Text style={st.voltar}>‹ Início</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={T.claro} traco={2.4} /><Text style={st.voltar}>Início</Text></View>
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>
           <Text style={st.headerTit}>Corridas disponíveis</Text>
@@ -153,12 +153,12 @@ export default function Ofertas() {
                     <CartaoCorrida oferta={o} mostrarAcoes={false} />
                     <TouchableOpacity style={st.btnMapa} activeOpacity={0.85}
                       onPress={() => abrirMapa(o.coleta_lat, o.coleta_lng, o.coleta_endereco)}>
-                      <Text style={st.btnMapaTxt}>🗺️  Abrir no mapa</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icone nome="mapa" tam={18} cor={T.primario} /><Text style={st.btnMapaTxt}>Abrir no mapa</Text></View>
                     </TouchableOpacity>
                     <View style={st.decisao}>
                       <DeslizarParaConfirmar
                         rotulo={temValor ? `Deslize para aceitar · ${reais(o.valor_motoboy_cent)}` : 'Deslize para aceitar'}
-                        rotuloOk="Corrida aceita ✓"
+                        rotuloOk="Corrida aceita"
                         ocupado={aceitandoId === o.oferta_id}
                         feito={aceita}
                         onConfirmar={() => aceitar(o)} />

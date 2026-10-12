@@ -4,6 +4,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import { abrirNavegacao } from '../src/state/navegacao';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo,
@@ -49,12 +51,7 @@ export default function Aceitar() {
   }
 
   function abrirMaps(end) {
-    const q = encodeURIComponent(end);
-    Alerta.alert('Abrir em', 'Escolha o app de navegação', [
-      { text: 'Google Maps', onPress: () => Linking.openURL(`https://maps.google.com/?q=${q}`) },
-      { text: 'Waze', onPress: () => Linking.openURL(`https://waze.com/ul?q=${q}&navigate=yes`) },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    abrirNavegacao({ label: end });
   }
 
   if (loading) return (
@@ -79,7 +76,7 @@ export default function Aceitar() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backIco}>←</Text>
+          <Icone nome="voltar" tam={22} cor={C.azulP} traco={2.4} />
         </TouchableOpacity>
         <Text style={s.titulo}>Detalhes da corrida</Text>
       </View>
@@ -89,7 +86,7 @@ export default function Aceitar() {
         {/* Mapa placeholder */}
         <View style={s.mapaBox}>
           <View style={s.mapaInner}>
-            <Text style={s.mapaPlaceholder}>🗺</Text>
+            <Icone nome="mapa" tam={36} cor={C.azulP} traco={1.8} />
             <Text style={s.mapaLabel}>Rota: {entrega.coleta_endereco?.split(',')[0]} → {pontos.length} destino{pontos.length > 1 ? 's' : ''}</Text>
           </View>
         </View>
@@ -103,7 +100,7 @@ export default function Aceitar() {
             </View>
             <Text style={s.cardMain}>{entrega.coleta_endereco}</Text>
             <TouchableOpacity onPress={() => abrirMaps(entrega.coleta_endereco)} style={s.linkMaps}>
-              <Text style={s.linkMapsTxt}>📍 Abrir navegação</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><Icone nome="navegar" tam={13} cor={C.azulP} /><Text style={s.linkMapsTxt}>Abrir navegação</Text></View>
             </TouchableOpacity>
           </View>
 
@@ -121,7 +118,7 @@ export default function Aceitar() {
                   <Text style={s.destinoEnd} numberOfLines={1}>{p.endereco}</Text>
                   {p.numero_nf && <Text style={s.destinoNF}>NF: {p.numero_nf}</Text>}
                 </View>
-                <Text style={{ color: C.azulP, fontSize: 16 }}>›</Text>
+                <Icone nome="seta" tam={16} cor={C.azulP} />
               </TouchableOpacity>
             ))}
           </View>

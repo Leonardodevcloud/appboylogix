@@ -6,15 +6,21 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro, roxo: '#6B4FC9',
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   fundo: '#eef4fb', sup: '#ffffff', sup2: '#f6faff', linha: '#dde9f5', ok: '#1f9d6b', erro: '#D0584F',
 };
-// Emoji de nível só ilustrativo (app é informal); o painel usa a biblioteca SVG.
-const SELO = { Bronze: '🥉', Prata: '🥈', Ouro: '🥇', Diamante: '💎' };
-const SELO_POS = { 1: '🥇', 2: '🥈', 3: '🥉' };
+// Selo do nível: o mesmo ícone de traço com a cor do nível (sem emoji, como o painel).
+const COR_NIVEL = { Bronze: '#b0703a', Prata: '#8a9aab', Ouro: '#c99a1a', Diamante: '#3aa0d8' };
+const COR_POS = { 1: COR_NIVEL.Ouro, 2: COR_NIVEL.Prata, 3: COR_NIVEL.Bronze };
+function Selo({ nivel, tam = 16 }) {
+  if (nivel === 'Diamante') return <Icone nome="diamante" tam={tam} cor={COR_NIVEL.Diamante} />;
+  if (COR_NIVEL[nivel]) return <Icone nome="medalha" tam={tam} cor={COR_NIVEL[nivel]} />;
+  return <Icone nome="estrela" tam={tam} cor={C.azulP} />;
+}
 
 export default function Score() {
   const [d, setD] = useState(null);
@@ -42,7 +48,7 @@ export default function Score() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={st.bk}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} /></TouchableOpacity>
         <Text style={st.htitle}>Score e metas</Text>
       </View>
 
@@ -62,7 +68,7 @@ export default function Score() {
                   <Text style={st.nivelLbl}>SEU NÍVEL</Text>
                   <Text style={st.nivelNome}>{niv.nome}</Text>
                 </View>
-                <Text style={st.nivelSelo}>{SELO[niv.nome] || '⭐'}</Text>
+                <Selo nivel={niv.nome} tam={34} />
               </View>
               <View style={st.barra}><View style={[st.barraFill, { width: `${niv.progresso || 0}%` }]} /></View>
               <Text style={st.nivelSub}>
@@ -102,7 +108,7 @@ export default function Score() {
                     <View style={st.mFoot}>
                       <Text style={st.mProg}>{m.feitas} de {m.meta} entregas</Text>
                       {m.jaPago
-                        ? <Text style={[st.mEstado, { color: C.ok }]}>✓ bônus liberado</Text>
+                        ? <Text style={[st.mEstado, { color: C.ok }]}>bônus liberado</Text>
                         : m.completo
                           ? <Text style={[st.mEstado, { color: C.azulP }]}>meta batida! aguarde a liberação</Text>
                           : <Text style={st.mProg}>faltam {Math.max(0, m.meta - m.feitas)}</Text>}
@@ -122,7 +128,7 @@ export default function Score() {
                     return (
                       <View key={i} style={[st.linha, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
-                          <Text style={{ fontSize: 16 }}>{SELO[n.nome] || '•'}</Text>
+                          <Selo nivel={n.nome} tam={16} />
                           <Text style={[st.lRot, atual && { color: C.azulP, fontWeight: '800' }]}>{n.nome}</Text>
                           {atual && <View style={st.voceTag}><Text style={st.voceTxt}>você</Text></View>}
                         </View>
@@ -141,7 +147,7 @@ export default function Score() {
                 <View style={st.box}>
                   {ranking.top.map((r, i) => (
                     <View key={i} style={[st.rankRow, i === ranking.top.length - 1 && { borderBottomWidth: 0 }, r.eu && st.rankEu]}>
-                      <Text style={st.rankPos}>{r.posicao <= 3 ? (SELO_POS[r.posicao]) : r.posicao + 'º'}</Text>
+                      {r.posicao <= 3 ? <View style={[st.rankPos, { alignItems: 'center' }]}><Icone nome="medalha" tam={16} cor={COR_POS[r.posicao]} /></View> : <Text style={st.rankPos}>{r.posicao + 'º'}</Text>}
                       <Text style={[st.rankNome, r.eu && { color: C.azulP, fontWeight: '800' }]} numberOfLines={1}>{r.eu ? 'Você' : r.nome}</Text>
                       <Text style={st.rankPts}>{r.pontos}</Text>
                     </View>
@@ -154,7 +160,7 @@ export default function Score() {
             )}
 
             <View style={st.tip}>
-              <Text style={{ fontSize: 15 }}>🎯</Text>
+              <Icone nome="alvo" tam={15} cor={C.azulP} />
               <Text style={st.tipTxt}>O ranking entre entregadores chega em breve. Continue entregando com qualidade que seu nível sobe e as missões liberam bônus.</Text>
             </View>
           </>
@@ -176,7 +182,6 @@ const st = StyleSheet.create({
   nivelTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   nivelLbl: { color: '#fff', opacity: 0.85, fontSize: 11, fontWeight: '700' },
   nivelNome: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  nivelSelo: { fontSize: 32 },
   barra: { height: 8, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.25)', marginTop: 12, overflow: 'hidden' },
   barraFill: { height: '100%', backgroundColor: '#fff', borderRadius: 99 },
   nivelSub: { color: '#fff', opacity: 0.92, fontSize: 11.5, marginTop: 8, fontWeight: '600' },

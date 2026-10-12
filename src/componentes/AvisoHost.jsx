@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { assinarAviso, responderAviso } from '../utils/aviso';
 import { T } from '../tema';
+import Icone from './Icone';
 
 // Paleta do app (mesma da home/perfil).
 const C = {
@@ -12,22 +13,22 @@ const C = {
   sup: '#ffffff', sup2: '#f6faff', linha: '#dde9f5', erro: '#c9352b', ok: '#1f9d6b', okEsc: '#0f6e56', atencao: '#c98a1a',
 };
 
-// Ícone por tom (símbolo desenhado com texto: igual em todo Android, sem emoji).
+// Ícone por tom (ícone de traço, igual ao painel — o app não usa emoji).
 const TONS = {
-  info:    { fundo: C.azulP,   simbolo: 'i' },
-  ok:      { fundo: C.ok,      simbolo: '✓' },
-  atencao: { fundo: C.atencao, simbolo: '!' },
-  perigo:  { fundo: C.erro,    simbolo: '×' },
+  info:    { fundo: C.azulP,   icone: 'info' },
+  ok:      { fundo: C.ok,      icone: 'check' },
+  atencao: { fundo: C.atencao, icone: 'alerta' },
+  perigo:  { fundo: C.erro,    icone: 'fechar' },
 };
 
 // Modal "folha inferior" (bottom sheet) nativo do app — substitui o Alert do sistema.
 //
 // Config (todos opcionais, menos titulo):
 //   tom: 'info' | 'ok' | 'atencao' | 'perigo'   → cor e símbolo do ícone
-//   icone: texto livre no ícone (legado: disclosure.js)
+//   icone: nome de um ícone de src/componentes/Icone (ex.: 'pin')
 //   titulo, sub, chip, lead
 //   linhas: [{ rot, val, cor: 'ok'|'perigo'|null, forte }]   → caixa de conta
-//   itens:  [{ ico, txt }], destaque, destaqueIco            → legado
+//   itens:  [{ ico, txt }], destaque, destaqueIco            → ico/destaqueIco = nome do ícone
 //   botoes: [{ chave, texto, estilo: 'primario'|'perigo'|'ok'|'secundario'|'ghost' }]
 //   botaoPrimario, botaoGhost                                → legado (2 botões)
 //   fecharPorFora (padrão true), chaveFechar (o que "tocar fora/voltar" responde)
@@ -70,9 +71,9 @@ export default function AvisoHost() {
           <ScrollView bounces={false} style={{ maxHeight: 520 }}>
             <View style={st.titrow}>
               {tom ? (
-                <View style={[st.badge, { backgroundColor: tom.fundo, shadowColor: tom.fundo }]}><Text style={st.badgeSimb}>{tom.simbolo}</Text></View>
+                <View style={[st.badge, { backgroundColor: tom.fundo, shadowColor: tom.fundo }]}><Icone nome={tom.icone} tam={26} cor="#fff" traco={2.4} /></View>
               ) : !!cfg.icone && (
-                <View style={st.badge}><Text style={st.badgeTxt}>{cfg.icone}</Text></View>
+                <View style={st.badge}><Icone nome={cfg.icone} tam={26} cor="#fff" /></View>
               )}
               <View style={{ flex: 1 }}>
                 <Text style={st.ttl}>{cfg.titulo}</Text>
@@ -103,7 +104,7 @@ export default function AvisoHost() {
               <View style={st.rows}>
                 {cfg.itens.map((it, i) => (
                   <View key={i} style={st.row}>
-                    <View style={st.rico}><Text style={st.ricoTxt}>{it.ico}</Text></View>
+                    <View style={st.rico}><Icone nome={it.ico} tam={16} cor={C.azulP} /></View>
                     <Text style={st.rtx}>{it.txt}</Text>
                   </View>
                 ))}
@@ -112,7 +113,7 @@ export default function AvisoHost() {
 
             {!!cfg.destaque && (
               <View style={st.hi}>
-                {!!cfg.destaqueIco && <Text style={st.hiK}>{cfg.destaqueIco}</Text>}
+                {!!cfg.destaqueIco && <Icone nome={cfg.destaqueIco} tam={15} cor="#1f4b78" style={{ marginTop: 1 }} />}
                 <Text style={st.hiTxt}>{cfg.destaque}</Text>
               </View>
             )}
@@ -158,8 +159,6 @@ const st = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: C.azulP, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.34, shadowRadius: 12, elevation: 6,
   },
-  badgeTxt: { fontSize: 24 },
-  badgeSimb: { fontSize: 26, fontWeight: '900', color: '#fff', lineHeight: 30 },
   ttl: { fontSize: 17, fontWeight: '800', color: C.tinta, lineHeight: 22 },
   sub: { fontSize: 12, fontWeight: '700', color: C.tinta2, marginTop: 2 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: '#eaf1f9', borderRadius: 99, paddingVertical: 4, paddingHorizontal: 10, marginTop: 6 },
@@ -177,11 +176,9 @@ const st = StyleSheet.create({
   rows: { marginTop: 14, gap: 9 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   rico: { width: 32, height: 32, borderRadius: 10, backgroundColor: C.sup2, borderWidth: 1, borderColor: C.linha, alignItems: 'center', justifyContent: 'center' },
-  ricoTxt: { fontSize: 15 },
   rtx: { flex: 1, fontSize: 12.5, color: C.tinta, fontWeight: '600', lineHeight: 17 },
 
   hi: { marginTop: 14, flexDirection: 'row', gap: 9, alignItems: 'flex-start', backgroundColor: '#eef6ff', borderWidth: 1, borderColor: '#cfe3fb', borderRadius: 12, padding: 11 },
-  hiK: { fontSize: 15, lineHeight: 18 },
   hiTxt: { flex: 1, fontSize: 11.8, color: '#1f4b78', lineHeight: 17 },
 
   acts: { marginTop: 20, gap: 8 },

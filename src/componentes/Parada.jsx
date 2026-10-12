@@ -2,13 +2,14 @@
 // estado: 'feita' | 'agora' | 'depois'. A parada "agora" traz as ações dentro dela.
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { T, hora } from '../tema';
+import Icone from './Icone';
 
 export default function Parada({ numero, titulo, endereco, detalhes = [], chips = [], estado, onNavegar, onLigar, onChat, telefone }) {
   const feita = estado === 'feita', agora = estado === 'agora';
   return (
     <View style={[st.box, agora && st.agora, feita && st.feita]}>
       <View style={[st.num, agora && st.numAgora, feita && st.numFeita]}>
-        <Text style={[st.numTxt, (agora || feita) && { color: '#fff' }]}>{feita ? '✓' : numero}</Text>
+        {feita ? <Icone nome="check" tam={14} cor="#fff" traco={2.6} /> : <Text style={[st.numTxt, agora && { color: '#fff' }]}>{numero}</Text>}
       </View>
       <View style={{ flex: 1 }}>
         <Text style={st.titulo} numberOfLines={2}>{titulo}</Text>
@@ -19,7 +20,7 @@ export default function Parada({ numero, titulo, endereco, detalhes = [], chips 
         )}
         {agora && (
           <View style={st.botoes}>
-            {!!onNavegar && <TouchableOpacity style={[st.btn, { flex: 1 }]} onPress={onNavegar} activeOpacity={0.8}><Text style={st.btnTxt}>➤  Navegar</Text></TouchableOpacity>}
+            {!!onNavegar && <TouchableOpacity style={[st.btn, { flex: 1 }]} onPress={onNavegar} activeOpacity={0.8}><Icone nome="navegar" tam={15} cor={T.primario} /><Text style={st.btnTxt}>Navegar</Text></TouchableOpacity>}
             {!!telefone && !!onLigar && <TouchableOpacity style={[st.btn, { flex: 1 }]} onPress={onLigar} activeOpacity={0.8}><Text style={st.btnTxt}>Ligar</Text></TouchableOpacity>}
             {!!onChat && <TouchableOpacity style={st.btn} onPress={onChat} activeOpacity={0.8}><Text style={st.btnTxt}>Chat</Text></TouchableOpacity>}
           </View>
@@ -45,6 +46,6 @@ const st = StyleSheet.create({
   chip: { backgroundColor: T.suave, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   chipTxt: { fontSize: 12.5, fontWeight: '700', color: T.tinta2 },
   botoes: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  btn: { paddingVertical: 11, paddingHorizontal: 14, borderRadius: 12, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center' },
+  btn: { paddingVertical: 11, paddingHorizontal: 14, borderRadius: 12, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
   btnTxt: { color: T.primario, fontWeight: '800', fontSize: 14 },
 });

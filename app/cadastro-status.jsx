@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { api, getToken } from '../src/api';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -126,21 +127,21 @@ export default function CadastroStatus() {
         {/* Topo conforme situação */}
         {sit === 'pendente' && (
           <View style={[st.hero, { backgroundColor: C.navy900 }]}>
-            <Text style={st.heroEmoji}>⏳</Text>
+            <View style={st.heroEmoji}><Icone nome="ampulheta" tam={30} cor={'#fff'} traco={1.8} /></View>
             <Text style={st.heroTit}>Cadastro em análise</Text>
             <Text style={st.heroSub}>Recebemos seu cadastro! Nossa equipe está analisando seus dados e documentos. Você será avisado assim que for aprovado.</Text>
           </View>
         )}
         {sit === 'recusado' && (
           <View style={[st.hero, { backgroundColor: '#7f1d1d' }]}>
-            <Text style={st.heroEmoji}>✕</Text>
+            <View style={st.heroEmoji}><Icone nome="fechar" tam={30} cor={'#fff'} traco={2.2} /></View>
             <Text style={st.heroTit}>Cadastro não aprovado</Text>
             <Text style={st.heroSub}>{estado.motivo || 'Seu cadastro não foi aprovado. Entre em contato com a central para mais informações.'}</Text>
           </View>
         )}
         {sit === 'reenvio' && (
           <View style={[st.hero, { backgroundColor: C.amber }]}>
-            <Text style={st.heroEmoji}>📋</Text>
+            <View style={st.heroEmoji}><Icone nome="prancheta" tam={30} cor={'#fff'} traco={1.8} /></View>
             <Text style={st.heroTit}>Ação necessária</Text>
             <Text style={st.heroSub}>A central pediu uma correção no seu cadastro. Veja o que precisa e reenvie para continuar.</Text>
           </View>
@@ -166,15 +167,15 @@ export default function CadastroStatus() {
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                           {enviado
                             ? <Image source={{ uri: docs[d.tipo] }} style={st.docThumb} />
-                            : <View style={[st.docThumb, st.docThumbVazio]}><Text style={{ fontSize: 20 }}>{d.tipo === 'selfie' ? '🤳' : '📄'}</Text></View>}
+                            : <View style={[st.docThumb, st.docThumbVazio]}><Icone nome={d.tipo === 'selfie' ? 'selfie' : 'documento'} tam={20} cor={C.azulP} /></View>}
                           <View style={{ flex: 1 }}>
                             <Text style={st.docNome}>{d.rotulo}</Text>
-                            <Text style={st.docSub}>{enviado ? '✓ Pronto' : 'Pendente'}</Text>
+                            <Text style={st.docSub}>{enviado ? 'Pronto' : 'Pendente'}</Text>
                           </View>
                         </View>
                         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                          <TouchableOpacity style={st.docBtn} onPress={() => tirarFoto(d.tipo)}><Text style={st.docBtnTxt}>{enviado ? 'Refazer' : '📷 Câmera'}</Text></TouchableOpacity>
-                          {!d.soCamera && <TouchableOpacity style={[st.docBtn, st.docBtnAlt]} onPress={() => daGaleria(d.tipo)}><Text style={[st.docBtnTxt, { color: C.azulP }]}>🖼 Galeria</Text></TouchableOpacity>}
+                          <TouchableOpacity style={st.docBtn} onPress={() => tirarFoto(d.tipo)}><Text style={st.docBtnTxt}>{enviado ? 'Refazer' : 'Câmera'}</Text></TouchableOpacity>
+                          {!d.soCamera && <TouchableOpacity style={[st.docBtn, st.docBtnAlt]} onPress={() => daGaleria(d.tipo)}><Text style={[st.docBtnTxt, { color: C.azulP }]}>Galeria</Text></TouchableOpacity>}
                         </View>
                       </View>
                     );
@@ -206,7 +207,7 @@ const st = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.fundo },
   splash: { flex: 1, backgroundColor: C.navy900, justifyContent: 'center', alignItems: 'center' },
   hero: { paddingTop: 70, paddingBottom: 36, paddingHorizontal: 24, alignItems: 'center', borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
-  heroEmoji: { fontSize: 44, marginBottom: 12 },
+  heroEmoji: { width: 64, height: 64, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   heroTit: { color: '#fff', fontSize: 21, fontWeight: '800', textAlign: 'center' },
   heroSub: { color: 'rgba(255,255,255,0.9)', fontSize: 13.5, textAlign: 'center', marginTop: 10, lineHeight: 20 },
 

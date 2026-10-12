@@ -13,10 +13,13 @@ import { uploadDiretoVarios } from '../src/api/upload';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import { mostrarAviso } from '../src/utils/aviso';
+import { guardarConclusao, temInternet, enviarFila } from '../src/state/filaConclusao';
+import Icone from '../src/componentes/Icone';
 
 export default function ConcluirScreen() {
   const router = useRouter();
-  const { entregaId, pontoId, numero, total } = useLocalSearchParams();
+  const { entregaId, pontoId, numero, total, protocolo } = useLocalSearchParams();
 
   const [ocorrencias, setOcorrencias] = useState([]);
   const [carregandoOc, setCarregandoOc] = useState(true);
@@ -188,27 +191,39 @@ export default function ConcluirScreen() {
     if (fotos.length === 0) { Alerta.alert('Atenção', 'A foto de protocolo é obrigatória.'); return; }
 
     setEnviando(true);
+    // O horário que vale é o de AGORA, no celular — mesmo que o envio só aconteça
+    // depois, sem sinal (ADR-050 do backend).
+    const concluidoEm = new Date().toISOString();
+    const endpoint = pontoId
+      ? `/motoboys/app/entregas/${entregaId}/pontos/${pontoId}/concluir`
+      : `/motoboys/app/entregas/${entregaId}/concluir-sem-ponto`;
     try {
+      // Posição atual para a validação de raio (geofence) na central.
+      const loc = pontoId ? await obterLocalizacao() : null;
+      const corpo = {
+        ocorrencia_id: ocSel.id,
+        recebedor:  ehInsucesso ? null : recebedor.trim(),
+        observacao: observacao.trim() || null,
+        concluido_em: concluidoEm,
+        ...(loc ? { lat: loc.lat, lng: loc.lng } : {}),
+      };
+
+      // Sem internet: guarda no celular e segue (não espera timeout nenhum).
+      if (!(await temInternet())) { await guardarSemSinal(endpoint, corpo); return; }
+
       // Upload DIRETO ao storage (R2). O que subir vai como fotos_keys; o que falhar
       // (sem rede/4G ruim) vai no fluxo antigo, em base64 — o servidor aceita os dois.
       const keys = await uploadDiretoVarios(fotos.map(f => ({ fonte: f.uri || `data:${f.tipo || 'image/jpeg'};base64,${f.base64}`, mime: f.tipo || 'image/jpeg', finalidade: 'protocolo' })));
       const fotos_keys = keys.filter(Boolean);
       const fotos_urls = fotos.filter((f, i) => !keys[i]).map(f => f.base64).filter(Boolean);
-      const endpoint = pontoId
-        ? `/motoboys/app/entregas/${entregaId}/pontos/${pontoId}/concluir`
-        : `/motoboys/app/entregas/${entregaId}/concluir-sem-ponto`;
 
-      // Posição atual para a validação de raio (geofence) na central.
-      const loc = pontoId ? await obterLocalizacao() : null;
-
-      const resp = await api.post(endpoint, {
-        ocorrencia_id: ocSel.id,
-        recebedor:  ehInsucesso ? null : recebedor.trim(),
-        observacao: observacao.trim() || null,
-        fotos_keys,
-        fotos_urls,
-        ...(loc ? { lat: loc.lat, lng: loc.lng } : {}),
-      });
+      try {
+        await api.post(endpoint, { ...corpo, fotos_keys, fotos_urls });
+      } catch (e) {
+        // A rede caiu no meio: guarda e segue, em vez de prender o motoboy na tela.
+        if (/sem conex|network/i.test(e?.message || '') || e?.status >= 500) { await guardarSemSinal(endpoint, corpo); return; }
+        throw e;
+      }
 
       const titulo = geraRetorno ? 'Retorno registrado' : (ehInsucesso ? 'Ocorrência registrada' : 'Entregue!');
       const msg = geraRetorno
@@ -227,17 +242,38 @@ export default function ConcluirScreen() {
           mensagem: err?.dados?.mensagem || err?.message,
         });
         setLiberSolic(false);
-      } else if (/sem conex|network/i.test(err?.message || '') || err?.status >= 500) {
-        // NÃO volta para a home: ficar nesta tela preserva a foto e os dados
-        // preenchidos. O motoboy só toca em "Confirmar" de novo — e o api já
-        // repete sozinho (o backend é idempotente), então costuma ir de primeira.
-        Alerta.alert('Falha ao enviar', 'A conexão oscilou. Sua foto e os dados continuam aqui — toque em "Confirmar entrega" novamente.');
       } else {
         Alerta.alert('Erro', err?.message || 'Não foi possível registrar.');
       }
     } finally {
       setEnviando(false);
     }
+  }
+
+  // Sem sinal: a conclusão fica guardada no celular e sai sozinha quando a rede volta.
+  async function guardarSemSinal(endpoint, corpo) {
+    try {
+      await guardarConclusao({ entregaId, pontoId, protocolo, endpoint, corpo, fotos: fotos.map(f => f.uri).filter(Boolean) });
+    } catch {
+      Alerta.alert('Não consegui guardar', 'Sua foto e os dados continuam aqui. Toque para confirmar de novo.');
+      return;
+    }
+    const horaTxt = new Date(corpo.concluido_em).toLocaleTimeString('pt-BR', { timeZone: 'America/Bahia', hour: '2-digit', minute: '2-digit' });
+    const nFotos = fotos.length === 1 ? 'a foto' : `as ${fotos.length} fotos`;
+    const escolha = await mostrarAviso({
+      icone: 'semSinal',
+      titulo: 'Sem internet agora',
+      sub: 'A entrega ficou guardada no celular',
+      lead: `Assim que o sinal voltar, o app envia sozinho: ${nFotos}, ${ehInsucesso ? 'a ocorrência' : 'quem recebeu'} e o horário de agora (${horaTxt}). Você pode seguir para a próxima.`,
+      botoes: [
+        { chave: 'seguir', texto: 'Seguir para a próxima', estilo: 'primario' },
+        { chave: 'tentar', texto: 'Tentar enviar agora', estilo: 'ghost' },
+      ],
+      fecharPorFora: false,
+      chaveFechar: 'seguir',
+    });
+    if (escolha === 'tentar') enviarFila();
+    router.replace('/home');
   }
 
   const botaoTxt = geraRetorno ? 'Deslize para registrar o retorno' : (ehInsucesso ? 'Deslize para registrar' : 'Deslize para confirmar');
@@ -260,7 +296,7 @@ export default function ConcluirScreen() {
           teclado cobria "Quem recebeu" e a observação. */}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 64 }}><Text style={s.voltar}>‹ Corrida</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 64 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={T.claro} traco={2.4} /><Text style={s.voltar}>Corrida</Text></View></TouchableOpacity>
         <Text style={s.headerTit}>{total && Number(total) > 1 ? `Entrega ${numero}` : 'Marcar entrega'}</Text>
         <View style={{ minWidth: 64, alignItems: 'flex-end' }}>{!!total && Number(total) > 1 && <Text style={s.pill}>{numero} de {total}</Text>}</View>
       </View>
@@ -269,14 +305,14 @@ export default function ConcluirScreen() {
         {/* 1. Foto — o que trava a conclusão vem primeiro e grande */}
         {fotos.length === 0 ? (
           <TouchableOpacity style={s.fotoVazia} onPress={tirarFoto} activeOpacity={0.85}>
-            <Text style={s.fotoVaziaIco}>📷</Text>
+            <Icone nome="camera" tam={34} cor={T.primario} traco={1.8} />
             <Text style={s.fotoVaziaTit}>Tirar foto do protocolo</Text>
             <Text style={s.fotoVaziaSub}>Obrigatória — sem ela a entrega não fecha</Text>
           </TouchableOpacity>
         ) : (
           <View style={s.fotoBox}>
             <Image source={{ uri: fotos[0].uri }} style={s.fotoGrande} />
-            <View style={s.fotoTag}><Text style={s.fotoTagTxt}>{fotos.length} foto{fotos.length > 1 ? 's' : ''} ✓</Text></View>
+            <View style={s.fotoTag}><Icone nome="check" tam={12} cor="#fff" traco={3} /><Text style={s.fotoTagTxt}>{fotos.length} foto{fotos.length > 1 ? 's' : ''}</Text></View>
             <TouchableOpacity style={s.fotoRemover} onPress={() => removerFoto(0)}><Text style={s.fotoRemoverTxt}>×</Text></TouchableOpacity>
           </View>
         )}
@@ -348,9 +384,9 @@ export default function ConcluirScreen() {
 
       <View style={s.rodape}>
         <DeslizarParaConfirmar
-          rotulo={botaoTxt} rotuloOk={geraRetorno ? 'Retorno registrado ✓' : (ehInsucesso ? 'Ocorrência registrada ✓' : 'Entrega confirmada ✓')}
+          rotulo={botaoTxt} rotuloOk={geraRetorno ? 'Retorno registrado' : (ehInsucesso ? 'Ocorrência registrada' : 'Entrega confirmada')}
           cor={ehInsucesso ? T.alerta : T.ganho} corFundo={ehInsucesso ? T.alertaBg : T.ganhoBg} corBorda={ehInsucesso ? '#f0c4be' : T.ganhoBd}
-          ocupado={enviando} onConfirmar={concluir} icone="✓" />
+          ocupado={enviando} onConfirmar={concluir} icone="check" />
         <Text style={s.rodapeSub}>{fotos.length === 0 ? 'Tire a foto do protocolo para liberar a confirmação' : 'Fora do raio? A central pode liberar — o pedido sai daqui mesmo.'}</Text>
       </View>
       </KeyboardAvoidingView>
@@ -367,12 +403,11 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 24 },
   fotoVazia: { height: 196, borderRadius: T.r, borderWidth: 2, borderStyle: 'dashed', borderColor: T.claro, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  fotoVaziaIco: { fontSize: 34 },
   fotoVaziaTit: { fontSize: 16, fontWeight: '800', color: T.primario },
   fotoVaziaSub: { fontSize: 12.5, color: T.tinta2, fontWeight: '600' },
   fotoBox: { height: 196, borderRadius: T.r, overflow: 'hidden', borderWidth: 2, borderColor: T.ganho, backgroundColor: T.ganhoBg },
   fotoGrande: { width: '100%', height: '100%' },
-  fotoTag: { position: 'absolute', right: 10, top: 10, backgroundColor: T.ganho, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  fotoTag: { position: 'absolute', right: 10, top: 10, backgroundColor: T.ganho, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 },
   fotoTagTxt: { color: '#fff', fontSize: 12, fontWeight: '800' },
   fotoRemover: { position: 'absolute', left: 10, top: 10, width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
   fotoRemoverTxt: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: -2 },

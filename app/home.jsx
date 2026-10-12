@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Switch, ActivityIndicator, StatusBar, Image, AppState, Linking,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Switch, ActivityIndicator, StatusBar, Image, AppState,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
@@ -15,6 +15,13 @@ import { registrarPush } from '../src/push';
 import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import BarraAbas from '../src/componentes/BarraAbas';
+import CartaoHoje from '../src/componentes/CartaoHoje';
+import CartaoMovimento from '../src/componentes/CartaoMovimento';
+import AvisoFilaConclusao from '../src/componentes/AvisoFilaConclusao';
+import { abrirNavegacao } from '../src/state/navegacao';
+import { assinarFila, itensDaFila } from '../src/state/filaConclusao';
+import Icone from '../src/componentes/Icone';
 
 // Paleta exata do protótipo
 const C = {
@@ -108,6 +115,14 @@ export default function Home() {
   const [refresh, setRef] = useState(false);
   const [busy, setBusy]   = useState({});
   const [chat, setChat]   = useState({ ativo: false, total: 0 });
+  // Recarrega os cards "Hoje" e "Onde tem corrida" junto com a Início.
+  const [tick, setTick]   = useState(0);
+  // Pontos concluídos no celular sem sinal (ainda na fila): já contam como feitos aqui.
+  const [naFila, setNaFila] = useState(new Set());
+  useEffect(() => assinarFila((itens) => {
+    setNaFila(new Set(itens.map(i => String(i.pontoId))));
+    setTick(t => t + 1);
+  }), []);
   const avisoRastreio = useRef(false);
   // Onda 11b: a tela guiada de GPS reabria a cada volta à Home ("Tudo certo" → Home remonta →
   // ref zera → abre de novo) e o motoboy só saía fechando o app. Agora abre no máximo uma vez
@@ -121,7 +136,7 @@ export default function Home() {
   const carregar = useCallback(async () => {
     try {
       const [me, entregas] = await Promise.all([api.get('/motoboys/app/eu'), api.get('/motoboys/app/fila')]);
-      setEu(me); setFila(entregas);
+      setEu(me); setFila(entregas); setTick(t => t + 1);
       // Semeia o status compartilhado (mantém home e perfil em sincronia).
       if (me) setOnline(me.online);
       // Auto-abre a tela guiada se estiver ONLINE mas o GPS parou de enviar há muito tempo.
@@ -325,7 +340,11 @@ export default function Home() {
 
   const saindoRef = useRef(false);
   async function sair() {
-    Alerta.alert('Sair', 'Encerrar sessão?', [
+    // Entrega guardada sem sinal: avisa antes (ela só sai quando ele entrar de novo aqui).
+    const guardadas = itensDaFila().length;
+    Alerta.alert('Sair', guardadas
+      ? `Você tem ${guardadas === 1 ? '1 entrega guardada' : guardadas + ' entregas guardadas'} esperando o sinal. Saindo agora, ${guardadas === 1 ? 'ela só é enviada' : 'elas só são enviadas'} quando você entrar de novo neste celular.`
+      : 'Encerrar sessão?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: async () => {
         if (saindoRef.current) return;   // trava: um toque só (evitava 3 logouts)
@@ -387,10 +406,7 @@ export default function Home() {
       return h + (mesmoDia ? ' · hoje' : ' · ' + d.toLocaleDateString('pt-BR', { timeZone: 'America/Bahia', day: '2-digit', month: '2-digit' }));
     } catch { return ''; }
   };
-  const abrirMapa = (lat, lng, endereco) => {
-    const q = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(endereco || '');
-    if (q) Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`).catch(() => {});
-  };
+  const abrirMapa = (lat, lng, endereco) => abrirNavegacao({ lat, lng, label: endereco });
   // KPIs do card de uma corrida JÁ ativa: distância total da rota (coleta→entregas),
   // valor e nº de paradas. A distância "até a coleta" fica só na OFERTA (ao aceitar) —
   // depois que a corrida é dele, mostrar isso é redundante e some de sentido após coletar.
@@ -438,7 +454,7 @@ export default function Home() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {chat.ativo && (
             <TouchableOpacity onPress={() => router.push('/mensagens')} activeOpacity={0.7} style={{ position: 'relative', paddingHorizontal: 2 }}>
-              <Text style={{ fontSize: 22 }}>💬</Text>
+              <Icone nome="chat" tam={24} cor={C.tinta2} />
               {chat.total > 0 && (
                 <View style={{ position: 'absolute', top: -4, right: -6, backgroundColor: C.roxo || '#7C3AED', borderRadius: 99, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
                   <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{chat.total > 9 ? '9+' : chat.total}</Text>
@@ -462,7 +478,7 @@ export default function Home() {
             mostrar oferta a quem está offline gerava confusão ("tento aceitar e não vai"). */}
         {!eu.online && (
           <View style={s.offlineBox}>
-            <Text style={s.offlineEmoji}>📴</Text>
+            <View style={s.offlineEmoji}><Icone nome="semSinal" tam={30} cor={T.claro} traco={1.8} /></View>
             <Text style={s.offlineTit}>Você está offline</Text>
             <Text style={s.offlineSub}>Fique online para ver e aceitar as corridas perto de você. Entregas já atribuídas continuam abaixo.</Text>
             <TouchableOpacity style={s.offlineBtn} onPress={() => toggleOnline(true)} activeOpacity={0.85}>
@@ -471,8 +487,14 @@ export default function Home() {
           </View>
         )}
 
+        {/* Entregas concluídas sem sinal, esperando para sair (tocável mesmo offline). */}
+        <AvisoFilaConclusao />
+
         {/* Offline: tudo abaixo do card fica apagado e sem toque — o único caminho é "Ficar online". */}
         <View pointerEvents={eu.online ? 'auto' : 'none'}>
+        {/* Ganhos do dia e a missão principal (só online). */}
+        {eu.online && <CartaoHoje atualizar={tick} />}
+
         {/* Stats (só online — offline o único número que importa é o zero de corridas) */}
         {eu.online && <View style={s.mStats}>
           <View style={s.mStat}><Text style={s.mStatB}>{emColeta.length}</Text><Text style={s.mStatS}>A caminho</Text></View>
@@ -488,7 +510,7 @@ export default function Home() {
               <Text style={s.ofertaTit}>{qtdOfertas > 1 ? 'Corridas disponíveis perto de você' : 'Corrida disponível perto de você'}</Text>
               <Text style={s.ofertaSub}>Toque para ver e aceitar</Text>
             </View>
-            <Text style={s.ofertaSeta}>›</Text>
+            <Icone nome="seta" tam={22} cor={'#8ba5bc'} traco={2.4} />
           </TouchableOpacity>
         )}
 
@@ -502,27 +524,36 @@ export default function Home() {
               <Text style={s.mSecTxt}>Corrida ativa</Text>
               {ativas.length > 1 && (
                 <TouchableOpacity onPress={() => router.push('/rota')} style={s.btnRota} activeOpacity={0.8}>
-                  <Text style={s.btnRotaTxt}>🗺 Ver minha rota</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><Icone nome="mapa" tam={14} cor={T.primario} /><Text style={s.btnRotaTxt}>Ver minha rota</Text></View>
                 </TouchableOpacity>
               )}
             </View>
             {ativasOrdenadas.map((e, idx) => {
               const pontos = e.pontos || [];
-              const concluidos = pontos.filter(p => p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em).length;
+              const feitoP = (p) => p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em || naFila.has(String(p.id));
+              const concluidos = pontos.filter(feitoP).length;
+              const enviando = pontos.some(p => naFila.has(String(p.id)));
               const emRotaStatus = e.status === 'em_rota';
               return (
-                <TouchableOpacity key={e.id} style={s.ride} activeOpacity={0.85}
+                <TouchableOpacity key={e.id} style={[s.ride, enviando && concluidos === pontos.length && { opacity: 0.75 }]} activeOpacity={0.85}
                   onPress={() => router.push({ pathname: '/corrida', params: { entrega_id: e.id } })}>
                   <View style={s.rTop}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       {temOrdem && <View style={s.ordemSelo}><Text style={s.ordemSeloTxt}>{idx + 1}ª</Text></View>}
                       <Text style={s.protoBig}>{e.protocolo}</Text>
                     </View>
-                    <View style={[s.pill, { backgroundColor: emRotaStatus ? C.azulV + '22' : C.warnBg }]}>
-                      <Text style={[s.pillTxt, { color: emRotaStatus ? C.azulP : C.warn }]}>{STATUS_LABEL[e.status]}</Text>
-                    </View>
+                    {enviando ? (
+                      <View style={[s.pill, { backgroundColor: T.atencaoBg }]}><Text style={[s.pillTxt, { color: T.atencaoTx }]}>Enviando…</Text></View>
+                    ) : (
+                      <View style={[s.pill, { backgroundColor: emRotaStatus ? C.azulV + '22' : C.warnBg }]}>
+                        <Text style={[s.pillTxt, { color: emRotaStatus ? C.azulP : C.warn }]}>{STATUS_LABEL[e.status]}</Text>
+                      </View>
+                    )}
                   </View>
-                  <Text style={s.metaLinha}>🕒 {quando(e.criado_em)}{e.cliente_nome ? '   ·   🏢 ' + e.cliente_nome : ''}</Text>
+                  <View style={s.metaRow}>
+                    <Icone nome="relogio" tam={12} cor={C.tinta3} /><Text style={s.metaLinha}>{quando(e.criado_em)}</Text>
+                    {!!e.cliente_nome && <><Text style={s.metaLinha}>·</Text><Icone nome="loja" tam={12} cor={C.tinta3} /><Text style={[s.metaLinha, { flexShrink: 1 }]} numberOfLines={1}>{e.cliente_nome}</Text></>}
+                  </View>
                   {Kpis(e)}
                   {emRotaStatus && <Text style={s.rProgresso}>{concluidos} de {pontos.length} entregas concluídas</Text>}
 
@@ -538,21 +569,21 @@ export default function Home() {
 
                     {/* Todos os destinos */}
                     {pontos.map((p, i) => {
-                      const feito = p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
+                      const feito = feitoP(p);
                       return (
                         <View key={p.id || i} style={s.rPt}>
                           <View style={[s.pin, { backgroundColor: feito ? C.ok : (i === pontos.length - 1 ? C.ok : C.azulP), opacity: feito ? 0.55 : 1 }]}>
-                            <Text style={s.pinTxt}>{feito ? '✓' : i + 1}</Text>
+                            {feito ? <Icone nome="check" tam={11} cor={'#fff'} traco={3} /> : <Text style={s.pinTxt}>{i + 1}</Text>}
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={[s.rPtMain, feito && s.rFeito]} numberOfLines={1}>
                               {pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega'}{p.nome_fantasia ? ` · ${p.nome_fantasia}` : ''}
                             </Text>
                             <Text style={[s.rPtSub, feito && s.rFeito]} numberOfLines={2}>{p.endereco}</Text>
-                            {!!p.complemento && <Text style={s.rDet}>📌 {p.complemento}</Text>}
-                            {!!p.numero_nf && <Text style={s.rDet}>🧾 NF {p.numero_nf}</Text>}
-                            {!!p.telefone && <Text style={s.rDet}>📞 {p.telefone}</Text>}
-                            {!!p.observacoes && <Text style={s.rDet}>💬 {p.observacoes}</Text>}
+                            {!!p.complemento && <View style={s.rDetRow}><Icone nome="pin" tam={11} cor={'#46637f'} /><Text style={s.rDet}>{p.complemento}</Text></View>}
+                            {!!p.numero_nf && <View style={s.rDetRow}><Icone nome="nota" tam={11} cor={'#46637f'} /><Text style={s.rDet}>NF {p.numero_nf}</Text></View>}
+                            {!!p.telefone && <View style={s.rDetRow}><Icone nome="telefone" tam={11} cor={'#46637f'} /><Text style={s.rDet}>{p.telefone}</Text></View>}
+                            {!!p.observacoes && <View style={s.rDetRow}><Icone nome="chat" tam={11} cor={'#46637f'} /><Text style={[s.rDet, { flexShrink: 1 }]}>{p.observacoes}</Text></View>}
                           </View>
                         </View>
                       );
@@ -564,16 +595,16 @@ export default function Home() {
                       <Text style={s.mBtnTxt}>Abrir corrida</Text>
                     </View>
                     <TouchableOpacity style={s.mBtnMapa} activeOpacity={0.85} onPress={(ev) => {
-                      const prox = pontos.find(p => !(p.status === 'entregue' || p.status === 'concluido' || p.finalizado_em));
+                      const prox = pontos.find(p => !feitoP(p));
                       if (prox) abrirMapa(prox.lat, prox.lng, prox.endereco);
                       else abrirMapa(e.coleta_lat, e.coleta_lng, e.coleta_endereco);
                     }}>
-                      <Text style={{ fontSize: 18 }}>🗺</Text>
+                      <Icone nome="navegar" tam={20} cor={C.ok} />
                     </TouchableOpacity>
                     {chat.ativo && (
                       <TouchableOpacity style={s.mBtnChat} activeOpacity={0.85}
                         onPress={() => router.push({ pathname: '/chat', params: { entregaId: e.id, protocolo: e.protocolo } })}>
-                        <Text style={{ fontSize: 18 }}>💬</Text>
+                        <Icone nome="chat" tam={20} cor={C.azulP} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -583,11 +614,14 @@ export default function Home() {
           </>
         )}
 
+        {/* Sem corrida ativa: onde está o movimento agora (Regiões da central). */}
+        {eu.online && ativas.length === 0 && <CartaoMovimento atualizar={tick} />}
+
         {fila.length === 0 && (
           <View style={s.vazio}>
-            <Text style={s.vaziIco}>📦</Text>
-            <Text style={s.vaziTxt}>Nenhuma entrega atribuída a você no momento</Text>
-            <Text style={s.vaziSub}>{eu.online ? 'Quando você aceitar uma corrida ou a central atribuir, ela aparece aqui.' : 'Fique online para receber corridas.'}</Text>
+            <View style={s.vaziIco}><Icone nome="moto" tam={32} cor={C.azulP} traco={1.8} /></View>
+            <Text style={s.vaziTxt}>{eu.online ? 'Esperando corrida' : 'Nenhuma entrega atribuída a você'}</Text>
+            <Text style={s.vaziSub}>{eu.online ? 'Você recebe um alerta assim que aparecer uma perto de você.' : 'Fique online para receber corridas.'}</Text>
           </View>
         )}
 
@@ -604,12 +638,7 @@ export default function Home() {
       </ScrollView>
 
       {/* Bottom nav */}
-      <View style={s.mTab}>
-        <View style={[s.mTabItem, s.mTabOn]}><Text style={s.mTabIco}>🏠</Text><Text style={[s.mTabLbl, { color: C.azulP }]}>Início</Text></View>
-        <TouchableOpacity style={s.mTabItem} onPress={() => router.push('/historico')}><Text style={s.mTabIco}>🗂</Text><Text style={s.mTabLbl}>Histórico</Text></TouchableOpacity>
-        <TouchableOpacity style={s.mTabItem} onPress={() => router.push('/ganhos')}><Text style={s.mTabIco}>💰</Text><Text style={s.mTabLbl}>Ganhos</Text></TouchableOpacity>
-        <TouchableOpacity style={s.mTabItem} onPress={() => router.push('/perfil')}><Text style={s.mTabIco}>👤</Text><Text style={s.mTabLbl}>Perfil</Text></TouchableOpacity>
-      </View>
+      <BarraAbas ativa="inicio" />
     </View>
   );
 }
@@ -634,7 +663,7 @@ const s = StyleSheet.create({
   ofertaTit: { fontSize: 15, fontWeight: '800', color: '#0e2138' },
   gpsLinha: { fontSize: 11.5, fontWeight: '700', color: '#46637f', marginTop: 2 },
   offlineBox: { backgroundColor: '#0e2138', borderRadius: 18, padding: 18, marginBottom: 14, alignItems: 'center' },
-  offlineEmoji: { fontSize: 34, marginBottom: 6 },
+  offlineEmoji: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   offlineVeu: { position: 'absolute', left: -16, right: -16, top: 0, bottom: 0, backgroundColor: 'rgba(244,247,251,0.72)', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 120, borderRadius: 12 },
   offlineVeuTxt: { backgroundColor: '#0e2138', color: '#fff', fontSize: 13, fontWeight: '800', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, overflow: 'hidden' },
   offlineTit: { color: '#fff', fontSize: 18, fontWeight: '800' },
@@ -654,7 +683,6 @@ const s = StyleSheet.create({
   offHeroBtn: { marginTop: 24, backgroundColor: '#1f9d6b', borderRadius: 16, paddingVertical: 16, alignSelf: 'stretch', alignItems: 'center' },
   offHeroBtnTxt: { color: '#fff', fontSize: 16.5, fontWeight: '800' },
   ofertaSub: { fontSize: 12, color: '#46637f', marginTop: 1 },
-  ofertaSeta: { fontSize: 22, color: '#8ba5bc', fontWeight: '700' },
   mStat:     { flex: 1, backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 11, alignItems: 'center' },
   mStatB:    { fontSize: 19, fontWeight: '800', color: C.tinta },
   mStatS:    { fontSize: 9.5, color: C.tinta2, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 2 },
@@ -668,7 +696,8 @@ const s = StyleSheet.create({
   rTop:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 },
   rTopB:     { fontSize: 13, fontWeight: '800', color: C.tinta },
   protoBig:  { fontSize: 20, fontWeight: '800', color: C.navy900, letterSpacing: 0.3 },
-  metaLinha: { fontSize: 11.5, color: C.tinta3, fontWeight: '600', marginBottom: 10 },
+  metaRow:   { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
+  metaLinha: { fontSize: 11.5, color: C.tinta3, fontWeight: '600' },
   kpiRow:    { flexDirection: 'row', gap: 8, marginBottom: 12 },
   kpi:       { flex: 1, backgroundColor: C.sup2 || '#f6faff', borderWidth: 1, borderColor: C.linha, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 6, alignItems: 'center' },
   kpiB:      { fontSize: 15, fontWeight: '800', color: C.tinta },
@@ -687,7 +716,8 @@ const s = StyleSheet.create({
   pinTxt:    { color: '#fff', fontSize: 8, fontWeight: '800' },
   rPtMain:   { fontSize: 12, color: C.tinta, fontWeight: '600' },
   rPtSub:    { fontSize: 10.5, color: C.tinta3, fontWeight: '600', marginTop: 1 },
-  rDet:      { fontSize: 10.5, color: '#46637f', marginTop: 2 },
+  rDetRow:   { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  rDet:      { fontSize: 10.5, color: '#46637f' },
   rFeito:    { textDecorationLine: 'line-through', opacity: 0.6 },
   rMeta:     { flexDirection: 'row', gap: 14, marginTop: 13, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.linha, borderStyle: 'dashed' },
   rMetaB:    { fontSize: 14, fontWeight: '800', color: C.tinta },
@@ -700,14 +730,9 @@ const s = StyleSheet.create({
   mBtnChat:  { width: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eaf3fc', borderWidth: 1.5, borderColor: C.azulV },
   mBtnMapa:  { width: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eef7f1', borderWidth: 1.5, borderColor: C.ok },
   vazio:     { alignItems: 'center', paddingVertical: 48 },
-  vaziIco:   { fontSize: 44, marginBottom: 12 },
+  vaziIco:   { width: 64, height: 64, borderRadius: 18, backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   vaziTxt:   { fontSize: 16, fontWeight: '700', color: C.tinta2 },
   vaziSub:   { fontSize: 13, color: C.tinta3, marginTop: 6 },
   btnSair:   { marginTop: 24, padding: 14, alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: C.linha },
   btnSairTxt:{ color: C.tinta3, fontSize: 13, fontWeight: '600' },
-  mTab:      { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: C.sup, borderTopWidth: 1, borderTopColor: C.linha, flexDirection: 'row', justifyContent: 'space-around', paddingTop: 11, paddingBottom: 28 },
-  mTabItem:  { alignItems: 'center', gap: 3 },
-  mTabOn:    {},
-  mTabIco:   { fontSize: 20, color: C.tinta3 },
-  mTabLbl:   { fontSize: 9.5, fontWeight: '700', color: C.tinta3 },
 });

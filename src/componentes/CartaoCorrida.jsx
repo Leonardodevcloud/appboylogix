@@ -3,6 +3,7 @@
 // destinatário com telefone (toca para ligar) e observações. Só mostra o que a API devolveu.
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { T, reais, hora, km, curto } from '../tema';
+import Icone from './Icone';
 
 // Só aceita telefone de verdade no slot de telefone (o cadastro às vezes traz e-mail ali).
 function telefoneValido(v) {
@@ -89,7 +90,7 @@ export default function CartaoCorrida({ oferta: o, destaque = false, onVer, onMa
 
       {mostrarAcoes && (
         <View style={st.acoes}>
-          <TouchableOpacity style={st.btnMapa} onPress={onMapa} activeOpacity={0.8}><Text style={st.btnMapaTxt}>🗺️</Text></TouchableOpacity>
+          <TouchableOpacity style={st.btnMapa} onPress={onMapa} activeOpacity={0.8}><Icone nome="mapa" tam={22} cor={T.primario} /></TouchableOpacity>
           <TouchableOpacity style={st.btnVer} onPress={onVer} activeOpacity={0.85}><Text style={st.btnVerTxt}>Ver e aceitar</Text></TouchableOpacity>
         </View>
       )}
@@ -132,7 +133,6 @@ const st = StyleSheet.create({
   obsTxt: { fontSize: 13, color: T.atencaoTx, lineHeight: 18, fontWeight: '600' },
   acoes: { flexDirection: 'row', gap: 10, marginTop: 14 },
   btnMapa: { width: 56, height: 50, borderRadius: 14, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center' },
-  btnMapaTxt: { fontSize: 22 },
   btnVer: { flex: 1, height: 50, borderRadius: 14, backgroundColor: T.ganho, alignItems: 'center', justifyContent: 'center' },
   btnVerTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

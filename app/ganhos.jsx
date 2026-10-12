@@ -9,6 +9,7 @@ import FiltroPeriodo from '../src/componentes/FiltroPeriodo';
 import ExtratoFinanceiro from '../src/componentes/ExtratoFinanceiro';
 import ListaAcertos from '../src/componentes/ListaAcertos';
 import { T } from '../src/tema';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66', azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -72,7 +73,7 @@ export default function Ganhos() {
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
         <TouchableOpacity onPress={() => router.replace('/home')} style={st.btnVoltar}>
-          <Text style={st.btnVoltarTxt}>‹</Text>
+          <Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} />
         </TouchableOpacity>
         <Text style={st.headerTit}>Meus ganhos</Text>
         <View style={{ width: 38 }} />
@@ -146,7 +147,7 @@ export default function Ganhos() {
         <Text style={st.secao}>Corridas do período</Text>
         {hist.corridas.length === 0 ? (
           <View style={st.vazio}>
-            <Text style={st.vazioIco}>💰</Text>
+            <View style={st.vazioIco}><Icone nome="carteira" tam={30} cor={C.azulP} traco={1.8} /></View>
             <Text style={st.vazioTxt}>Nenhuma corrida paga neste período</Text>
           </View>
         ) : (
@@ -209,6 +210,6 @@ const st = StyleSheet.create({
   extraNota: { fontSize: 11, color: C.tinta3, marginBottom: 16, marginLeft: 2 },
 
   vazio: { alignItems: 'center', paddingVertical: 50 },
-  vazioIco: { fontSize: 36, marginBottom: 10 },
+  vazioIco: { width: 56, height: 56, borderRadius: 16, backgroundColor: '#eef4fb', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   vazioTxt: { fontSize: 13.5, color: C.tinta3, textAlign: 'center' },
 });

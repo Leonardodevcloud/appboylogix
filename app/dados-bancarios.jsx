@@ -7,6 +7,7 @@ import { api } from '../src/api';
 import { T } from '../src/tema';
 import { mascararPix, conferirPix, campoPix, mesmaChavePix } from '../src/utils/pix';
 import { Alerta } from '../src/utils/avisar';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66', azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -98,7 +99,7 @@ export default function DadosBancarios() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={st.bk}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} /></TouchableOpacity>
         <Text style={st.htitle}>Dados bancários</Text>
       </View>
 
@@ -114,7 +115,7 @@ export default function DadosBancarios() {
             autoCapitalize="none" autoCorrect={false} {...campoPix(f.pix_tipo)} />
 
           <TouchableOpacity style={st.chkline} activeOpacity={0.8} onPress={() => setF(s => ({ ...s, titular_nome: s.nome_completo || s.titular_nome, titular_doc: s.cpf || s.titular_doc }))}>
-            <View style={st.chk}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>✓</Text></View>
+            <View style={st.chk}><Icone nome="check" tam={13} cor={'#fff'} traco={3} /></View>
             <Text style={st.chkTxt}>A conta é minha (usar meu nome e CPF)</Text>
           </TouchableOpacity>
 

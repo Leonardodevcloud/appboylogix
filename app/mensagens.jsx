@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator
 import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
+import Icone from '../src/componentes/Icone';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -24,7 +25,7 @@ export default function Mensagens() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={st.bk}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} /></TouchableOpacity>
         <Text style={st.htit}>Mensagens</Text>
       </View>
       {!convs ? (
@@ -34,7 +35,7 @@ export default function Mensagens() {
           refreshControl={<RefreshControl refreshing={refresh} onRefresh={async () => { setRef(true); await carregar(); setRef(false); }} tintColor={C.azulV} />}>
           {convs.length === 0 && (
             <View style={{ alignItems: 'center', paddingTop: 60 }}>
-              <Text style={{ fontSize: 40 }}>💬</Text>
+              <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: '#eaf3fc', alignItems: 'center', justifyContent: 'center' }}><Icone nome="chat" tam={30} cor={C.azulP} traco={1.8} /></View>
               <Text style={{ color: C.tinta2, fontWeight: '700', marginTop: 10 }}>Nenhuma conversa</Text>
               <Text style={{ color: C.tinta3, fontSize: 12.5, marginTop: 4, textAlign: 'center' }}>Abra o chat pela corrida (botão "Mensagens").</Text>
             </View>
@@ -42,7 +43,7 @@ export default function Mensagens() {
           {convs.map(c => (
             <TouchableOpacity key={c.id} style={st.item} activeOpacity={0.8}
               onPress={() => router.push({ pathname: '/chat', params: { entregaId: c.entrega_id, tipo: c.tipo, protocolo: c.protocolo || '' } })}>
-              <View style={st.ico}><Text style={{ fontSize: 18 }}>{c.tipo === 'suporte' ? '🎧' : '🏢'}</Text></View>
+              <View style={st.ico}><Icone nome={c.tipo === 'suporte' ? 'fone' : 'loja'} tam={20} cor={C.azulP} /></View>
               <View style={{ flex: 1 }}>
                 <View style={st.itemTop}>
                   <Text style={st.itemNome}>{c.tipo === 'suporte' ? 'Suporte' : (c.loja_nome || 'Loja')}</Text>
@@ -50,7 +51,7 @@ export default function Mensagens() {
                 </View>
                 <Text style={st.itemSub} numberOfLines={1}>Corrida {c.protocolo || ''} · {c.ultima_previa || 'sem mensagens'}</Text>
               </View>
-              <Text style={st.seta}>›</Text>
+              <Icone nome="seta" tam={18} cor={C.tinta3} />
             </TouchableOpacity>
           ))}
         </ScrollView>

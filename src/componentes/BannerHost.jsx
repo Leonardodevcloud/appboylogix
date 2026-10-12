@@ -3,17 +3,18 @@ import { Animated, Easing, Text, View, StyleSheet, TouchableOpacity, PanResponde
 import { router } from 'expo-router';
 import { assinarBanner } from '../state/banner';
 import { T } from '../tema';
+import Icone from './Icone';
 
 // Ícone + cor por tipo de gatilho.
 const TIPOS = {
-  oferta:    { ico: '🛵', cor: T.vivo },
-  atribuida: { ico: '📦', cor: '#1f9d6b' },
-  editada:   { ico: '✏️', cor: '#C98A1A' },
-  removida:  { ico: '↩️', cor: '#D0584F' },
-  ponto:     { ico: '✅', cor: '#6B4FC9' },
-  dinheiro:  { ico: '💸', cor: T.ganho },
-  recusa:    { ico: '⚠️', cor: T.alerta },
-  default:   { ico: '🔔', cor: T.primario },
+  oferta:    { ico: 'moto', cor: T.vivo },
+  atribuida: { ico: 'caixa', cor: '#1f9d6b' },
+  editada:   { ico: 'editar', cor: '#C98A1A' },
+  removida:  { ico: 'desfazer', cor: '#D0584F' },
+  ponto:     { ico: 'check', cor: '#6B4FC9' },
+  dinheiro:  { ico: 'dinheiro', cor: T.ganho },
+  recusa:    { ico: 'alerta', cor: T.alerta },
+  default:   { ico: 'sino', cor: T.primario },
 };
 const DURACAO = 4200; // ms na tela
 
@@ -63,13 +64,13 @@ export default function BannerHost() {
         onPress={() => { const r = cfg.rota; fechar(() => { if (r) try { router.push(r); } catch {} }); }}>
         <View style={st.icoWrap}>
           <Animated.View style={[st.pulso, { borderColor: t.cor, transform: [{ scale: escalaPulso }], opacity: opacPulso }]} />
-          <View style={[st.ico, { backgroundColor: t.cor + '22' }]}><Text style={{ fontSize: 20 }}>{t.ico}</Text></View>
+          <View style={[st.ico, { backgroundColor: t.cor + '22' }]}><Icone nome={t.ico} tam={20} cor={t.cor} /></View>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={st.tt} numberOfLines={1}>{cfg.titulo}</Text>
           {!!cfg.sub && <Text style={st.sub} numberOfLines={1}>{cfg.sub}</Text>}
         </View>
-        <Text style={st.seta}>›</Text>
+        <Icone nome="seta" tam={18} cor={T.tinta3} />
         <Animated.View style={[st.bar, { backgroundColor: t.cor, width: larguraBarra }]} />
       </TouchableOpacity>
     </Animated.View>
@@ -85,6 +86,5 @@ const st = StyleSheet.create({
   ico: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   tt: { fontSize: 14, fontWeight: '800', color: '#0e2138' },
   sub: { fontSize: 11.5, color: '#46637f', marginTop: 1 },
-  seta: { fontSize: 22, color: '#8ba5bc', fontWeight: '700' },
   bar: { position: 'absolute', left: 0, bottom: 0, height: 3 },
 });

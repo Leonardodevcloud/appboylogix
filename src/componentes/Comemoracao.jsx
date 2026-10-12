@@ -5,6 +5,7 @@
 import { useEffect, useRef } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Dimensions, Vibration, AccessibilityInfo } from 'react-native';
 import { T, reais } from '../tema';
+import Icone from './Icone';
 
 const { height: ALTURA, width: LARGURA } = Dimensions.get('window');
 const CONFETE = [
@@ -53,7 +54,7 @@ export default function Comemoracao({ pedido, aoVerExtrato, aoFechar }) {
         {CONFETE.map((c, i) => <Confete key={i} {...c} ativo={!reduzir.current} />)}
         <Animated.View style={[st.anel, { opacity: anel, transform: [{ scale: escala }] }]}>
           <View style={st.miolo}>
-            <Animated.Text style={[st.check, { opacity: check, transform: [{ scale: check }] }]}>✓</Animated.Text>
+            <Animated.View style={{ opacity: check, transform: [{ scale: check }] }}><Icone nome="check" tam={56} cor={T.ganho} traco={3} /></Animated.View>
           </View>
         </Animated.View>
         <Text style={st.titulo}>Caiu na sua conta!</Text>
@@ -77,7 +78,6 @@ const st = StyleSheet.create({
   confete: { position: 'absolute', top: 0, width: 9, height: 14, borderRadius: 2 },
   anel: { width: 132, height: 132, borderRadius: 66, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   miolo: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  check: { fontSize: 54, fontWeight: '900', color: T.ganho, lineHeight: 62 },
   titulo: { color: '#fff', fontSize: 17, fontWeight: '700', marginTop: 22, opacity: 0.95 },
   valor: { color: '#fff', fontSize: 42, fontWeight: '900', marginTop: 6 },
   sub: { color: '#fff', fontSize: 14, opacity: 0.88, marginTop: 6, textAlign: 'center' },

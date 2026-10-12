@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api, getToken } from '../src/api';
-import SheetNavegacao from '../src/componentes/SheetNavegacao';
+import { abrirNavegacao } from '../src/state/navegacao';
+import { assinarFila } from '../src/state/filaConclusao';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais, hora } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import Icone from '../src/componentes/Icone';
 
 
 const PROXIMO = { aguardando_coleta: 'em_coleta', em_coleta: 'em_rota' };
@@ -19,7 +21,9 @@ export default function Corrida() {
   const [entrega, setEntrega] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [navAlvo, setNavAlvo] = useState(null);
+  // Pontos concluídos no celular e ainda guardados (sem sinal): contam como feitos aqui.
+  const [naFila, setNaFila] = useState(new Set());
+  useEffect(() => assinarFila((itens) => setNaFila(new Set(itens.map(i => String(i.pontoId))))), []);
   const [chatAtivo, setChatAtivo] = useState(false);
   useEffect(() => {
     let vivo = true;
@@ -125,7 +129,7 @@ export default function Corrida() {
   }
 
   function navegar(lat, lng, label) {
-    setNavAlvo({ lat, lng, label });
+    abrirNavegacao({ lat, lng, label });
   }
 
   function ligar(tel) {
@@ -140,7 +144,7 @@ export default function Corrida() {
 
   const pontos = entrega.pontos || [];
   const jaColetou = entrega.status === 'em_rota';
-  const feitoDe = (p) => p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em;
+  const feitoDe = (p) => p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em || naFila.has(String(p.id));
   const concluidos = pontos.filter(feitoDe).length;
   const totalPontos = pontos.length;
   const proxPonto = pontos.find(p => !feitoDe(p));
@@ -171,7 +175,7 @@ export default function Corrida() {
       <View style={st.no}>
         {!ultimo && <View style={[st.rail, estado === 'feita' && { backgroundColor: T.ganho }]} />}
         <View style={[st.dot, { backgroundColor: corDot, borderColor: corBorda }]}>
-          <Text style={[st.dotTxt, { color: corNum }]}>{estado === 'feita' ? '✓' : num}</Text>
+          {estado === 'feita' ? <Icone nome="check" tam={14} cor="#fff" traco={2.8} /> : <Text style={[st.dotTxt, { color: corNum }]}>{num}</Text>}
         </View>
         <View style={st.noBody}>
           <View style={st.noTit}>
@@ -181,15 +185,20 @@ export default function Corrida() {
           {!!endereco && <Text style={st.noAddr}>{endereco}</Text>}
           {(detalhes || []).filter(Boolean).map((d, i) => <Text key={i} style={st.noDet}>{d}</Text>)}
           {(subs || []).map((s, i) => (
-            <Text key={i} style={[st.sub, s.estado === 'feito' && st.subFeito, s.estado === 'agora' && st.subAgora]}>
-              {s.estado === 'feito' ? '✓ ' : s.estado === 'agora' ? '● ' : '○ '}{s.txt}{s.hora ? ` · ${s.hora}` : ''}
-            </Text>
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+              {s.estado === 'feito'
+                ? <Icone nome="check" tam={12} cor={T.ganho} traco={2.8} />
+                : <View style={[st.subBola, s.estado === 'agora' && st.subBolaAgora]} />}
+              <Text style={[st.sub, s.estado === 'feito' && st.subFeito, s.estado === 'agora' && st.subAgora]}>
+                {s.txt}{s.hora ? ` · ${s.hora}` : ''}
+              </Text>
+            </View>
           ))}
           {!!(acoes && acoes.length) && (
             <View style={st.acoes}>
               {acoes.map((a, i) => (
                 <TouchableOpacity key={i} style={st.acaoBtn} onPress={a.onPress} activeOpacity={0.8}>
-                  <Text style={st.acaoTxt}>{a.icone} {a.label}</Text>
+                  <Icone nome={a.icone} tam={14} cor={T.primario} /><Text style={st.acaoTxt}>{a.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -208,7 +217,7 @@ export default function Corrida() {
 
       <View style={st.header}>
         <View style={st.headerTopo}>
-          <TouchableOpacity onPress={() => router.replace('/home')} style={{ minWidth: 64 }}><Text style={st.voltar}>‹ Início</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.replace('/home')} style={{ minWidth: 64 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={T.claro} traco={2.4} /><Text style={st.voltar}>Início</Text></View></TouchableOpacity>
           <Text style={st.headerTit}>Serviço {entrega.protocolo}</Text>
           <View style={{ minWidth: 64, alignItems: 'flex-end' }}><View style={st.statusPill}><Text style={st.statusPillTxt}>{etapaTxt}</Text></View></View>
         </View>
@@ -237,8 +246,8 @@ export default function Corrida() {
             { txt: 'Peguei o pedido', estado: jaColetou ? 'feito' : (entrega.status === 'em_coleta' ? 'agora' : 'depois'), hora: jaColetou && entrega.iniciada_em ? hora(entrega.iniciada_em) : null },
           ]}
           acoes={coletaAtual ? [
-            { icone: '➤', label: 'Navegar', onPress: () => navegar(entrega.coleta_lat, entrega.coleta_lng, entrega.coleta_endereco) },
-            ...(abrirChat ? [{ icone: '💬', label: 'Central', onPress: abrirChat }] : []),
+            { icone: 'navegar', label: 'Navegar', onPress: () => navegar(entrega.coleta_lat, entrega.coleta_lng, entrega.coleta_endereco) },
+            ...(abrirChat ? [{ icone: 'chat', label: 'Central', onPress: abrirChat }] : []),
           ] : []}
         />
         {/* Entregas */}
@@ -261,9 +270,9 @@ export default function Corrida() {
                 { txt: 'Confirmei a entrega', estado: feito ? 'feito' : (atual && p.chegou_em ? 'agora' : 'depois'), hora: feito && p.finalizado_em ? hora(p.finalizado_em) : null },
               ]}
               acoes={atual ? [
-                { icone: '➤', label: 'Navegar', onPress: () => navegar(p.lat, p.lng, p.endereco) },
-                ...(p.telefone ? [{ icone: '📞', label: 'Ligar', onPress: () => ligar(p.telefone) }] : []),
-                ...(abrirChat ? [{ icone: '💬', label: 'Central', onPress: abrirChat }] : []),
+                { icone: 'navegar', label: 'Navegar', onPress: () => navegar(p.lat, p.lng, p.endereco) },
+                ...(p.telefone ? [{ icone: 'telefone', label: 'Ligar', onPress: () => ligar(p.telefone) }] : []),
+                ...(abrirChat ? [{ icone: 'chat', label: 'Central', onPress: abrirChat }] : []),
               ] : []}
             />
           );
@@ -282,9 +291,9 @@ export default function Corrida() {
         ) : entrega.status === 'em_coleta' ? (
           <>
             <DeslizarParaConfirmar
-              rotulo="Deslize: peguei o pedido" rotuloOk="Coleta confirmada ✓"
+              rotulo="Deslize: peguei o pedido" rotuloOk="Coleta confirmada"
               cor={T.ganho} corFundo={T.ganhoBg} corBorda={T.ganhoBd}
-              ocupado={busy} onConfirmar={avancar} icone="✓" />
+              ocupado={busy} onConfirmar={avancar} icone="check" />
             <Text style={st.rodapeSub}>Confirme só com a mercadoria em mãos</Text>
           </>
         ) : proxPonto && !proxPonto.chegou_em ? (
@@ -297,18 +306,17 @@ export default function Corrida() {
         ) : proxPonto ? (
           <>
             <TouchableOpacity style={[st.btn, { backgroundColor: T.ganho }]}
-              onPress={() => router.push({ pathname: '/concluir', params: { entregaId: entrega.id, pontoId: proxPonto.id, endereco: proxPonto.endereco, numero: concluidos + 1, total: totalPontos } })}
+              onPress={() => router.push({ pathname: '/concluir', params: { entregaId: entrega.id, pontoId: proxPonto.id, endereco: proxPonto.endereco, numero: concluidos + 1, total: totalPontos, protocolo: entrega.protocolo } })}
               activeOpacity={0.85}>
               <Text style={st.btnTxt}>Marcar entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>
             </TouchableOpacity>
             <Text style={st.rodapeSub}>Foto, resultado e observação na próxima tela</Text>
           </>
         ) : (
-          <View style={[st.btn, { backgroundColor: T.ganho }]}><Text style={st.btnTxt}>Corrida concluída ✓</Text></View>
+          <View style={[st.btn, { backgroundColor: T.ganho, flexDirection: 'row', gap: 8 }]}><Icone nome="check" tam={18} cor="#fff" traco={2.8} /><Text style={st.btnTxt}>{pontos.some(p => naFila.has(String(p.id))) ? 'Concluída · enviando quando tiver sinal' : 'Corrida concluída'}</Text></View>
         )}
       </View>
 
-      <SheetNavegacao alvo={navAlvo} aoFechar={() => setNavAlvo(null)} />
     </View>
   );
 }
@@ -347,10 +355,12 @@ const st = StyleSheet.create({
   tagColTxt: { color: '#2b5a95' }, tagEntTxt: { color: '#1f8a5e' },
   noAddr: { fontSize: 13, color: T.tinta2, marginTop: 3, lineHeight: 18 },
   noDet: { fontSize: 12.5, color: T.tinta3, marginTop: 2, fontWeight: '600' },
-  sub: { fontSize: 12.5, color: T.tinta3, fontWeight: '700', marginTop: 6 },
+  sub: { fontSize: 12.5, color: T.tinta3, fontWeight: '700' },
+  subBola: { width: 9, height: 9, borderRadius: 5, borderWidth: 1.5, borderColor: T.tinta3, marginHorizontal: 1.5 },
+  subBolaAgora: { borderColor: T.vivo, backgroundColor: T.vivo },
   subFeito: { color: T.ganhoEsc }, subAgora: { color: T.vivo },
   acoes: { flexDirection: 'row', gap: 8, marginTop: 11, flexWrap: 'wrap' },
-  acaoBtn: { backgroundColor: T.suave, borderWidth: 1, borderColor: T.linha, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12 },
+  acaoBtn: { backgroundColor: T.suave, borderWidth: 1, borderColor: T.linha, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
   acaoTxt: { color: T.primario, fontWeight: '800', fontSize: 13 },
 
   rodape: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 26, backgroundColor: T.sup, borderTopWidth: 1, borderTopColor: T.linha },

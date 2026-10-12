@@ -1,7 +1,7 @@
 // Botão deslizante (aceitar corrida / confirmar entrega). PanResponder + Animated do
 // núcleo do React Native — sem reanimated/gesture-handler (OTA, sem build nativo).
 //
-//   <DeslizarParaConfirmar rotulo="Deslize para aceitar" rotuloOk="Corrida aceita ✓"
+//   <DeslizarParaConfirmar rotulo="Deslize para aceitar" rotuloOk="Corrida aceita"
 //                          cor={T.ganho} ocupado={aceitando} onConfirmar={aceitar} />
 //
 // Regra: só dispara onConfirmar quando a bolinha chega ao fim; soltar antes volta ao
@@ -9,10 +9,11 @@
 import { useRef, useState } from 'react';
 import { View, Text, Animated, PanResponder, StyleSheet, ActivityIndicator, Vibration } from 'react-native';
 import { T } from '../tema';
+import Icone from './Icone';
 
 const BOLHA = 54, ALTURA = 66, FOLGA = 4;
 
-export default function DeslizarParaConfirmar({ rotulo, rotuloOk, cor = T.ganho, corFundo = T.ganhoBg, corBorda = T.ganhoBd, ocupado = false, feito = false, onConfirmar, icone = '›' }) {
+export default function DeslizarParaConfirmar({ rotulo, rotuloOk, cor = T.ganho, corFundo = T.ganhoBg, corBorda = T.ganhoBd, ocupado = false, feito = false, onConfirmar, icone = 'setaDireita' }) {
   const [largura, setLargura] = useState(0);
   const x = useRef(new Animated.Value(0)).current;
   const maxRef = useRef(0);
@@ -53,11 +54,11 @@ export default function DeslizarParaConfirmar({ rotulo, rotuloOk, cor = T.ganho,
       {!feito && <Animated.View style={[st.cheio, { backgroundColor: cor, width: larguraCheio }]} />}
       <Animated.View style={[st.rotuloBox, { opacity: feito ? 1 : opacidadeRotulo }]}>
         <Text style={[st.rotulo, { color: feito ? '#fff' : (cor === T.ganho ? T.ganhoEsc : cor) }]}>{feito ? rotuloOk : rotulo}</Text>
-        {!feito && <Text style={[st.setas, { color: corBorda }]}>›››</Text>}
+        {!feito && <View style={st.setas}>{[0, 1, 2].map((i) => <Icone key={i} nome="seta" tam={14} cor={corBorda} traco={2.6} style={{ marginLeft: -6 }} />)}</View>}
       </Animated.View>
       {!feito && (
         <Animated.View {...pan.panHandlers} style={[st.bolha, { backgroundColor: cor, transform: [{ translateX: x }] }]}>
-          {ocupado ? <ActivityIndicator color="#fff" /> : <Text style={st.icone}>{icone === '›' ? '→' : icone}</Text>}
+          {ocupado ? <ActivityIndicator color="#fff" /> : <Icone nome={icone} tam={24} cor="#fff" traco={2.6} />}
         </Animated.View>
       )}
     </View>
@@ -69,7 +70,6 @@ const st = StyleSheet.create({
   cheio: { position: 'absolute', left: 0, top: 0, bottom: 0, opacity: 0.14 },
   rotuloBox: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingLeft: 40 },
   rotulo: { fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
-  setas: { marginLeft: 8, fontSize: 18, fontWeight: '800', letterSpacing: -2 },
+  setas: { marginLeft: 12, flexDirection: 'row', alignItems: 'center' },
   bolha: { position: 'absolute', left: FOLGA, top: FOLGA, width: BOLHA, height: BOLHA, borderRadius: BOLHA / 2, alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },
-  icone: { color: '#fff', fontSize: 24, fontWeight: '800', marginTop: -2 },
 });

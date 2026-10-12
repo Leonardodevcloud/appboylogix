@@ -12,6 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import Icone from '../src/componentes/Icone';
 
 const SENHA_MIN = 6;
 const emailValido = (v) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(String(v || '').trim());
@@ -59,7 +60,7 @@ export default function EsqueciSenha() {
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
       <View style={s.cab}>
         <TouchableOpacity style={s.voltar} onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar">
-          <Text style={s.voltarTx}>‹</Text>
+          <Icone nome="voltar" tam={22} cor={'#fff'} traco={2.4} />
         </TouchableOpacity>
         <Text style={s.cabTitulo}>Criar nova senha</Text>
       </View>

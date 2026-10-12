@@ -7,6 +7,8 @@ import { api } from '../src/api';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais, hora, km, curto } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import { abrirNavegacao } from '../src/state/navegacao';
+import Icone from '../src/componentes/Icone';
 
 // Carrega react-native-maps com segurança (não existe no Expo Go).
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
@@ -50,12 +52,7 @@ export default function OfertaDetalhe() {
   }, []);
 
   function abrirMapaExterno(lat, lng, label) {
-    const q = lat && lng ? `${lat},${lng}` : encodeURIComponent(label || '');
-    Alerta.alert('Abrir navegação', 'Escolha o app de mapas', [
-      { text: 'Google Maps', onPress: () => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${q}`) },
-      { text: 'Waze', onPress: () => Linking.openURL(`https://waze.com/ul?ll=${q}&navigate=yes`) },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    abrirNavegacao({ lat, lng, label });
   }
 
   async function aceitar() {
@@ -118,7 +115,7 @@ export default function OfertaDetalhe() {
       {/* Topo escuro: o que decide em 3 segundos */}
       <View style={st.topo}>
         <View style={st.topoLinha}>
-          <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 64 }}><Text style={st.voltar}>‹ Voltar</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 64 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={T.claro} traco={2.4} /><Text style={st.voltar}>Voltar</Text></View></TouchableOpacity>
           <Text style={st.rotulo}>Nova corrida para você</Text>
           <View style={{ minWidth: 64 }} />
         </View>
@@ -176,7 +173,7 @@ export default function OfertaDetalhe() {
         </ScrollView>
 
         <View style={st.decisao}>
-          <DeslizarParaConfirmar rotulo={temValor ? `Deslize para aceitar · ${reais(oferta.valor_motoboy_cent)}` : 'Deslize para aceitar'} rotuloOk="Corrida aceita ✓" ocupado={aceitando} feito={aceita} onConfirmar={aceitar} />
+          <DeslizarParaConfirmar rotulo={temValor ? `Deslize para aceitar · ${reais(oferta.valor_motoboy_cent)}` : 'Deslize para aceitar'} rotuloOk="Corrida aceita" ocupado={aceitando} feito={aceita} onConfirmar={aceitar} />
           <TouchableOpacity onPress={recusar} disabled={aceitando || aceita} style={st.recusa} activeOpacity={0.7}>
             <Text style={st.recusaTxt}>Não posso agora · <Text style={{ color: T.alerta }}>recusar</Text></Text>
           </TouchableOpacity>

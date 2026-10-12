@@ -9,6 +9,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { api, API_URL } from '../src/api';
 import { T, reais } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import Icone from '../src/componentes/Icone';
 
 const br = (iso, ano = true) => { if (!iso) return ''; const [a, m, d] = String(iso).slice(0, 10).split('-'); return ano ? `${d}/${m}/${a}` : `${d}/${m}`; };
 const dataHora = (iso) => {
@@ -57,7 +58,7 @@ export default function Comprovante() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
       <View style={st.header}>
-        <TouchableOpacity onPress={voltar} style={st.btnVoltar} accessibilityLabel="Voltar"><Text style={st.btnVoltarTxt}>‹</Text></TouchableOpacity>
+        <TouchableOpacity onPress={voltar} style={st.btnVoltar} accessibilityLabel="Voltar"><Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} /></TouchableOpacity>
         <Text style={st.headerTit}>Comprovante</Text>
         <View style={{ width: 38 }} />
       </View>

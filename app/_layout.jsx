@@ -7,7 +7,11 @@ import { configurarNotificacoes, aoTocarNotificacao, aoReceberNotificacao, notif
 import AvisoHost from '../src/componentes/AvisoHost';
 import ErroBoundary from '../src/componentes/ErroBoundary';
 import BannerHost from '../src/componentes/BannerHost';
+import SheetNavegacao from '../src/componentes/SheetNavegacao';
 import { carregarPrefs } from '../src/state/prefsAlerta';
+import { carregarNavegacao } from '../src/state/navegacao';
+import { iniciarFilaConclusao, aoDescartarConclusao } from '../src/state/filaConclusao';
+import { Alerta } from '../src/utils/avisar';
 import { anotarDestino, marcarOfertaAberta } from '../src/state/navegacaoPendente';
 
 // Decide para onde navegar quando o motoboy toca em uma notificacao.
@@ -46,6 +50,13 @@ export default function Layout() {
     // Carrega as preferências de alerta (som/vibração/som escolhido) cedo,
     // para o primeiro alerta já sair certo.
     carregarPrefs();
+    // Waze ou Google Maps: a escolha salva já fica em memória antes da primeira rota.
+    carregarNavegacao();
+    // Conclusões guardadas sem sinal: envia sozinho quando a rede volta (ADR-050).
+    iniciarFilaConclusao();
+    const soltarDescarte = aoDescartarConclusao((item) => {
+      Alerta.alert('Corrida cancelada', `A corrida ${item.protocolo || ''} foi cancelada ou passada para outro entregador enquanto você estava sem sinal. A entrega guardada foi descartada.`.replace('  ', ' '), [{ text: 'Entendi' }], { tom: 'atencao' });
+    });
     configurarNotificacoes();
     // App aberto pelo toque na notificacao (estava fechado).
     // App aberto pelo toque (estava fechado): NÃO navega agora — o index.jsx ainda vai fazer
@@ -61,7 +72,7 @@ export default function Layout() {
     const limpar = aoTocarNotificacao(navegarPorNotificacao);
     // App vivo: toca o alerta interno (som+vibracao garantidos) ao receber push.
     const limparReceber = aoReceberNotificacao();
-    return () => { limpar(); limparReceber(); };
+    return () => { limpar(); limparReceber(); soltarDescarte(); };
   }, []);
 
   return (
@@ -72,6 +83,8 @@ export default function Layout() {
       <AvisoHost />
       {/* Banner animado de notificação (nova corrida, atribuída, editada, removida, ponto liberado). */}
       <BannerHost />
+      {/* Folha "Abrir a rota com" (Waze ou Google Maps). */}
+      <SheetNavegacao />
     </ErroBoundary>
   );
 }

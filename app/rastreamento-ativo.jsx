@@ -8,6 +8,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Device from 'expo-device';
 import { backgroundAtivo, garantirUpdatesBackground } from '../src/tasks/gpsTask';
 import { T } from '../src/tema';
+import Icone from '../src/componentes/Icone';
 
 const COR = { navy: T.profundo, azul: T.primario, ok: '#1F9D6B', erro: '#D0584F', aten: '#C98A1A', tinta: '#0F2740', tinta2: '#486485', tinta3: '#8AA2BE', linha: '#E6EDF5', fundo: '#EEF3F9' };
 const PKG = Application.applicationId || '';
@@ -58,7 +59,7 @@ function guiaDaMarca(marca) {
     nome: 'Xiaomi', passos: [
       { titulo: 'Ativar "Início automático"', detalhe: 'No Xiaomi, sem o Início automático o app é fechado sozinho. Toque em "Abrir início automático" e LIGUE a chave para este app.', btn: 'Abrir início automático', acao: abrirAutostartXiaomi },
       { titulo: 'Bateria "Sem restrições"', detalhe: 'Abra a info do app → Economia de bateria → escolha "Sem restrições". E em "Economia de energia", desative para este app.', btn: 'Abrir bateria do app', acao: abrirInfoApp },
-      { titulo: 'Bloquear na memória (recentes)', detalhe: 'Abra os apps recentes, segure o card do app e toque no cadeado 🔒 — isso impede o MIUI de fechá-lo ao limpar a memória.', btn: null, acao: null },
+      { titulo: 'Bloquear na memória (recentes)', detalhe: 'Abra os apps recentes, segure o card do app e toque no cadeado — isso impede o MIUI de fechá-lo ao limpar a memória.', btn: null, acao: null },
     ],
   };
   if (m.includes('motorola') || m.includes('moto')) return {
@@ -106,21 +107,21 @@ export default function RastreamentoAtivo() {
   return (
     <View style={st.root}>
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.replace('/home')}><Text style={st.bk}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/home')}><Icone nome="voltar" tam={24} cor={COR.tinta2} traco={2.4} /></TouchableOpacity>
         <Text style={st.htitle}>Rastreamento sempre ativo</Text>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         {/* Status atual */}
         <View style={[st.status, enviandoOk ? st.statusOk : st.statusBad]}>
-          <View style={[st.sico, { backgroundColor: enviandoOk ? COR.ok : COR.erro }]}><Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>{enviandoOk ? '✓' : '!'}</Text></View>
+          <View style={[st.sico, { backgroundColor: enviandoOk ? COR.ok : COR.erro }]}><Icone nome={enviandoOk ? 'check' : 'alerta'} tam={20} cor="#fff" traco={2.6} /></View>
           <View style={{ flex: 1 }}>
             <Text style={[st.sb, { color: enviandoOk ? '#0f6e56' : '#a23c34' }]}>{enviandoOk ? 'Rastreamento ativo' : 'Rastreamento pode falhar'}</Text>
             <Text style={st.ss}>{subtitulo}</Text>
           </View>
         </View>
 
-        <View style={st.marca}><Text style={st.marcaTxt}>📱 Ajustes para {guia.nome}</Text></View>
+        <View style={st.marca}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Icone nome="celular" tam={14} cor={COR.azul} /><Text style={st.marcaTxt}>Ajustes para {guia.nome}</Text></View></View>
 
         {/* Diagnóstico do serviço em segundo plano */}
         <View style={st.diag}>
@@ -144,7 +145,7 @@ export default function RastreamentoAtivo() {
             <Text style={st.pt}>Permitir localização "o tempo todo"</Text>
             <Text style={st.pd}>Sem isso o app não rastreia com a tela apagada. Toque abaixo e escolha "Permitir o tempo todo".</Text>
             <TouchableOpacity style={st.abrir} onPress={async () => { try { await Location.requestBackgroundPermissionsAsync(); } catch {} try { await IntentLauncher.startActivityAsync('android.settings.APPLICATION_DETAILS_SETTINGS', { data: 'package:' + PKG }); } catch {} }}>
-              <Text style={st.abrirTxt}>Ajustar permissão ›</Text>
+              <Text style={st.abrirTxt}>Ajustar permissão</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -155,7 +156,7 @@ export default function RastreamentoAtivo() {
             <Text style={st.pt}>{p.titulo}</Text>
             <Text style={st.pd}>{p.detalhe}</Text>
             {p.acao ? (
-              <TouchableOpacity style={st.abrir} onPress={p.acao}><Text style={st.abrirTxt}>{p.btn} ›</Text></TouchableOpacity>
+              <TouchableOpacity style={st.abrir} onPress={p.acao}><Text style={st.abrirTxt}>{p.btn}</Text></TouchableOpacity>
             ) : null}
           </View>
         ))}

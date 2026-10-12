@@ -23,7 +23,7 @@ export function assinarAviso(fn) {
 }
 
 // Mostra um aviso e resolve quando o usuário escolher.
-// config: { icone, titulo, chip, lead, itens:[{ico,txt}], destaque, destaqueIco,
+// config: { icone (nome do Icone), titulo, chip, lead, itens:[{ico,txt}], destaque, destaqueIco,
 //           botaoPrimario, botaoGhost, fecharPorFora }
 export function mostrarAviso(config) {
   // Se já houver um aberto, resolve o anterior como 'fechar' para não travar a fila.
