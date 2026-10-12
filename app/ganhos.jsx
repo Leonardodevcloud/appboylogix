@@ -7,6 +7,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
 import FiltroPeriodo from '../src/componentes/FiltroPeriodo';
 import ExtratoFinanceiro from '../src/componentes/ExtratoFinanceiro';
+import ListaAcertos from '../src/componentes/ListaAcertos';
 import { T } from '../src/tema';
 
 const C = {
@@ -27,11 +28,13 @@ function hora(iso) {
 const brData = (s) => { if (!s) return ''; const [a, m, d] = s.split('-'); return `${d}/${m}`; };
 const rotuloPeriodo = (f) => f.tipo === 'hoje' ? 'hoje' : f.tipo === 'semana' ? 'últimos 7 dias' : f.tipo === 'mes' ? 'este mês' : `${brData(f.de)} – ${brData(f.ate)}`;
 
-// Duas abas (11/10/2026): "Corridas" (o que já era a tela) e "Extrato" — toda entrada e
-// saída do saldo, com saques, débitos e acertos (src/componentes/ExtratoFinanceiro).
+// Três abas: "Corridas" (o que já era a tela), "Extrato" — toda entrada e saída do saldo,
+// com saques, débitos e acertos (src/componentes/ExtratoFinanceiro) — e "Acertos", com o
+// comprovante de cada acerto (12/10/2026, src/componentes/ListaAcertos + app/comprovante).
+const ABAS = ['corridas', 'extrato', 'acertos'];
 export default function Ganhos() {
   const params = useLocalSearchParams();
-  const [aba, setAba] = useState(params.aba === 'extrato' ? 'extrato' : 'corridas');
+  const [aba, setAba] = useState(ABAS.includes(params.aba) ? params.aba : 'corridas');
   const [puxou, setPuxou] = useState(0);   // puxar para baixo no extrato recarrega
   const [eu, setEu] = useState(null);
   const [filtro, setFiltro] = useState({ tipo: 'mes' });
@@ -56,7 +59,7 @@ export default function Ganhos() {
   }, []);
 
   useEffect(() => { setCarregando(true); carregar(filtro); }, [filtro]);
-  useEffect(() => { if (params.aba === 'extrato') setAba('extrato'); }, [params.aba]);
+  useEffect(() => { if (ABAS.includes(params.aba)) setAba(params.aba); }, [params.aba]);
 
   const media = hist.quantidade > 0 ? Math.round(hist.total_cent / hist.quantidade) : 0;
 
@@ -76,7 +79,7 @@ export default function Ganhos() {
       </View>
       <View style={st.abasBox}>
         <View style={st.abas} accessibilityRole="tablist">
-          {[['corridas', 'Corridas'], ['extrato', 'Extrato']].map(([id, rot]) => (
+          {[['corridas', 'Corridas'], ['extrato', 'Extrato'], ['acertos', 'Acertos']].map(([id, rot]) => (
             <TouchableOpacity key={id} style={[st.aba, aba === id && st.abaOn]} onPress={() => setAba(id)}
               accessibilityRole="tab" accessibilityState={{ selected: aba === id }}>
               <Text style={[st.abaTx, aba === id && st.abaTxOn]}>{rot}</Text>
@@ -85,14 +88,16 @@ export default function Ganhos() {
         </View>
       </View>
 
-      <View style={st.filtroBox}>
-        <FiltroPeriodo valor={filtro} aoSelecionar={(f) => setFiltro(f)} />
-      </View>
+      {aba !== 'acertos' && (
+        <View style={st.filtroBox}>
+          <FiltroPeriodo valor={filtro} aoSelecionar={(f) => setFiltro(f)} />
+        </View>
+      )}
 
       <ScrollView style={st.body} contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); if (aba === 'extrato') setPuxou((n) => n + 1); carregar(filtro); }} />}>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); if (aba !== 'corridas') setPuxou((n) => n + 1); carregar(filtro); }} />}>
 
-        {aba === 'extrato' ? <ExtratoFinanceiro filtro={filtro} recarregarToken={puxou} /> : (<>
+        {aba === 'acertos' ? <ListaAcertos recarregarToken={puxou} /> : aba === 'extrato' ? <ExtratoFinanceiro filtro={filtro} recarregarToken={puxou} /> : (<>
         <Text style={st.periodoTit}>Mostrando: <Text style={{ color: C.azulP, fontWeight: '800' }}>{rotuloPeriodo(filtro)}</Text></Text>
 
         {/* Resumo do período */}

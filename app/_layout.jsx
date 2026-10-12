@@ -27,6 +27,10 @@ function navegarPorNotificacao(dados) {
       // histórico mostra a conta (pediu, taxa, recebeu).
       router.push(dados.status === 'processando' ? '/antecipar' : '/antecipar?aba=historico');
       break;
+    case 'acerto':
+      // "Acerto pago": abre o comprovante (ADR-049 do backend).
+      router.push(dados.fechamentoId ? '/comprovante?id=' + dados.fechamentoId : '/ganhos?aba=acertos');
+      break;
     case 'atribuida':
     case 'atribuida_lote':
     case 'editada':
@@ -51,6 +55,7 @@ export default function Layout() {
       if (dados.tipo === 'oferta' && dados.ofertaId) anotarDestino('/oferta-detalhe?oferta_id=' + dados.ofertaId);
       else if (dados.tipo === 'chat' && dados.entregaId) anotarDestino('/chat?entregaId=' + dados.entregaId + '&tipo=' + (dados.chatTipo || 'suporte'));
       else if (dados.tipo === 'antecipacao') anotarDestino(dados.status === 'processando' ? '/antecipar' : '/antecipar?aba=historico');
+      else if (dados.tipo === 'acerto') anotarDestino(dados.fechamentoId ? '/comprovante?id=' + dados.fechamentoId : '/ganhos?aba=acertos');
     });
     // App ja aberto: toque na notificacao.
     const limpar = aoTocarNotificacao(navegarPorNotificacao);

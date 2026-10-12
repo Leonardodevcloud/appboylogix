@@ -6,6 +6,7 @@
 // detalhe. Fonte: GET /app/financeiro/extrato (backend, ADR-042).
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { router } from 'expo-router';
 import { api } from '../api';
 import { T, reais } from '../tema';
 import { Alerta } from '../utils/avisar';
@@ -64,7 +65,9 @@ function abrirDetalhe(i) {
     return;
   }
   if (i.tipo === 'acerto') {
-    Alerta.alert(i.titulo, '', [{ text: 'Fechar' }], {
+    // Pago: o comprovante completo (com o PDF para compartilhar) fica a um toque.
+    const botoes = i.status === 'pago' ? [{ text: 'Ver comprovante', onPress: () => router.push('/comprovante?id=' + i.id) }, { text: 'Fechar', style: 'cancel' }] : [{ text: 'Fechar' }];
+    Alerta.alert(i.titulo, '', botoes, {
       tom: i.status === 'pago' ? 'ok' : 'info',
       sub: i.status === 'pago' ? `Pago${d.forma ? ` por ${d.forma}` : ''}${d.pago_em ? ` · ${dataHora(d.pago_em)}` : ''}` : 'A central vai pagar este acerto',
       lead: 'O acerto junta o que estava no seu saldo e é pago pela central — por isso aparece como saída do saldo.',
