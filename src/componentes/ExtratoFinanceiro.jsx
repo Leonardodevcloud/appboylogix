@@ -11,7 +11,7 @@ import { api } from '../api';
 import { T, reais } from '../tema';
 import { Alerta } from '../utils/avisar';
 import { mascararPix } from '../utils/pix';
-import Icone from '../src/componentes/Icone';
+import Icone from './Icone';
 
 const FILTROS = [['tudo', 'Tudo'], ['entradas', 'Entradas'], ['saidas', 'Saídas'], ['saques', 'Saques'], ['acertos', 'Acertos']];
 const STATUS = {
