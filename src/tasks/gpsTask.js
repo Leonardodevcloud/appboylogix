@@ -23,13 +23,13 @@ const KEY_ULTIMO_ENVIO = 'lx_gps_ultimo_envio_ms';
 // 1 request por ponto, acumulamos e enviamos quando:
 //   - juntou N pontos, ou
 //   - o mais antigo já espera há mais de MAX_ESPERA_MS.
-// Em ENTREGA (mapa/rastreio do cliente acompanhando): 2 pontos ou 30 s — o cliente
-// vê a posição com no máximo ~30 s de atraso e o servidor recebe metade dos requests.
-// FORA de entrega (só "online"): 4 pontos ou 2 min — o painel só precisa saber que
-// o motoboy está por perto.
+// Desde 17/10/2026 o painel mostra o motoboy andando no mapa (Rastreio e Mapa ao vivo):
+// cada posição sai assim que é lida, a cada 15 s, em entrega ou só online. Antes era
+// 2 pontos/30 s em entrega e 4 pontos/90 s fora — o pino ficava até 2 min parado.
+// Sem rede, os pontos continuam acumulando no buffer e saem juntos depois.
 const LOTE = {
-  entrega: { n: 2, maxEsperaMs: 30_000 },
-  ocioso:  { n: 4, maxEsperaMs: 90_000 },   // a Home alerta com 3 min sem envio — 90 s dá folga
+  entrega: { n: 1, maxEsperaMs: 15_000 },
+  ocioso:  { n: 1, maxEsperaMs: 15_000 },
 };
 const BUFFER_MAX = 40;          // pontos guardados offline (≈ 20 min em entrega). Além disso, descarta os mais antigos.
 const ENVIO_MAX = 20;           // limite do servidor por request
@@ -179,11 +179,11 @@ export async function garantirUpdatesBackground(emEntrega = false) {
     if (bg.status !== 'granted') return false;
     await Location.startLocationUpdatesAsync(GPS_TASK, {
       accuracy: emEntrega ? Location.Accuracy.High : Location.Accuracy.Balanced,
-      timeInterval: emEntrega ? 15000 : 30000,
+      timeInterval: 15000,
       distanceInterval: 0,
       // Deixa o Android agrupar leituras e acordar a task com menos frequência
       // (economia de bateria). Como acumulamos, nada se perde.
-      deferredUpdatesInterval: emEntrega ? 15000 : 30000,
+      deferredUpdatesInterval: 15000,
       pausesUpdatesAutomatically: false,
       showsBackgroundLocationIndicator: true,
       foregroundService: {

@@ -67,7 +67,7 @@ export function useGPS(entregaId, ativoExtra = false) {
       };
       reportar();
       if (fgInterval.current) clearInterval(fgInterval.current);
-      fgInterval.current = setInterval(reportar, 30000);
+      fgInterval.current = setInterval(reportar, 15000);
     }
 
     iniciar();
