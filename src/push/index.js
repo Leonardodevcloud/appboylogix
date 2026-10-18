@@ -16,6 +16,20 @@ import { api, getToken, API_URL } from '../api';
 import { alertaCorrida } from '../utils/alerta';
 import { T } from '../tema';
 import marca from '../../marca.config';
+import * as TaskManager from 'expo-task-manager';
+import { acordarGps } from '../tasks/gpsTask';
+
+// Push SILENCIOSO "acordar o GPS" (18/10/2026): o servidor manda quando o motoboy online
+// fica alguns minutos sem posição. Não aparece nada para ele — só lê a posição e religa o
+// rastreamento. Chega aqui com o app fechado (task de fundo) ou aberto (listener).
+const TASK_PUSH_FUNDO = 'logix-push-fundo';
+export const ehAcordarGps = (dados) => { try { return JSON.stringify(dados || {}).includes('gps_acordar'); } catch { return false; } };
+try {
+  TaskManager.defineTask(TASK_PUSH_FUNDO, async ({ data, error }) => {
+    if (error) return;
+    if (ehAcordarGps(data)) { try { await acordarGps(); } catch (e) { console.log('[push] acordar gps:', e?.message); } }
+  });
+} catch (e) { console.log('[push] task de fundo não registrada:', e?.message); }
 
 // Canal de notificação. IMPORTANTE: as configs de um canal travam após a 1a
 // criação no Android — se precisar mudar som/vibração, troque o ID (sufixo _vN).
@@ -23,6 +37,8 @@ const CANAL_ID = 'corridas_v4';
 
 // Foreground: quando o app esta aberto, ainda assim exibe banner + toca som.
 export function configurarNotificacoes() {
+  // Recebe os pushes de dados com o app fechado (acordar o GPS).
+  Notifications.registerTaskAsync(TASK_PUSH_FUNDO).catch((e) => console.log('[push] registrar task de fundo:', e?.message));
   // 11k: com o app ABERTO, o tempo real já mostra a corrida em tela cheia e o banner interno;
   // a notificação do sistema por cima disso duplicava (e sobrepunha) o aviso. Em primeiro
   // plano ela fica só na lista de notificações, sem banner nem som; em segundo plano continua
@@ -155,7 +171,11 @@ export async function testarNotificacaoLocal() {
 // mesmo em aparelhos que silenciam o canal (ex.: MIUI/Xiaomi). Não cobre o
 // app totalmente encerrado (aí só o canal do sistema toca).
 export function aoReceberNotificacao() {
-  const sub = Notifications.addNotificationReceivedListener(() => {
+  const sub = Notifications.addNotificationReceivedListener((n) => {
+    const dados = n?.request?.content?.data || {};
+    // Push silencioso de "acordar o GPS": quem trata é a task de fundo (roda também com o
+    // app aberto). Aqui só não toca o som de corrida.
+    if (ehAcordarGps(dados) || ehAcordarGps(n?.request?.trigger)) return;
     try { alertaCorrida(); } catch {}
   });
   return () => sub.remove();

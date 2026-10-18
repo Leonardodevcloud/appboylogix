@@ -200,6 +200,32 @@ export async function garantirUpdatesBackground(emEntrega = false) {
   }
 }
 
+// "Acordar" o GPS (18/10/2026): o servidor manda um push SILENCIOSO quando um motoboy
+// online fica alguns minutos sem mandar posição (Android adormeceu o serviço com o
+// celular parado, economia de bateria da marca, serviço morto). Aqui: lê a posição agora
+// (mesmo parado, para o painel saber que ele continua ali), envia, e religa o serviço de
+// localização. O push de alta prioridade é uma das exceções do Android para religar um
+// serviço em primeiro plano a partir do segundo plano.
+export async function acordarGps() {
+  const token = await SecureStore.getItemAsync('lx_motoboy_token').catch(() => null);
+  if (!token) return { ok: false, motivo: 'sem_token' };
+  const emEntrega = !!(await getEntregaAtiva().catch(() => null));
+  let loc = null;
+  try {
+    loc = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+      new Promise((r) => setTimeout(() => r(null), 20000)),
+    ]);
+  } catch {}
+  if (!loc) { try { loc = await Location.getLastKnownPositionAsync(); } catch {} }
+  // Ponto lido agora: carimba com a hora de agora (a última conhecida pode ser antiga,
+  // mas se ele está parado ela ainda é onde ele está).
+  if (loc && loc.coords) await acumular([{ coords: loc.coords, timestamp: Date.now() }]);
+  const r = await enviarBuffer().catch(() => ({ enviados: 0 }));
+  await garantirUpdatesBackground(emEntrega);
+  return { ok: true, ...r };
+}
+
 export async function pararUpdatesBackground() {
   try {
     const rodando = await Location.hasStartedLocationUpdatesAsync(GPS_TASK).catch(() => false);
