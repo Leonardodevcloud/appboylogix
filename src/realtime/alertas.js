@@ -14,6 +14,7 @@ import { getToken } from '../api';
 import { abrirSocket, FECHAMENTO_SESSAO } from './socket';
 import { alertaCorrida } from '../utils/alerta';
 import { mostrarBanner } from '../state/banner';
+import { telaAtual } from '../state/telaAtual';
 import { avisarAntecipacao, telaDeAntecipacaoAberta } from '../state/antecipacao';
 
 // Mapeia o evento da central para o banner in-app (ícone/cor/texto/rota).
@@ -55,6 +56,8 @@ const EVENTOS_ALERTA = new Set([
   'ponto.liberado',     // central liberou a marcação de um ponto
 ]);
 
+const TELAS_SEM_AVISO_DE_OFERTA = new Set(['/home', '/ofertas', '/oferta-detalhe']);
+
 function dispararAlerta() {
   // Throttle: evita tocar 2x se outra tela também reagir ao mesmo evento.
   const agora = Date.now();
@@ -93,6 +96,9 @@ async function abrir() {
         }
         if (EVENTOS_ALERTA.has(evento)) {
           dispararAlerta();
+          // Corrida nova com ele na Início ou nas telas de corrida: a Início já abre a corrida
+          // em tela cheia, então o aviso de cima só cobria a tela (ADR-053). Toca o som e pronto.
+          if (evento === 'oferta.nova' && TELAS_SEM_AVISO_DE_OFERTA.has(telaAtual())) return;
           const b = bannerDoEvento(evento);
           if (b) mostrarBanner(b);
         }

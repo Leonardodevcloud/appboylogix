@@ -7,15 +7,12 @@ import { router } from 'expo-router';
 import { api, getToken } from '../src/api';
 import { alertaCorrida, pararAlerta } from '../src/utils/alerta';
 import CartaoCorrida from '../src/componentes/CartaoCorrida';
+import MapaCorrida from '../src/componentes/MapaCorrida';
+import { aceitarCorrida, ehErroDeRede } from '../src/utils/aceitar';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
-import { abrirNavegacao } from '../src/state/navegacao';
 import Icone from '../src/componentes/Icone';
-
-function abrirMapa(lat, lng, endereco) {
-  abrirNavegacao({ lat, lng, label: endereco });
-}
 
 export default function Ofertas() {
   const { width } = useWindowDimensions();
@@ -58,14 +55,14 @@ export default function Ofertas() {
     if (aceitandoId) return;
     setAceitandoId(o.oferta_id);
     try {
-      await api.aceitarOferta(o.oferta_id);
+      await aceitarCorrida(o);
       // NÃO redireciona pra corrida: marca como aceita e deixa o motoboy seguir
       // deslizando/aceitando outras. A corrida aceita aparece na Home ("A caminho").
       setAceitaIds(prev => [...prev, o.oferta_id]);
       setTimeout(() => { setAceitandoId(null); removerOferta(o.oferta_id); }, 650);
     } catch (e) {
       setAceitandoId(null);
-      const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
+      const conexao = ehErroDeRede(e);
       if (conexao) {
         Alerta.alert('Conexão instável', 'Não deu pra confirmar agora. Tente de novo — é seguro (se já tiver aceitado, a corrida aparece nas suas corridas).');
       } else {
@@ -151,10 +148,9 @@ export default function Ofertas() {
                 <View style={{ width }}>
                   <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
                     <CartaoCorrida oferta={o} mostrarAcoes={false} />
-                    <TouchableOpacity style={st.btnMapa} activeOpacity={0.85}
-                      onPress={() => abrirMapa(o.coleta_lat, o.coleta_lng, o.coleta_endereco)}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Icone nome="mapa" tam={18} cor={T.primario} /><Text style={st.btnMapaTxt}>Abrir no mapa</Text></View>
-                    </TouchableOpacity>
+                    {/* ADR-053: o mapa com o traçado (como na "Nova corrida") no lugar do "Abrir no mapa". */}
+                    <MapaCorrida oferta={o} ativo={Math.abs(ofertas.indexOf(o) - indice) <= 1}
+                      onPress={() => router.push('/oferta-detalhe?oferta_id=' + o.oferta_id)} />
                     <View style={st.decisao}>
                       <DeslizarParaConfirmar
                         rotulo={temValor ? `Deslize para aceitar · ${reais(o.valor_motoboy_cent)}` : 'Deslize para aceitar'}
@@ -194,8 +190,6 @@ const st = StyleSheet.create({
   vazio: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
   vazioTit: { fontSize: 18, fontWeight: '800', color: T.tinta },
   vazioSub: { fontSize: 14, color: T.tinta2, marginTop: 8, textAlign: 'center', lineHeight: 20 },
-  btnMapa: { marginTop: 12, backgroundColor: T.suave, borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
-  btnMapaTxt: { color: T.primario, fontWeight: '800', fontSize: 14.5 },
   decisao: { marginTop: 16 },
   recusa: { alignItems: 'center', paddingTop: 14 },
   recusaTxt: { fontSize: 14, color: T.tinta2, fontWeight: '700' },

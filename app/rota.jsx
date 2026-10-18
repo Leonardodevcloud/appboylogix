@@ -8,6 +8,7 @@ import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import { abrirNavegacao } from '../src/state/navegacao';
 import Icone from '../src/componentes/Icone';
+import { agruparPorLocal, rotuloGrupo, distM } from '../src/utils/agrupar';
 
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
 try {
@@ -29,16 +30,17 @@ export default function Rota() {
   const [mapaPronto, setMapaPronto] = useState(false);
   const [reordenado, setReordenado] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await api.get('/motoboys/app/minha-rota');
-        setDados(r);
-        setParadas(r.paradas || []);
-      } catch (e) { /* mantém */ }
-      setCarregando(false);
-    })();
-  }, []);
+  const [erro, setErro] = useState(false);
+  async function carregar() {
+    setCarregando(true); setErro(false);
+    try {
+      const r = await api.get('/motoboys/app/minha-rota');
+      setDados(r);
+      setParadas(r.paradas || []);
+    } catch (e) { setErro(true); }
+    setCarregando(false);
+  }
+  useEffect(() => { carregar(); }, []);
 
   function mover(idx, dir) {
     const novo = [...paradas];
@@ -64,8 +66,33 @@ export default function Rota() {
     return <View style={st.splash}><StatusBar barStyle="light-content" backgroundColor={C.navy900} /><ActivityIndicator color={C.azulV} size="large" /></View>;
   }
 
+  // Sem resposta (servidor ou rede): antes a tela quebrava ("Algo deu errado") porque
+  // lia dados.coordenadas com dados vazio (18/10/2026). Agora mostra o erro e o "tentar".
+  if (!dados) {
+    return (
+      <View style={[st.splash, { padding: 30 }]}>
+        <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
+        <Icone nome="semSinal" tam={34} cor={C.azulC} traco={1.8} />
+        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800', marginTop: 12, textAlign: 'center' }}>{erro ? 'Não consegui montar a rota agora' : 'Sem rota'}</Text>
+        <TouchableOpacity onPress={carregar} style={{ marginTop: 18, backgroundColor: C.azulP, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 }}>
+          <Text style={{ color: '#fff', fontWeight: '800' }}>Tentar de novo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/home')} style={{ marginTop: 14 }}>
+          <Text style={{ color: C.azulC, fontWeight: '700' }}>Voltar para o Início</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const temColeta = dados?.coleta?.lat != null;
   const totalParadas = paradas.length;
+  // Blocos da lista: paradas SEGUIDAS a até ~30 m uma da outra ficam juntas (ADR-053).
+  const blocos = [];
+  paradas.forEach((p, i) => {
+    const ult = blocos[blocos.length - 1];
+    if (ult && distM(ult[ult.length - 1].p, p) <= 30) ult.push({ p, i });
+    else blocos.push([{ p, i }]);
+  });
   const corridasUnicas = new Set(paradas.map(p => p.entrega_id)).size;
 
   // Região do mapa.
@@ -143,11 +170,17 @@ export default function Rota() {
                     <View style={[st.pin, { backgroundColor: C.navy900 }]}><Text style={st.pinTxt}>C</Text></View>
                   </Marker>
                 )}
-                {paradas.map((p, i) => (
-                  <Marker key={p.ponto_id} coordinate={{ latitude: p.lat, longitude: p.lng }} title={`${i + 1} · ${p.protocolo}`} anchor={{ x: 0.5, y: 0.5 }}>
-                    <View style={[st.pin, { backgroundColor: i === paradas.length - 1 ? C.ok : C.azulP }]}><Text style={st.pinTxt}>{i + 1}</Text></View>
-                  </Marker>
-                ))}
+                {/* ADR-053: paradas no mesmo lugar (até ~30 m) viram um pino só ("1·2"). */}
+                {agruparPorLocal(paradas).filter(g => g.lat != null).map((g, gi, todos) => {
+                  const varios = g.itens.length > 1;
+                  return (
+                    <Marker key={g.itens[0].parada.ponto_id} coordinate={{ latitude: g.lat, longitude: g.lng }} anchor={{ x: 0.5, y: 0.5 }}
+                      title={varios ? `${g.itens.length} entregas aqui` : `${g.itens[0].indice + 1} · ${g.itens[0].parada.protocolo}`}
+                      description={varios ? g.itens.map(x => x.parada.protocolo).join(', ') : undefined}>
+                      <View style={[st.pin, varios && { width: undefined, paddingHorizontal: 8 }, { backgroundColor: gi === todos.length - 1 ? C.ok : C.azulP }]}><Text style={st.pinTxt}>{rotuloGrupo(g)}</Text></View>
+                    </Marker>
+                  );
+                })}
               </MapView>
             </View>
           )}
@@ -166,7 +199,8 @@ export default function Rota() {
               </View>
             )}
 
-            {paradas.map((p, i) => (
+            {blocos.map((bl) => {
+              const linhas = bl.map(({ p, i }) => (
               <View key={p.ponto_id} style={st.parada}>
                 <View style={[st.badge, { backgroundColor: i === paradas.length - 1 ? C.ok : C.azulP }]}><Text style={st.badgeTxt}>{i + 1}</Text></View>
                 <View style={{ flex: 1 }}>
@@ -178,7 +212,16 @@ export default function Rota() {
                   <TouchableOpacity onPress={() => mover(i, 1)} disabled={i === paradas.length - 1} style={[st.setaBtn, i === paradas.length - 1 && st.setaOff]}><Text style={st.seta}>▼</Text></TouchableOpacity>
                 </View>
               </View>
-            ))}
+              ));
+              if (bl.length < 2) return linhas;
+              // Entregas seguidas no mesmo lugar: quadro "Mesmo local" (ADR-053).
+              return (
+                <View key={'g' + bl[0].p.ponto_id} style={st.grupo}>
+                  <View style={st.grupoH}><Icone nome="pin" tam={14} cor={C.azulP} traco={2.4} /><Text style={st.grupoTxt} numberOfLines={1}>Mesmo local · {String(bl[0].p.endereco || '').split(',')[0]}</Text></View>
+                  {linhas}
+                </View>
+              );
+            })}
 
             <TouchableOpacity style={st.btnSeguir} onPress={seguirRota} activeOpacity={0.85}>
               <Text style={st.btnSeguirTxt}>Seguir rota no Google Maps</Text>
@@ -215,6 +258,9 @@ const st = StyleSheet.create({
   seqTit: { fontSize: 10, fontWeight: '800', color: C.tinta3, letterSpacing: 0.5, marginBottom: 12 },
   parada: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 12, marginBottom: 8 },
   badge: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  grupo: { borderWidth: 1.5, borderColor: C.azulV, borderRadius: 16, paddingHorizontal: 8, paddingTop: 8, marginBottom: 8, backgroundColor: '#f1f7fe' },
+  grupoH: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 2, paddingBottom: 8 },
+  grupoTxt: { fontSize: 12, fontWeight: '800', color: C.azulP, flexShrink: 1 },
   badgeTxt: { color: '#fff', fontSize: 12, fontWeight: '800' },
   paradaTit: { fontSize: 13, fontWeight: '700', color: C.tinta },
   paradaEnd: { fontSize: 11.5, color: C.tinta3, marginTop: 1 },

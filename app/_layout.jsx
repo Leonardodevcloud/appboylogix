@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { Stack, router } from 'expo-router';
+import { Stack, router, usePathname } from 'expo-router';
+import { setTelaAtual } from '../src/state/telaAtual';
 import { StatusBar } from 'expo-status-bar';
 // Importa a task de GPS para registra-la no app (defineTask roda no import).
 import '../src/tasks/gpsTask';
@@ -46,6 +47,9 @@ function navegarPorNotificacao(dados) {
 }
 
 export default function Layout() {
+  // Tela atual para os avisos in-app (ADR-053).
+  const caminho = usePathname();
+  useEffect(() => { setTelaAtual(caminho); }, [caminho]);
   useEffect(() => {
     // Carrega as preferências de alerta (som/vibração/som escolhido) cedo,
     // para o primeiro alerta já sair certo.

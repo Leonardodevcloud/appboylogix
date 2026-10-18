@@ -9,6 +9,7 @@ import { T, reais, hora, km, curto } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import { abrirNavegacao } from '../src/state/navegacao';
 import Icone from '../src/componentes/Icone';
+import { aceitarCorrida, ehErroDeRede } from '../src/utils/aceitar';
 
 // Carrega react-native-maps com segurança (não existe no Expo Go).
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
@@ -59,7 +60,7 @@ export default function OfertaDetalhe() {
     if (aceitando) return;
     setAceitando(true);
     try {
-      await api.aceitarOferta(ofertaId);
+      await aceitarCorrida({ oferta_id: ofertaId, entrega_id: dados?.oferta?.entrega_id });
       setAceita(true);
       // NÃO vai direto pra corrida: volta pro carrossel de ofertas pra ele poder
       // aceitar outras sem refazer o caminho. Se não sobrar nenhuma, a tela de
@@ -67,7 +68,7 @@ export default function OfertaDetalhe() {
       setTimeout(() => router.replace('/ofertas'), 500);
     } catch (e) {
       setAceitando(false);
-      const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
+      const conexao = ehErroDeRede(e);
       if (conexao) {
         Alerta.alert('Conexão instável', 'Não deu pra confirmar agora. Toque em "Aceitar" de novo — é seguro (se já tiver aceitado, a corrida aparece nas suas corridas).');
       } else {

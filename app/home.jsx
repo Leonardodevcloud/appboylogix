@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Switch, ActivityIndicator, StatusBar, Image, AppState,
+  View, Text, TouchableOpacity, StyleSheet, Switch, ActivityIndicator, StatusBar, Image, AppState,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
@@ -16,11 +16,11 @@ import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import BarraAbas from '../src/componentes/BarraAbas';
-import CartaoHoje from '../src/componentes/CartaoHoje';
-import CartaoMovimento from '../src/componentes/CartaoMovimento';
 import AvisoFilaConclusao from '../src/componentes/AvisoFilaConclusao';
-import { abrirNavegacao } from '../src/state/navegacao';
-import { assinarFila, itensDaFila } from '../src/state/filaConclusao';
+import CartaoSaldo from '../src/componentes/CartaoSaldo';
+import MapaInicio from '../src/componentes/MapaInicio';
+import GavetaCorridas from '../src/componentes/GavetaCorridas';
+import { assinarFila } from '../src/state/filaConclusao';
 import Icone from '../src/componentes/Icone';
 
 // Paleta exata do protótipo
@@ -46,37 +46,6 @@ const C = {
   roxoBg:   '#ede9fe',
 };
 
-const STATUS_COR = {
-  aguardando_atribuicao: C.roxo,
-  aguardando_coleta:     C.warn,
-  em_coleta:             C.warn,
-  em_rota:               C.azulP,
-  entregue:              C.ok,
-};
-const STATUS_LABEL = {
-  aguardando_atribuicao: 'Nova',
-  aguardando_coleta:     'Ir coletar',
-  em_coleta:             'Coletando',
-  em_rota:               'Em rota',
-  entregue:              'Entregue',
-};
-const PROXIMO = {
-  aguardando_atribuicao: 'aguardando_coleta',
-  aguardando_coleta:     'em_coleta',
-  em_coleta:             'em_rota',
-};
-
-// Distância em linha reta (km) entre dois pontos (Haversine). Usada no card para
-// mostrar "até a coleta" a partir da posição atual do GPS do motoboy.
-function distKm(aLat, aLng, bLat, bLng) {
-  if (aLat == null || aLng == null || bLat == null || bLng == null) return null;
-  const R = 6371, rad = Math.PI / 180;
-  const dLat = (bLat - aLat) * rad, dLng = (bLng - aLng) * rad;
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
-}
-const fmtKm = (v) => (v == null || !isFinite(v)) ? null : (v < 10 ? v.toFixed(1) : Math.round(v)) + ' km';
-
 function Av({ nome, foto, size = 38 }) {
   const ini = (nome || '?').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
   const cores = [C.azulV, C.azulP, '#534AB7', '#0F6E56', '#854F0B'];
@@ -99,7 +68,19 @@ export default function Home() {
   const [eu, setEu]       = useState(null);
   const [fila, setFila]   = useState([]);
   const [ordemRota, setOrdemRota] = useState([]); // entrega_ids na ordem otimizada
+  // ponto_id → número na rota otimizada (1, 2, 3…): os pinos do mapa seguem a ROTA, não a
+  // ordem em que ele aceitou (18/10/2026).
+  const [ordemPontos, setOrdemPontos] = useState({});
+  const rotaRef = useRef({ assin: '', em: 0 });
   const [qtdOfertas, setQtdOfertas] = useState(0);
+  // Início com mapa (ADR-053): ofertas (para a gaveta), calor,
+  // regiões (offline), camadas ligadas e a posição dele (distâncias da gaveta).
+  const [ofertas, setOfertas] = useState([]);
+  const [calor, setCalor] = useState(null);
+  const [regioes, setRegioes] = useState([]);
+  const [camadas, setCamadas] = useState({ demanda: true, lojas: true, minhas: true });
+  const [posEu, setPosEu] = useState(null);
+  const mapaRef = useRef(null);
   // "GPS enviado há X s": a validade da posição no servidor é de 10 min (Onda 10); o motoboy
   // vê aqui, antes de descobrir que não recebe corrida.
   const [gpsHaSeg, setGpsHaSeg] = useState(null);
@@ -112,8 +93,6 @@ export default function Home() {
     return () => { vivo = false; clearInterval(t); };
   }, []);
   const gpsTxt = gpsHaSeg == null ? 'sem posição ainda' : gpsHaSeg < 60 ? `GPS enviado há ${gpsHaSeg} s` : gpsHaSeg < 600 ? `GPS enviado há ${Math.round(gpsHaSeg / 60)} min` : 'GPS parado há mais de 10 min';
-  const [refresh, setRef] = useState(false);
-  const [busy, setBusy]   = useState({});
   const [chat, setChat]   = useState({ ativo: false, total: 0 });
   // Recarrega os cards "Hoje" e "Onde tem corrida" junto com a Início.
   const [tick, setTick]   = useState(0);
@@ -132,6 +111,18 @@ export default function Home() {
     fila.find(e => ['aguardando_coleta','em_coleta','em_rota'].includes(e.status))?.id || null,
     !!eu?.online,  // online esperando corrida também rastreia (para receber ofertas)
   );
+
+  // Ofertas abertas: a gaveta mostra a lista e o contador "Disponíveis".
+  const recontarOfertas = useCallback(() => {
+    api.ofertas().then(r => { const l = r.ofertas || []; setOfertas(l); setQtdOfertas(l.length); }).catch(() => {});
+  }, []);
+  // Mapa de calor + lojas (cache de 2 min no servidor) e, offline, as regiões com movimento.
+  const carregarMapa = useCallback(() => {
+    api.get('/regioes/app/calor').then(setCalor).catch(() => {});
+    api.get('/regioes/app/movimento').then(r => setRegioes(r?.regioes || [])).catch(() => {});
+    Location.getLastKnownPositionAsync().then(p => { if (p?.coords) setPosEu({ lat: p.coords.latitude, lng: p.coords.longitude }); }).catch(() => {});
+  }, []);
+  useEffect(() => { carregarMapa(); const t = setInterval(carregarMapa, 2 * 60 * 1000); return () => clearInterval(t); }, [carregarMapa]);
 
   const carregar = useCallback(async () => {
     try {
@@ -162,15 +153,26 @@ export default function Home() {
       }
       // Ordem otimizada das corridas ativas (mesma rota do "Ver minha rota").
       // Não bloqueia a tela: ordena assim que chegar; se falhar, mantém a ordem natural.
-      api.get('/motoboys/app/minha-rota').then(r => {
-        const ordem = [];
-        (r.paradas || []).forEach(p => { if (p.entrega_id && !ordem.includes(p.entrega_id)) ordem.push(p.entrega_id); });
-        setOrdemRota(ordem);
-      }).catch(() => {});
+      // Só pede a rota quando as corridas/pontos mudam (ou a cada 3 min): ela otimiza no
+      // ORS e, pedida a cada 30 s, deixava o servidor lento (18/10/2026).
+      const ativasAgora = (entregas || []).filter(e => ['aguardando_coleta', 'em_coleta', 'em_rota'].includes(e.status));
+      const assin = ativasAgora.map(e => `${e.id}:${e.status}:${(e.pontos || []).filter(p => p.status !== 'entregue' && !p.finalizado_em).length}`).sort().join('|');
+      if (!ativasAgora.length) { rotaRef.current = { assin: '', em: 0 }; setOrdemRota([]); setOrdemPontos({}); }
+      else if (assin !== rotaRef.current.assin || Date.now() - rotaRef.current.em > 3 * 60 * 1000) {
+        rotaRef.current = { assin, em: Date.now() };
+        api.get('/motoboys/app/minha-rota').then(r => {
+          const ordem = []; const pts = {};
+          (r.paradas || []).forEach((p, i) => {
+            if (p.entrega_id && !ordem.includes(p.entrega_id)) ordem.push(p.entrega_id);
+            if (p.ponto_id) pts[String(p.ponto_id)] = i + 1;
+          });
+          setOrdemRota(ordem); setOrdemPontos(pts);
+        }).catch(() => { rotaRef.current.em = 0; });
+      }
       // Reconta ofertas em TODO refresh (foco ao voltar, pull-to-refresh, polling de 30s).
       // Sem isto o contador/banner "Disponíveis" ficava preso após aceitar — mostrava um
       // número que já não existia e, ao tocar, a tela de ofertas vinha vazia.
-      api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
+      recontarOfertas();
     } catch (e) {
       // Qualquer falha ao carregar os dados do motoboy (token expirado/inválido,
       // sessão perdida) volta para o login. Não depende de casar texto da mensagem.
@@ -202,7 +204,7 @@ export default function Home() {
       iniciarAlertasTempoReal();
       // Se já houver uma oferta pendente (app abriu depois do disparo), mostra.
       // Conta ofertas disponíveis (badge na home).
-      try { const r = await api.ofertas(); setQtdOfertas((r.ofertas || []).length); } catch {}
+      recontarOfertas();
     })();
     const t = setInterval(carregar, 30_000);
 
@@ -251,20 +253,20 @@ export default function Home() {
           try {
             const { evento, dados } = JSON.parse(ev.data);
             if (evento === 'oferta.nova') {
-              api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
+              recontarOfertas();
               // Mockup v1, tela 1: a corrida chega em TELA CHEIA para decidir deslizando —
               // sem depender de o motoboy notar o badge. Uma vez por oferta (WS + push do
               // mesmo disparo não empilham).
               const id = dados?.ofertaId ? String(dados.ofertaId) : null;
               if (id && !ofertaJaAberta(id)) { marcarOfertaAberta(id); router.push('/oferta-detalhe?oferta_id=' + id); }
             } else if (evento === 'oferta.encerrada') {
-              api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
+              recontarOfertas();
             } else if (evento === 'entrega.atribuida') {
               // A central atribuiu uma corrida a este motoboy (ou ele aceitou uma oferta):
               // recarrega a lista na hora e reconta as ofertas — sem isto, o card de
               // "corrida disponível" ficava preso na tela depois do aceite até o próximo foco.
               carregar();
-              api.ofertas().then(r => setQtdOfertas((r.ofertas || []).length)).catch(() => {});
+              recontarOfertas();
             } else if (evento === 'entrega.editada') {
               // A central alterou uma corrida ativa: recarrega para mostrar os novos dados.
               carregar();
@@ -329,31 +331,7 @@ export default function Home() {
     }
   }
 
-  async function avancar(entrega) {
-    const prox = PROXIMO[entrega.status];
-    if (!prox) return;
-    setBusy(p => ({ ...p, [entrega.id]: true }));
-    try { await api.patch(`/motoboys/app/entregas/${entrega.id}/status`, { status: prox }); carregar(); }
-    catch (e) { Alerta.alert('Erro', e.message); }
-    setBusy(p => ({ ...p, [entrega.id]: false }));
-  }
 
-  const saindoRef = useRef(false);
-  async function sair() {
-    // Entrega guardada sem sinal: avisa antes (ela só sai quando ele entrar de novo aqui).
-    const guardadas = itensDaFila().length;
-    Alerta.alert('Sair', guardadas
-      ? `Você tem ${guardadas === 1 ? '1 entrega guardada' : guardadas + ' entregas guardadas'} esperando o sinal. Saindo agora, ${guardadas === 1 ? 'ela só é enviada' : 'elas só são enviadas'} quando você entrar de novo neste celular.`
-      : 'Encerrar sessão?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: async () => {
-        if (saindoRef.current) return;   // trava: um toque só (evitava 3 logouts)
-        saindoRef.current = true;
-        try { await api.logout(); router.replace('/'); }
-        catch { saindoRef.current = false; }
-      } },
-    ]);
-  }
 
   if (!eu) return (
     <View style={s.splash}>
@@ -363,376 +341,125 @@ export default function Home() {
     </View>
   );
 
-  // OFFLINE = tela travada: só o card e o botão de ficar online. Nada de corridas,
-  // números, navegação ou abas — o motoboy só acessa o resto depois de ficar online.
-  if (!eu.online) {
-    const h = new Date().getHours();
-    const saud = h < 12 ? 'Bom dia,' : h < 18 ? 'Boa tarde,' : 'Boa noite,';
-    return (
-      <View style={s.offRoot}>
-        <StatusBar barStyle="dark-content" backgroundColor="#eef4fb" />
-        <View style={s.mStatus}>
-          <View style={s.hello}>
-            <Text style={s.helloSmall}>{saud}</Text>
-            <Text style={s.helloB}>{eu.nome_completo.split(' ')[0]}</Text>
-          </View>
-          <Av nome={eu.nome_completo} foto={eu.foto_url} size={38} />
-        </View>
-        <View style={s.offCenter}>
-          <View style={s.offHero}>
-            <View style={s.offBadge}>
-              <Image source={require('../assets/icones/power.png')} style={s.offPower} resizeMode="contain" />
-            </View>
-            <Text style={s.offHeroTit}>Você está offline</Text>
-            <Text style={s.offHeroSub}>Fique online para ver e aceitar corridas. Enquanto estiver offline, o restante do app fica indisponível.</Text>
-            <TouchableOpacity style={s.offHeroBtn} onPress={() => toggleOnline(true)} activeOpacity={0.85}>
-              <Text style={s.offHeroBtnTxt}>Ficar online</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  const novas    = fila.filter(e => e.status === 'aguardando_atribuicao');
-  const emColeta = fila.filter(e => ['aguardando_coleta','em_coleta'].includes(e.status));
-  const emRota   = fila.filter(e => e.status === 'em_rota');
-  const reais = (c) => (c != null && c !== '') ? 'R$ ' + (Number(c) / 100).toFixed(2).replace('.', ',') : null;
-  const quando = (iso) => {
-    try {
-      const d = new Date(iso), hj = new Date();
-      const h = d.toLocaleTimeString('pt-BR', { timeZone: 'America/Bahia', hour: '2-digit', minute: '2-digit' });
-      const mesmoDia = d.toLocaleDateString('pt-BR', { timeZone: 'America/Bahia' }) === hj.toLocaleDateString('pt-BR', { timeZone: 'America/Bahia' });
-      return h + (mesmoDia ? ' · hoje' : ' · ' + d.toLocaleDateString('pt-BR', { timeZone: 'America/Bahia', day: '2-digit', month: '2-digit' }));
-    } catch { return ''; }
-  };
-  const abrirMapa = (lat, lng, endereco) => abrirNavegacao({ lat, lng, label: endereco });
-  // KPIs do card de uma corrida JÁ ativa: distância total da rota (coleta→entregas),
-  // valor e nº de paradas. A distância "até a coleta" fica só na OFERTA (ao aceitar) —
-  // depois que a corrida é dele, mostrar isso é redundante e some de sentido após coletar.
-  const Kpis = (e) => {
-    const n = (v) => (v == null || v === '') ? null : Number(v);
-    // Distância total: usa a rota calculada; se faltar, soma os trechos em linha reta
-    // (coleta → ponto 1 → ponto 2 …), para o card nunca ficar sem distância.
-    let rota = e.distancia_km != null ? Number(e.distancia_km) : null;
-    if (rota == null && n(e.coleta_lat) != null) {
-      const pts = (e.pontos || []).filter(p => p.lat != null && p.lng != null);
-      let soma = 0, pl = n(e.coleta_lat), pg = n(e.coleta_lng);
-      for (const p of pts) { const d = distKm(pl, pg, n(p.lat), n(p.lng)); if (d != null) soma += d; pl = n(p.lat); pg = n(p.lng); }
-      if (pts.length) rota = soma;
-    }
-    const nParadas = (e.pontos || []).length || 1;
-    return (
-      <View style={s.kpiRow}>
-        <View style={s.kpi}><Text style={s.kpiB}>{fmtKm(rota) || '—'}</Text><Text style={s.kpiL}>Distância</Text></View>
-        {reais(e.valor_motoboy_cent) ? <View style={s.kpi}><Text style={[s.kpiB, s.kpiVal]}>{reais(e.valor_motoboy_cent)}</Text><Text style={s.kpiL}>Você recebe</Text></View> : null}
-        <View style={s.kpi}><Text style={s.kpiB}>{nParadas}</Text><Text style={s.kpiL}>{nParadas > 1 ? 'Paradas' : 'Parada'}</Text></View>
-      </View>
-    );
-  };
-  // Corridas ativas ordenadas pela rota otimizada (1ª, 2ª, 3ª…).
-  const ativas = [...emColeta, ...emRota];
+  // ── Início com mapa (ADR-053, mockup aprovado em 18/10/2026) ──────────────────────
+  // O mapa ocupa a tela; em cima, o online e o saldo; embaixo, a gaveta das corridas.
+  // Offline: o mapa mostra só o calor e as lojas, e a gaveta traz as regiões com mais
+  // movimento e o "Ficar online" (antes a tela inteira ficava travada num cartão).
+  const online = !!eu.online;
+  const ativas = fila.filter(e => ['aguardando_coleta', 'em_coleta', 'em_rota'].includes(e.status));
   const ativasOrdenadas = ordemRota.length
     ? [...ativas].sort((a, b) => {
         const ia = ordemRota.indexOf(a.id); const ib = ordemRota.indexOf(b.id);
         return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
       })
     : ativas;
-  const temOrdem = ordemRota.length > 0 && ativas.length > 1;
+
+  const alternar = (k) => setCamadas(c => ({ ...c, [k]: !c[k] }));
+  const Camada = ({ k, rotulo, cor, icone }) => (
+    <TouchableOpacity style={[s.cam, camadas[k] && s.camOn]} onPress={() => alternar(k)} activeOpacity={0.85}
+      accessibilityRole="switch" accessibilityState={{ checked: camadas[k] }} accessibilityLabel={rotulo}>
+      {icone ? <Icone nome={icone} tam={12} cor={camadas[k] ? T.primario : C.tinta3} traco={2.4} /> : <View style={[s.camDot, { backgroundColor: camadas[k] ? cor : C.tinta3 }]} />}
+      <Text style={[s.camTxt, camadas[k] && { color: C.navy900 }]}>{rotulo}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      {/* Status bar topo — fundo claro como no prototipo */}
-      <View style={s.mStatus}>
-        <View style={s.hello}>
-          <Text style={s.helloSmall}>Boa tarde,</Text>
-          <Text style={s.helloB}>{eu.nome_completo.split(' ')[0]}</Text>
-          <Text style={[s.gpsLinha, eu.online && gpsHaSeg != null && gpsHaSeg >= 600 && { color: '#a23c34' }]}>{eu.online ? `Online · ${gpsTxt}` : 'Offline · não recebe corridas'}</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {chat.ativo && (
-            <TouchableOpacity onPress={() => router.push('/mensagens')} activeOpacity={0.7} style={{ position: 'relative', paddingHorizontal: 2 }}>
-              <Icone nome="chat" tam={24} cor={C.tinta2} />
-              {chat.total > 0 && (
-                <View style={{ position: 'absolute', top: -4, right: -6, backgroundColor: C.roxo || '#7C3AED', borderRadius: 99, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
-                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{chat.total > 9 ? '9+' : chat.total}</Text>
-                </View>
-              )}
+      <MapaInicio ref={mapaRef} calor={calor} ativas={ativasOrdenadas} naFila={naFila} ordemPontos={ordemPontos} camadas={camadas} online={online} rodape={180} />
+
+      {/* Topo flutuante: foto, online e avisos; logo abaixo, o saldo. */}
+      <View style={s.topo} pointerEvents="box-none">
+        <View style={s.barra}>
+          <TouchableOpacity onPress={() => router.push('/perfil')} activeOpacity={0.8} style={s.avBorda}>
+            <Av nome={eu.nome_completo} foto={eu.foto_url} size={38} />
+          </TouchableOpacity>
+          <View style={s.online}>
+            <View style={[s.onPt, !online && { backgroundColor: C.tinta3 }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.onTit}>{online ? 'Online' : 'Offline'}</Text>
+              <Text style={[s.onSub, online && gpsHaSeg != null && gpsHaSeg >= 600 && { color: '#a23c34' }]} numberOfLines={1}>{online ? gpsTxt : 'não recebe corridas'}</Text>
+            </View>
+            <Switch value={online} onValueChange={toggleOnline} trackColor={{ false: '#cbd5e1', true: C.ok }} thumbColor="#fff" ios_backgroundColor="#cbd5e1" />
+          </View>
+          {chat.ativo ? (
+            <TouchableOpacity style={s.icoBtn} onPress={() => router.push('/mensagens')} activeOpacity={0.8} accessibilityLabel="Mensagens">
+              <Icone nome="chat" tam={20} cor={C.navy900} />
+              {chat.total > 0 && <View style={s.icoBadge}><Text style={s.icoBadgeTxt}>{chat.total > 9 ? '9+' : chat.total}</Text></View>}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={s.icoBtn} onPress={() => router.push('/notificacoes')} activeOpacity={0.8} accessibilityLabel="Avisos">
+              <Icone nome="sino" tam={20} cor={C.navy900} />
             </TouchableOpacity>
           )}
-          <Switch value={eu.online} onValueChange={toggleOnline}
-            trackColor={{ false: '#cbd5e1', true: C.ok }} thumbColor="#fff"
-            ios_backgroundColor="#cbd5e1" />
-          <Av nome={eu.nome_completo} foto={eu.foto_url} size={38} />
         </View>
+        <CartaoSaldo atualizar={tick} />
+        <View style={s.camadas}>
+          <Camada k="demanda" rotulo="Demanda" cor="#e8562a" />
+          <Camada k="lojas" rotulo="Lojas" icone="loja" />
+          {online && <Camada k="minhas" rotulo="Minhas" cor={C.navy900} />}
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity style={s.mira} onPress={() => mapaRef.current?.centralizar()} activeOpacity={0.8} accessibilityLabel="Centralizar em mim">
+            <Icone nome="mira" tam={20} cor={C.navy900} />
+          </TouchableOpacity>
+        </View>
+        {!online && camadas.demanda && (
+          <View style={s.legenda}>
+            <Text style={s.legTit}>Demanda · {calor?.janela_min > 60 ? 'últimas 3 h' : 'última hora'}</Text>
+            <View style={s.legEsc}>
+              {['#f2b233', '#e86a2a', '#c9352b'].map(c => <View key={c} style={[s.legCor, { backgroundColor: c }]} />)}
+            </View>
+            <View style={s.legRot}><Text style={s.legTxt}>pouca</Text><Text style={s.legTxt}>muita</Text></View>
+          </View>
+        )}
       </View>
 
-      <ScrollView
-        style={s.mBody}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refresh} onRefresh={async () => { setRef(true); await carregar(); setRef(false); }} tintColor={C.azulV} />}
-      >
-        {/* Offline: estado inequívoco. Corridas disponíveis só existem para quem está online —
-            mostrar oferta a quem está offline gerava confusão ("tento aceitar e não vai"). */}
-        {!eu.online && (
-          <View style={s.offlineBox}>
-            <View style={s.offlineEmoji}><Icone nome="semSinal" tam={30} cor={T.claro} traco={1.8} /></View>
-            <Text style={s.offlineTit}>Você está offline</Text>
-            <Text style={s.offlineSub}>Fique online para ver e aceitar as corridas perto de você. Entregas já atribuídas continuam abaixo.</Text>
-            <TouchableOpacity style={s.offlineBtn} onPress={() => toggleOnline(true)} activeOpacity={0.85}>
-              <Text style={s.offlineBtnTxt}>Ficar online</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+      <GavetaCorridas
+        online={online}
+        ofertas={ofertas}
+        ativas={ativasOrdenadas}
+        eu={posEu}
+        regioes={regioes}
+        naFila={naFila}
+        ordemPontos={ordemPontos}
+        onFicarOnline={() => toggleOnline(true)}
+        chatAtivo={chat.ativo}
+        aviso={<AvisoFilaConclusao />}
+      />
 
-        {/* Entregas concluídas sem sinal, esperando para sair (tocável mesmo offline). */}
-        <AvisoFilaConclusao />
-
-        {/* Offline: tudo abaixo do card fica apagado e sem toque — o único caminho é "Ficar online". */}
-        <View pointerEvents={eu.online ? 'auto' : 'none'}>
-        {/* Ganhos do dia e a missão principal (só online). */}
-        {eu.online && <CartaoHoje atualizar={tick} />}
-
-        {/* Stats (só online — offline o único número que importa é o zero de corridas) */}
-        {eu.online && <View style={s.mStats}>
-          <View style={s.mStat}><Text style={s.mStatB}>{emColeta.length}</Text><Text style={s.mStatS}>A caminho</Text></View>
-          <View style={s.mStat}><Text style={s.mStatB}>{emRota.length}</Text><Text style={s.mStatS}>Em rota</Text></View>
-          <View style={s.mStat}><Text style={s.mStatB}>{qtdOfertas}</Text><Text style={s.mStatS}>Disponíveis</Text></View>
-        </View>}
-
-        {/* Badge de ofertas disponíveis (corridas que o motoboy pode aceitar) — só online */}
-        {eu.online && qtdOfertas > 0 && (
-          <TouchableOpacity style={s.ofertaBadge} onPress={() => router.push('/ofertas')} activeOpacity={0.8}>
-            <View style={s.ofertaIco}><Text style={s.ofertaIcoTxt}>{qtdOfertas}</Text></View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.ofertaTit}>{qtdOfertas > 1 ? 'Corridas disponíveis perto de você' : 'Corrida disponível perto de você'}</Text>
-              <Text style={s.ofertaSub}>Toque para ver e aceitar</Text>
-            </View>
-            <Icone nome="seta" tam={22} cor={'#8ba5bc'} traco={2.4} />
-          </TouchableOpacity>
-        )}
-
-        {/* Corridas disponíveis para aceitar ficam na tela de Ofertas (badge acima). */}
-
-        {/* Em coleta */}
-        {/* Corrida ativa: leva para a visão macro (timeline) */}
-        {[...emColeta, ...emRota].length > 0 && (
-          <>
-            <View style={[s.mSec, { marginTop: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-              <Text style={s.mSecTxt}>Corrida ativa</Text>
-              {ativas.length > 1 && (
-                <TouchableOpacity onPress={() => router.push('/rota')} style={s.btnRota} activeOpacity={0.8}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><Icone nome="mapa" tam={14} cor={T.primario} /><Text style={s.btnRotaTxt}>Ver minha rota</Text></View>
-                </TouchableOpacity>
-              )}
-            </View>
-            {ativasOrdenadas.map((e, idx) => {
-              const pontos = e.pontos || [];
-              const feitoP = (p) => p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em || naFila.has(String(p.id));
-              const concluidos = pontos.filter(feitoP).length;
-              const enviando = pontos.some(p => naFila.has(String(p.id)));
-              const emRotaStatus = e.status === 'em_rota';
-              return (
-                <TouchableOpacity key={e.id} style={[s.ride, enviando && concluidos === pontos.length && { opacity: 0.75 }]} activeOpacity={0.85}
-                  onPress={() => router.push({ pathname: '/corrida', params: { entrega_id: e.id } })}>
-                  <View style={s.rTop}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      {temOrdem && <View style={s.ordemSelo}><Text style={s.ordemSeloTxt}>{idx + 1}ª</Text></View>}
-                      <Text style={s.protoBig}>{e.protocolo}</Text>
-                    </View>
-                    {enviando ? (
-                      <View style={[s.pill, { backgroundColor: T.atencaoBg }]}><Text style={[s.pillTxt, { color: T.atencaoTx }]}>Enviando…</Text></View>
-                    ) : (
-                      <View style={[s.pill, { backgroundColor: emRotaStatus ? C.azulV + '22' : C.warnBg }]}>
-                        <Text style={[s.pillTxt, { color: emRotaStatus ? C.azulP : C.warn }]}>{STATUS_LABEL[e.status]}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={s.metaRow}>
-                    <Icone nome="relogio" tam={12} cor={C.tinta3} /><Text style={s.metaLinha}>{quando(e.criado_em)}</Text>
-                    {!!e.cliente_nome && <><Text style={s.metaLinha}>·</Text><Icone nome="loja" tam={12} cor={C.tinta3} /><Text style={[s.metaLinha, { flexShrink: 1 }]} numberOfLines={1}>{e.cliente_nome}</Text></>}
-                  </View>
-                  {Kpis(e)}
-                  {emRotaStatus && <Text style={s.rProgresso}>{concluidos} de {pontos.length} entregas concluídas</Text>}
-
-                  {/* Coleta */}
-                  <View style={s.rRoute}>
-                    <View style={s.rPt}>
-                      <View style={[s.pin, { backgroundColor: C.navy900 }]}><Text style={s.pinTxt}>C</Text></View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.rPtMain} numberOfLines={1}>Coleta{e.coleta_nome ? ` · ${e.coleta_nome}` : ''}</Text>
-                        <Text style={s.rPtSub} numberOfLines={2}>{e.coleta_endereco}</Text>
-                      </View>
-                    </View>
-
-                    {/* Todos os destinos */}
-                    {pontos.map((p, i) => {
-                      const feito = feitoP(p);
-                      return (
-                        <View key={p.id || i} style={s.rPt}>
-                          <View style={[s.pin, { backgroundColor: feito ? C.ok : (i === pontos.length - 1 ? C.ok : C.azulP), opacity: feito ? 0.55 : 1 }]}>
-                            {feito ? <Icone nome="check" tam={11} cor={'#fff'} traco={3} /> : <Text style={s.pinTxt}>{i + 1}</Text>}
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[s.rPtMain, feito && s.rFeito]} numberOfLines={1}>
-                              {pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega'}{p.nome_fantasia ? ` · ${p.nome_fantasia}` : ''}
-                            </Text>
-                            <Text style={[s.rPtSub, feito && s.rFeito]} numberOfLines={2}>{p.endereco}</Text>
-                            {!!p.complemento && <View style={s.rDetRow}><Icone nome="pin" tam={11} cor={'#46637f'} /><Text style={s.rDet}>{p.complemento}</Text></View>}
-                            {!!p.numero_nf && <View style={s.rDetRow}><Icone nome="nota" tam={11} cor={'#46637f'} /><Text style={s.rDet}>NF {p.numero_nf}</Text></View>}
-                            {!!p.telefone && <View style={s.rDetRow}><Icone nome="telefone" tam={11} cor={'#46637f'} /><Text style={s.rDet}>{p.telefone}</Text></View>}
-                            {!!p.observacoes && <View style={s.rDetRow}><Icone nome="chat" tam={11} cor={'#46637f'} /><Text style={[s.rDet, { flexShrink: 1 }]}>{p.observacoes}</Text></View>}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                    <View style={[s.mBtn, s.mBtnP, { flex: 1, marginTop: 0 }]}>
-                      <Text style={s.mBtnTxt}>Abrir corrida</Text>
-                    </View>
-                    <TouchableOpacity style={s.mBtnMapa} activeOpacity={0.85} onPress={(ev) => {
-                      const prox = pontos.find(p => !feitoP(p));
-                      if (prox) abrirMapa(prox.lat, prox.lng, prox.endereco);
-                      else abrirMapa(e.coleta_lat, e.coleta_lng, e.coleta_endereco);
-                    }}>
-                      <Icone nome="navegar" tam={20} cor={C.ok} />
-                    </TouchableOpacity>
-                    {chat.ativo && (
-                      <TouchableOpacity style={s.mBtnChat} activeOpacity={0.85}
-                        onPress={() => router.push({ pathname: '/chat', params: { entregaId: e.id, protocolo: e.protocolo } })}>
-                        <Icone nome="chat" tam={20} cor={C.azulP} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </>
-        )}
-
-        {/* Sem corrida ativa: onde está o movimento agora (Regiões da central). */}
-        {eu.online && ativas.length === 0 && <CartaoMovimento atualizar={tick} />}
-
-        {fila.length === 0 && (
-          <View style={s.vazio}>
-            <View style={s.vaziIco}><Icone nome="moto" tam={32} cor={C.azulP} traco={1.8} /></View>
-            <Text style={s.vaziTxt}>{eu.online ? 'Esperando corrida' : 'Nenhuma entrega atribuída a você'}</Text>
-            <Text style={s.vaziSub}>{eu.online ? 'Você recebe um alerta assim que aparecer uma perto de você.' : 'Fique online para receber corridas.'}</Text>
-          </View>
-        )}
-
-        {!eu.online && (
-          <View style={s.offlineVeu} pointerEvents="none">
-            <Text style={s.offlineVeuTxt}>Fique online para abrir as corridas</Text>
-          </View>
-        )}
-        </View>
-
-        <TouchableOpacity style={s.btnSair} onPress={sair}>
-          <Text style={s.btnSairTxt}>Sair da conta</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Bottom nav */}
       <BarraAbas ativa="inicio" />
     </View>
   );
 }
 
+const sombra = { shadowColor: '#042C53', shadowOpacity: 0.16, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 6 };
 const s = StyleSheet.create({
-  root:      { flex: 1, backgroundColor: C.fundo },
+  root:      { flex: 1, backgroundColor: '#e6ecf1' },
   splash:    { flex: 1, backgroundColor: C.navy900, justifyContent: 'center', alignItems: 'center' },
-  logoBox:   { width: 52, height: 52, borderRadius: 14, backgroundColor: C.azulP, justifyContent: 'center', alignItems: 'center' },
   logoImg:   { width: 72, height: 72, marginBottom: 8 },
-  logoTxt:   { color: C.azulC, fontSize: 22, fontWeight: '800' },
   av:        { justifyContent: 'center', alignItems: 'center' },
   avTxt:     { color: '#fff', fontWeight: '800' },
-  mStatus:   { backgroundColor: C.sup, paddingTop: 52, paddingBottom: 12, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: C.linha },
-  hello:     {},
-  helloSmall:{ fontSize: 11, fontWeight: '600', color: C.tinta3 },
-  helloB:    { fontSize: 16, fontWeight: '800', color: C.tinta },
-  mBody:     { flex: 1, paddingHorizontal: 16, paddingTop: 6 },
-  mStats:    { flexDirection: 'row', gap: 8, marginBottom: 14, marginTop: 8 },
-  ofertaBadge: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.sup, borderWidth: 2, borderColor: T.vivo, borderRadius: 18, padding: 14, marginBottom: 14, shadowColor: T.profundo, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
-  ofertaIco: { width: 44, height: 44, borderRadius: 14, backgroundColor: T.vivo, alignItems: 'center', justifyContent: 'center' },
-  ofertaIcoTxt: { color: '#fff', fontSize: 20, fontWeight: '800' },
-  ofertaTit: { fontSize: 15, fontWeight: '800', color: '#0e2138' },
-  gpsLinha: { fontSize: 11.5, fontWeight: '700', color: '#46637f', marginTop: 2 },
-  offlineBox: { backgroundColor: '#0e2138', borderRadius: 18, padding: 18, marginBottom: 14, alignItems: 'center' },
-  offlineEmoji: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  offlineVeu: { position: 'absolute', left: -16, right: -16, top: 0, bottom: 0, backgroundColor: 'rgba(244,247,251,0.72)', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 120, borderRadius: 12 },
-  offlineVeuTxt: { backgroundColor: '#0e2138', color: '#fff', fontSize: 13, fontWeight: '800', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, overflow: 'hidden' },
-  offlineTit: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  offlineSub: { color: T.claro, fontSize: 13, textAlign: 'center', lineHeight: 18, marginTop: 6 },
-  offlineBtn: { marginTop: 14, backgroundColor: '#1f9d6b', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, alignSelf: 'stretch', alignItems: 'center' },
-  offlineBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  // Tela offline travada
-  offRoot: { flex: 1, backgroundColor: '#eef4fb' },
-  offCenter: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 40 },
-  offHero: { backgroundColor: C.navy900, borderRadius: 26, paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(181,212,244,0.18)' },
-  offBadge: { width: 76, height: 76, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(181,212,244,0.28)', alignItems: 'center', justifyContent: 'center', marginBottom: 18 },
-  // Ícone de power como PNG nítido colorido via tintColor — substitui o desenho antigo
-  // (anel + barra com borda de máscara), que renderizava irregular no device.
-  offPower: { width: 40, height: 40, tintColor: T.claro },
-  offHeroTit: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  offHeroSub: { color: T.claro, fontSize: 14, textAlign: 'center', lineHeight: 20, marginTop: 8, maxWidth: 300 },
-  offHeroBtn: { marginTop: 24, backgroundColor: '#1f9d6b', borderRadius: 16, paddingVertical: 16, alignSelf: 'stretch', alignItems: 'center' },
-  offHeroBtnTxt: { color: '#fff', fontSize: 16.5, fontWeight: '800' },
-  ofertaSub: { fontSize: 12, color: '#46637f', marginTop: 1 },
-  mStat:     { flex: 1, backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 11, alignItems: 'center' },
-  mStatB:    { fontSize: 19, fontWeight: '800', color: C.tinta },
-  mStatS:    { fontSize: 9.5, color: C.tinta2, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 2 },
-  mSec:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 4 },
-  mSecTxt:   { fontSize: 12, fontWeight: '800', color: C.tinta },
-  btnRota:   { backgroundColor: '#eef4fb', borderWidth: 1, borderColor: T.claro, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12 },
-  btnRotaTxt:{ fontSize: 12, fontWeight: '700', color: T.primario },
-  mSecBadge: { fontSize: 10, color: C.azulP, fontWeight: '700' },
-  ride:      { backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 16, padding: 14, marginBottom: 11, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 2 },
-  rideNew:   { borderColor: C.azulV, shadowColor: C.azulV, shadowOpacity: 0.12, shadowRadius: 6, elevation: 4 },
-  rTop:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 11 },
-  rTopB:     { fontSize: 13, fontWeight: '800', color: C.tinta },
-  protoBig:  { fontSize: 20, fontWeight: '800', color: C.navy900, letterSpacing: 0.3 },
-  metaRow:   { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
-  metaLinha: { fontSize: 11.5, color: C.tinta3, fontWeight: '600' },
-  kpiRow:    { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  kpi:       { flex: 1, backgroundColor: C.sup2 || '#f6faff', borderWidth: 1, borderColor: C.linha, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 6, alignItems: 'center' },
-  kpiB:      { fontSize: 15, fontWeight: '800', color: C.tinta },
-  kpiVal:    { color: C.ok },
-  kpiL:      { fontSize: 9, color: C.tinta3, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 1 },
-  nfTag:     { alignSelf: 'flex-start', backgroundColor: '#f1f5fb', borderWidth: 1, borderColor: C.linha, borderRadius: 6, fontSize: 10, fontWeight: '800', color: C.tinta2, paddingVertical: 1, paddingHorizontal: 7, marginTop: 4, overflow: 'hidden' },
-  ordemSelo:    { backgroundColor: T.primario, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, minWidth: 26, alignItems: 'center' },
-  ordemSeloTxt: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  pill:      { borderRadius: 99, paddingHorizontal: 8, paddingVertical: 3 },
-  pillTxt:   { fontSize: 10.5, fontWeight: '700' },
-  rRoute:    { flexDirection: 'column', gap: 12 },
-  rCliente:  { fontSize: 12.5, color: '#46637f', fontWeight: '600', marginBottom: 8 },
-  rProgresso:{ fontSize: 11.5, color: T.primario, fontWeight: '700', marginBottom: 10 },
-  rPt:       { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  pin:       { width: 18, height: 18, borderRadius: 6, justifyContent: 'center', alignItems: 'center', flexShrink: 0, marginTop: 1 },
-  pinTxt:    { color: '#fff', fontSize: 8, fontWeight: '800' },
-  rPtMain:   { fontSize: 12, color: C.tinta, fontWeight: '600' },
-  rPtSub:    { fontSize: 10.5, color: C.tinta3, fontWeight: '600', marginTop: 1 },
-  rDetRow:   { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  rDet:      { fontSize: 10.5, color: '#46637f' },
-  rFeito:    { textDecorationLine: 'line-through', opacity: 0.6 },
-  rMeta:     { flexDirection: 'row', gap: 14, marginTop: 13, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.linha, borderStyle: 'dashed' },
-  rMetaB:    { fontSize: 14, fontWeight: '800', color: C.tinta },
-  rMetaL:    { fontSize: 11, color: C.tinta2, fontWeight: '600', marginTop: 1 },
-  mBtn:      { width: '100%', padding: 13, borderRadius: 13, alignItems: 'center', marginTop: 12 },
-  mBtnP:     { backgroundColor: C.azulP },
-  mBtnSec:   { backgroundColor: C.sup2, borderWidth: 1.5, borderColor: C.azulV },
-  mBtnBusy:  { opacity: 0.5 },
-  mBtnTxt:   { fontWeight: '800', fontSize: 14, color: '#fff' },
-  mBtnChat:  { width: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eaf3fc', borderWidth: 1.5, borderColor: C.azulV },
-  mBtnMapa:  { width: 48, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eef7f1', borderWidth: 1.5, borderColor: C.ok },
-  vazio:     { alignItems: 'center', paddingVertical: 48 },
-  vaziIco:   { width: 64, height: 64, borderRadius: 18, backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  vaziTxt:   { fontSize: 16, fontWeight: '700', color: C.tinta2 },
-  vaziSub:   { fontSize: 13, color: C.tinta3, marginTop: 6 },
-  btnSair:   { marginTop: 24, padding: 14, alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: C.linha },
-  btnSairTxt:{ color: C.tinta3, fontSize: 13, fontWeight: '600' },
+  topo:      { position: 'absolute', top: 44, left: 12, right: 12, gap: 8 },
+  barra:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  avBorda:   { borderRadius: 24, borderWidth: 2.5, borderColor: '#fff', ...sombra },
+  online:    { flex: 1, height: 46, borderRadius: 24, backgroundColor: C.sup, flexDirection: 'row', alignItems: 'center', paddingLeft: 14, paddingRight: 6, gap: 9, ...sombra },
+  onPt:      { width: 9, height: 9, borderRadius: 5, backgroundColor: C.ok },
+  onTit:     { fontSize: 13.5, fontWeight: '800', color: C.tinta },
+  onSub:     { fontSize: 10.5, fontWeight: '600', color: C.tinta2 },
+  icoBtn:    { width: 44, height: 44, borderRadius: 22, backgroundColor: C.sup, alignItems: 'center', justifyContent: 'center', ...sombra },
+  icoBadge:  { position: 'absolute', top: 4, right: 3, backgroundColor: C.roxo, borderRadius: 99, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  icoBadgeTxt: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  camadas:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cam:       { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.sup, borderRadius: 18, paddingVertical: 6, paddingHorizontal: 11, borderWidth: 1.5, borderColor: 'transparent', ...sombra },
+  camOn:     { borderColor: T.primario },
+  camDot:    { width: 9, height: 9, borderRadius: 5 },
+  camTxt:    { fontSize: 11.5, fontWeight: '800', color: C.tinta2 },
+  mira:      { width: 42, height: 42, borderRadius: 14, backgroundColor: C.sup, alignItems: 'center', justifyContent: 'center', ...sombra },
+  legenda:   { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, paddingVertical: 7, paddingHorizontal: 10, ...sombra },
+  legTit:    { fontSize: 10.5, fontWeight: '800', color: C.tinta2 },
+  legEsc:    { flexDirection: 'row', marginTop: 4, borderRadius: 4, overflow: 'hidden', width: 120, height: 7 },
+  legCor:    { flex: 1 },
+  legRot:    { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
+  legTxt:    { fontSize: 9.5, fontWeight: '700', color: C.tinta3 },
 });
