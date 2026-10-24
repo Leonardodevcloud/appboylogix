@@ -4,6 +4,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { T, reais, hora, km, curto } from '../tema';
 import Icone from './Icone';
+import ValorDinamica from './ValorDinamica';
 
 // Só aceita telefone de verdade no slot de telefone (o cadastro às vezes traz e-mail ali).
 function telefoneValido(v) {
@@ -41,6 +42,7 @@ export default function CartaoCorrida({ oferta: o, destaque = false, onVer, onMa
       </View>
 
       {Number(o.valor_motoboy_cent) > 0 && <Text style={st.valor}>{reais(o.valor_motoboy_cent)} <Text style={st.valorSub}>você recebe</Text></Text>}
+      <ValorDinamica totalCent={o.valor_motoboy_cent} dinamicaCent={o.dinamica_motoboy_cent} nome={o.dinamica_nome} alinhar="left" style={{ fontSize: 12 }} />
 
       <View style={st.cliente}>
         <Text style={st.clienteNome} numberOfLines={1}>{o.cliente_nome || o.coleta_nome || 'Cliente'}</Text>

@@ -4,6 +4,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, Linking,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { irParaInicio } from '../src/navegacao/abas';
 import { api, getToken } from '../src/api';
 import { abrirNavegacao } from '../src/state/navegacao';
 import { assinarFila } from '../src/state/filaConclusao';
@@ -11,12 +12,15 @@ import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais, hora } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import ValorDinamica from '../src/componentes/ValorDinamica';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 const PROXIMO = { aguardando_coleta: 'em_coleta', em_coleta: 'em_rota' };
 
 
 export default function Corrida() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const params = useLocalSearchParams();
   const [entrega, setEntrega] = useState(null);
   const [carregando, setCarregando] = useState(true);
@@ -35,7 +39,7 @@ export default function Corrida() {
     try {
       const fila = await api.get('/motoboys/app/fila');
       const e = (fila || []).find(x => x.id === params.entrega_id) || (fila || [])[0];
-      if (!e) { router.replace('/home'); return null; }
+      if (!e) { irParaInicio(); return null; }
       setEntrega(e);
       setCarregando(false);
       return e;
@@ -66,7 +70,7 @@ export default function Corrida() {
             } else if (evento === 'entrega.removida') {
               if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
                 Alerta.alert('Corrida removida', 'Esta corrida foi removida de você pela central.', [
-                  { text: 'OK', onPress: () => router.replace('/home') },
+                  { text: 'OK', onPress: () => irParaInicio() },
                 ]);
               } else {
                 carregar();
@@ -75,7 +79,7 @@ export default function Corrida() {
               // A central cancelou ESTA corrida enquanto o motoboy está nela: avisa e volta para a Home.
               if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
                 Alerta.alert('Corrida cancelada', 'Esta corrida foi cancelada pela central.', [
-                  { text: 'OK', onPress: () => router.replace('/home') },
+                  { text: 'OK', onPress: () => irParaInicio() },
                 ]);
               } else {
                 carregar();
@@ -83,7 +87,7 @@ export default function Corrida() {
             } else if (evento === 'entrega.concluida') {
               // Esta corrida foi finalizada (pela central): volta para a Home.
               if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
-                router.replace('/home');
+                irParaInicio();
               }
             } else if (evento === 'entrega.atribuida') {
               carregar();
@@ -217,7 +221,7 @@ export default function Corrida() {
 
       <View style={st.header}>
         <View style={st.headerTopo}>
-          <TouchableOpacity onPress={() => router.replace('/home')} style={{ minWidth: 64 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={T.claro} traco={2.4} /><Text style={st.voltar}>Início</Text></View></TouchableOpacity>
+          <TouchableOpacity onPress={() => irParaInicio()} style={{ minWidth: 64 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={T.claro} traco={2.4} /><Text style={st.voltar}>Início</Text></View></TouchableOpacity>
           <Text style={st.headerTit}>Serviço {entrega.protocolo}</Text>
           <View style={{ minWidth: 64, alignItems: 'flex-end' }}><View style={st.statusPill}><Text style={st.statusPillTxt}>{etapaTxt}</Text></View></View>
         </View>
@@ -230,7 +234,12 @@ export default function Corrida() {
               <Text style={[st.prazoTxt, { color: prazoCorTxt }]}>{prazoLabel}{entrega.prazo_resta_min != null && entrega.prazo_estado !== 'estourado' ? ` · faltam ${entrega.prazo_resta_min} min` : ''}</Text>
             </View>
           ) : <Text style={st.headerSub}>{entrega.cliente_nome || ''}</Text>}
-          {Number(entrega.valor_motoboy_cent) > 0 && <Text style={st.headerValor}>{reais(entrega.valor_motoboy_cent)}</Text>}
+          {Number(entrega.valor_motoboy_cent) > 0 && (
+            <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+              <Text style={st.headerValor}>{reais(entrega.valor_motoboy_cent)}</Text>
+              <ValorDinamica totalCent={entrega.valor_motoboy_cent} dinamicaCent={entrega.dinamica_motoboy_cent} claro style={{ fontSize: 10.5 }} />
+            </View>
+          )}
         </View>
       </View>
 
@@ -280,7 +289,7 @@ export default function Corrida() {
       </ScrollView>
 
       {/* Ação única — muda conforme a etapa. Chegar = toque; coletar = deslizar; entregar = abrir protocolo. */}
-      <View style={st.rodape}>
+      <View style={[st.rodape, { paddingBottom: Math.max(26, 12 + insetBaixo) }]}>
         {entrega.status === 'aguardando_coleta' ? (
           <>
             <TouchableOpacity style={st.btn} onPress={avancar} disabled={busy} activeOpacity={0.85}>

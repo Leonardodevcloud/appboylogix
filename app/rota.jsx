@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, Linking,
 } from 'react-native';
-import { router } from 'expo-router';
+import { irParaInicio } from '../src/navegacao/abas';
 import { api } from '../src/api';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import { abrirNavegacao } from '../src/state/navegacao';
 import Icone from '../src/componentes/Icone';
 import { agruparPorLocal, rotuloGrupo, distM } from '../src/utils/agrupar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
 try {
@@ -24,6 +25,7 @@ const C = {
 };
 
 export default function Rota() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [dados, setDados] = useState(null);
   const [paradas, setParadas] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -77,7 +79,7 @@ export default function Rota() {
         <TouchableOpacity onPress={carregar} style={{ marginTop: 18, backgroundColor: C.azulP, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24 }}>
           <Text style={{ color: '#fff', fontWeight: '800' }}>Tentar de novo</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.replace('/home')} style={{ marginTop: 14 }}>
+        <TouchableOpacity onPress={() => irParaInicio()} style={{ marginTop: 14 }}>
           <Text style={{ color: C.azulC, fontWeight: '700' }}>Voltar para o Início</Text>
         </TouchableOpacity>
       </View>
@@ -130,7 +132,7 @@ export default function Rota() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.replace('/home')} style={st.btnVoltar}>
+        <TouchableOpacity onPress={() => irParaInicio()} style={st.btnVoltar}>
           <Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} />
         </TouchableOpacity>
         <Text style={st.headerTit}>Minha rota</Text>
@@ -141,12 +143,12 @@ export default function Rota() {
         <View style={st.vazio}>
           <View style={st.vazioIco}><Icone nome="mapa" tam={32} cor={C.azulP} traco={1.8} /></View>
           <Text style={st.vazioTxt}>Você não tem corridas ativas no momento</Text>
-          <TouchableOpacity style={st.vazioBtn} onPress={() => router.replace('/home')}>
+          <TouchableOpacity style={st.vazioBtn} onPress={() => irParaInicio()}>
             <Text style={st.vazioBtnTxt}>Voltar ao início</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 30 }}>
+        <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 30 + insetBaixo }}>
           {/* Resumo */}
           <View style={st.resumo}>
             <View style={st.resumoItem}><Text style={st.resumoVal}>{corridasUnicas}</Text><Text style={st.resumoLbl}>corrida{corridasUnicas !== 1 ? 's' : ''}</Text></View>

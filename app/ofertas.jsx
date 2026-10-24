@@ -4,6 +4,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList, ActivityIndicator, StatusBar, Linking, useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
+import { irParaInicio } from '../src/navegacao/abas';
 import { api, getToken } from '../src/api';
 import { alertaCorrida, pararAlerta } from '../src/utils/alerta';
 import CartaoCorrida from '../src/componentes/CartaoCorrida';
@@ -13,8 +14,10 @@ import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Ofertas() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const { width } = useWindowDimensions();
   const [ofertas, setOfertas] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -35,7 +38,7 @@ export default function Ofertas() {
       // Mantém ordem por proximidade (a mais perto primeiro).
       const ord = [...lista].sort((a, b) => (Number(a.distancia_km) || 1e9) - (Number(b.distancia_km) || 1e9));
       setOfertas(ord);
-      if (!lista.length && !primeira) router.replace('/home');
+      if (!lista.length && !primeira) irParaInicio();
     } catch (e) { /* mantém */ }
     setCarregando(false);
   }
@@ -45,7 +48,7 @@ export default function Ofertas() {
     setOfertas(prev => {
       const nova = prev.filter(o => o.oferta_id !== ofertaId);
       qtdAnterior.current = nova.length;
-      if (!nova.length) setTimeout(() => router.replace('/home'), 350);
+      if (!nova.length) setTimeout(() => irParaInicio(), 350);
       else setIndice(i => Math.min(i, nova.length - 1));
       return nova;
     });
@@ -116,7 +119,7 @@ export default function Ofertas() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => { pararAlerta(); router.replace('/home'); }} style={{ minWidth: 72 }}>
+        <TouchableOpacity onPress={() => { pararAlerta(); irParaInicio(); }} style={{ minWidth: 72 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={T.claro} traco={2.4} /><Text style={st.voltar}>Início</Text></View>
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>
@@ -172,7 +175,7 @@ export default function Ofertas() {
               {ofertas.map((o, i) => <View key={o.oferta_id} style={[st.dot, i === indice && st.dotOn]} />)}
             </View>
           )}
-          <Text style={st.rodape}>Aceite quantas conseguir cumprir no prazo — elas vão para “A caminho” na Início.</Text>
+          <Text style={[st.rodape, { paddingBottom: 14 + insetBaixo }]}>Aceite quantas conseguir cumprir no prazo — elas vão para “A caminho” na Início.</Text>
         </>
       )}
     </View>

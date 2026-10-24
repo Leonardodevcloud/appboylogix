@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
+import { irPara } from '../navegacao/abas';
 import * as SecureStore from 'expo-secure-store';
 import { api } from '../api';
 import { T, reais } from '../tema';
@@ -44,7 +45,7 @@ export default function CartaoSaldo({ atualizar }) {
   const temSaldo = saldo != null;
 
   return (
-    <TouchableOpacity style={st.barra} activeOpacity={0.9} onPress={() => router.push('/ganhos')}
+    <TouchableOpacity style={st.barra} activeOpacity={0.9} onPress={() => irPara('/ganhos')}
       accessibilityRole="button" accessibilityLabel="Ver ganhos">
       <View>
         <Text style={st.rot}>{temSaldo ? 'Saldo' : 'Hoje'}</Text>

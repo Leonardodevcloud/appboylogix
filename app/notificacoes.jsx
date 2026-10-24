@@ -12,6 +12,7 @@ import { alertaCorrida } from '../src/utils/alerta';
 import { testarNotificacaoLocal } from '../src/push';
 import { T } from '../src/tema';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -29,6 +30,7 @@ async function abrirAjustesAndroid() {
 }
 
 export default function Notificacoes() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [perm, setPerm] = useState(null); // 'granted' | outros
   const [prefs, setPrefs] = useState({ som: true, vibracao: true, somNome: 'subida' });
 
@@ -61,7 +63,7 @@ export default function Notificacoes() {
         <Text style={st.htitle}>Notificações e som</Text>
       </View>
 
-      <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 40 + insetBaixo }}>
         {/* Status da permissão */}
         <View style={[st.stat, ativo ? st.statOk : st.statBad]}>
           <View style={[st.sIco, { backgroundColor: ativo ? C.ok : C.erro }]}><Icone nome={ativo ? 'check' : 'alerta'} tam={20} cor="#fff" traco={2.6} /></View>

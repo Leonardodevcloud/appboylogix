@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Platform, Linking, AppState } from 'react-native';
-import { router } from 'expo-router';
+import { irParaInicio } from '../src/navegacao/abas';
 import * as Location from 'expo-location';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Application from 'expo-application';
@@ -9,6 +9,7 @@ import * as Device from 'expo-device';
 import { backgroundAtivo, garantirUpdatesBackground } from '../src/tasks/gpsTask';
 import { T } from '../src/tema';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const COR = { navy: T.profundo, azul: T.primario, ok: '#1F9D6B', erro: '#D0584F', aten: '#C98A1A', tinta: '#0F2740', tinta2: '#486485', tinta3: '#8AA2BE', linha: '#E6EDF5', fundo: '#EEF3F9' };
 const PKG = Application.applicationId || '';
@@ -77,6 +78,7 @@ function guiaDaMarca(marca) {
 }
 
 export default function RastreamentoAtivo() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [bgOk, setBgOk] = useState(null);
   const [servico, setServico] = useState(null); // serviço de background rodando?
   const [ultimaMs, setUltimaMs] = useState(null); // ms desde o último envio de GPS
@@ -107,11 +109,11 @@ export default function RastreamentoAtivo() {
   return (
     <View style={st.root}>
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.replace('/home')}><Icone nome="voltar" tam={24} cor={COR.tinta2} traco={2.4} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => irParaInicio()}><Icone nome="voltar" tam={24} cor={COR.tinta2} traco={2.4} /></TouchableOpacity>
         <Text style={st.htitle}>Rastreamento sempre ativo</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 + insetBaixo }}>
         {/* Status atual */}
         <View style={[st.status, enviandoOk ? st.statusOk : st.statusBad]}>
           <View style={[st.sico, { backgroundColor: enviandoOk ? COR.ok : COR.erro }]}><Icone nome={enviandoOk ? 'check' : 'alerta'} tam={20} cor="#fff" traco={2.6} /></View>
@@ -163,7 +165,7 @@ export default function RastreamentoAtivo() {
       </ScrollView>
 
       <View style={st.rodape}>
-        <TouchableOpacity style={[st.btnTest, { backgroundColor: enviandoOk ? COR.navy : COR.ok }]} onPress={enviandoOk ? () => router.replace('/home') : checar}>
+        <TouchableOpacity style={[st.btnTest, { backgroundColor: enviandoOk ? COR.navy : COR.ok }]} onPress={enviandoOk ? () => irParaInicio() : checar}>
           <Text style={st.btnTestTxt}>{enviandoOk ? 'Tudo certo — voltar ao início' : 'Já ajustei — testar rastreamento'}</Text>
         </TouchableOpacity>
       </View>

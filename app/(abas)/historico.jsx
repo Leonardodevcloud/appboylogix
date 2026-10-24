@@ -1,13 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, StatusBar, RefreshControl,
 } from 'react-native';
-import { router } from 'expo-router';
-import { api } from '../src/api';
-import FiltroPeriodo from '../src/componentes/FiltroPeriodo';
-import { T } from '../src/tema';
-import Icone from '../src/componentes/Icone';
+import { router, useFocusEffect } from 'expo-router';
+import { irParaInicio } from '../../src/navegacao/abas';
+import { api } from '../../src/api';
+import FiltroPeriodo from '../../src/componentes/FiltroPeriodo';
+import { T } from '../../src/tema';
+import Icone from '../../src/componentes/Icone';
+import ValorDinamica from '../../src/componentes/ValorDinamica';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulC: T.claro,
@@ -37,7 +39,14 @@ export default function Historico() {
   const [carregando, setCarregando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // A aba fica viva (app/(abas)): a tela de "carregando" só aparece na primeira vez. Trocar
+  // o período mostra o indicador do puxar-para-atualizar por cima da lista que já está lá, e
+  // voltar para a aba atualiza em segundo plano (no máximo a cada 20 s).
+  const ultimo = useRef(0);
+  const filtroRef = useRef(filtro);
+  filtroRef.current = filtro;
   const carregar = useCallback(async (f) => {
+    ultimo.current = Date.now();
     try {
       const qs = f.tipo === 'custom' ? `de=${f.de}&ate=${f.ate}` : `periodo=${f.tipo}`;
       const r = await api.get(`/motoboys/app/historico?${qs}`);
@@ -46,7 +55,8 @@ export default function Historico() {
     setCarregando(false); setRefreshing(false);
   }, []);
 
-  useEffect(() => { setCarregando(true); carregar(filtro); }, [filtro]);
+  useEffect(() => { if (ultimo.current) setRefreshing(true); carregar(filtro); }, [filtro]);
+  useFocusEffect(useCallback(() => { if (ultimo.current && Date.now() - ultimo.current > 20000) carregar(filtroRef.current); }, [carregar]));
 
   // Agrupa por dia (mantendo a ordem desc) e calcula subtotal por dia.
   const grupos = [];
@@ -62,7 +72,7 @@ export default function Historico() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.replace('/home')} style={st.btnVoltar}>
+        <TouchableOpacity onPress={() => irParaInicio()} style={st.btnVoltar}>
           <Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} />
         </TouchableOpacity>
         <Text style={st.headerTit}>Histórico</Text>
@@ -79,6 +89,7 @@ export default function Historico() {
         <ScrollView style={st.body} contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); carregar(filtro); }} />}>
           <Text style={st.periodoTit}>Mostrando: <Text style={{ color: C.azulP, fontWeight: '800' }}>{rotuloPeriodo(filtro)}</Text> · {dados.quantidade} corrida{dados.quantidade !== 1 ? 's' : ''} · {reais(dados.total_cent)}</Text>
+          {Number(dados.dinamica_cent) > 0 && <Text style={st.periodoDin}>{`inclui ${reais(dados.dinamica_cent)} de dinâmica`}</Text>}
 
           {dados.corridas.length === 0 ? (
             <View style={st.vazio}>
@@ -100,7 +111,10 @@ export default function Historico() {
                     <View style={{ flex: 1 }}>
                     <View style={st.cardTopo}>
                       <Text style={st.cardProto}>{c.protocolo}</Text>
-                      <Text style={st.cardValor}>{reais(c.valor_motoboy_cent)}</Text>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={st.cardValor}>{reais(c.valor_motoboy_cent)}</Text>
+                        <ValorDinamica totalCent={c.valor_motoboy_cent} dinamicaCent={c.dinamica_motoboy_cent} />
+                      </View>
                     </View>
                     <View style={st.cardRodape}>
                       <Text style={st.cardMeta}>{horaDe(c.concluida_em)}{c.cliente_nome ? ` · ${c.cliente_nome}` : ''}</Text>
@@ -135,6 +149,7 @@ const st = StyleSheet.create({
 
   filtroBox: { padding: 16, paddingBottom: 4 },
   periodoTit: { fontSize: 12, fontWeight: '700', color: C.tinta2, marginBottom: 10 },
+  periodoDin: { fontSize: 11.5, fontWeight: '700', color: T.dinamica, marginTop: -6, marginBottom: 10 },
 
   body: { flex: 1 },
   diaSep: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 6, paddingHorizontal: 2 },

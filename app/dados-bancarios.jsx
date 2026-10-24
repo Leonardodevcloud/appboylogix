@@ -8,6 +8,7 @@ import { T } from '../src/tema';
 import { mascararPix, conferirPix, campoPix, mesmaChavePix } from '../src/utils/pix';
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66', azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -39,6 +40,7 @@ function Segmento({ opcoes, valor, onEscolher }) {
 }
 
 export default function DadosBancarios() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [f, setF] = useState({
@@ -138,7 +140,7 @@ export default function DadosBancarios() {
           <Segmento opcoes={[['corrente', 'Corrente'], ['poupanca', 'Poupança']]} valor={f.conta_tipo} onEscolher={v => set('conta_tipo', v)} />
         </ScrollView>
 
-        <View style={st.footer}>
+        <View style={[st.footer, { paddingBottom: Math.max(30, 16 + insetBaixo) }]}>
           <TouchableOpacity style={[st.btnP, salvando && { opacity: 0.6 }]} onPress={salvar} disabled={salvando} activeOpacity={0.85}>
             {salvando ? <ActivityIndicator color="#fff" /> : <Text style={st.btnPTxt}>Salvar</Text>}
           </TouchableOpacity>

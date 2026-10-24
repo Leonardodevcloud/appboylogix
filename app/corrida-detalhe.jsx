@@ -3,9 +3,12 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, Image, Modal, Pressable, RefreshControl,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { irPara } from '../src/navegacao/abas';
 import { api } from '../src/api';
 import { T, reais } from '../src/tema';
 import Icone from '../src/componentes/Icone';
+import ValorDinamica from '../src/componentes/ValorDinamica';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Detalhe de uma corrida do Histórico (mockup aprovado em 12/10/2026): o que ele recebeu,
 // km, duração, os horários de cada etapa, cada parada com quem recebeu (ou a ocorrência)
@@ -25,6 +28,7 @@ function duracao(e) {
 }
 
 export default function CorridaDetalhe() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const { id } = useLocalSearchParams();
   const [c, setC] = useState(null);
   const [erro, setErro] = useState(null);
@@ -38,7 +42,7 @@ export default function CorridaDetalhe() {
   }, [id]);
   useEffect(() => { carregar(); }, [carregar]);
 
-  const voltar = () => (router.canGoBack() ? router.back() : router.replace('/historico'));
+  const voltar = () => (router.canGoBack() ? router.back() : irPara('/historico'));
 
   return (
     <View style={st.root}>
@@ -58,7 +62,7 @@ export default function CorridaDetalhe() {
           <TouchableOpacity style={st.btnTentar} onPress={() => { setErro(null); carregar(); }}><Text style={st.btnTentarTxt}>Tentar de novo</Text></TouchableOpacity>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 + insetBaixo }}
           refreshControl={<RefreshControl refreshing={puxando} onRefresh={() => { setPuxando(true); carregar(); }} />}>
           <Text style={st.dia}>{diaDe(c.concluida_em || c.criado_em)}{c.cliente_nome ? ` · ${c.cliente_nome}` : ''}</Text>
           <View style={st.res}>
@@ -66,6 +70,11 @@ export default function CorridaDetalhe() {
             <View style={st.resItem}><Text style={st.resB}>{kmTxt(c.distancia_km)}</Text><Text style={st.resL}>Distância</Text></View>
             <View style={st.resItem}><Text style={st.resB}>{duracao(c)}</Text><Text style={st.resL}>Duração</Text></View>
           </View>
+          {Number(c.dinamica_motoboy_cent) > 0 && (
+            <View style={st.dinBox}>
+              <ValorDinamica totalCent={c.valor_motoboy_cent} dinamicaCent={c.dinamica_motoboy_cent} nome={c.dinamica_nome} alinhar="center" numberOfLines={2} style={{ fontSize: 12.5 }} />
+            </View>
+          )}
 
           <View style={st.card}>
             <Parada letra="C" cor={T.profundo} titulo={`Coleta${c.coleta_nome ? ' · ' + c.coleta_nome : ''}`} endereco={c.coleta_endereco}
@@ -139,6 +148,7 @@ const st = StyleSheet.create({
   headerTit: { color: '#fff', fontSize: 17, fontWeight: '800' },
   dia: { fontSize: 12, fontWeight: '700', color: T.tinta2, marginBottom: 10 },
   res: { flexDirection: 'row', gap: 8 },
+  dinBox: { backgroundColor: T.dinamicaBg, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10, marginTop: -4, marginBottom: 12 },
   resItem: { flex: 1, backgroundColor: T.sup, borderWidth: 1, borderColor: T.linha, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
   resB: { fontSize: 15.5, fontWeight: '800', color: T.tinta },
   resL: { fontSize: 9.5, color: T.tinta3, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 },

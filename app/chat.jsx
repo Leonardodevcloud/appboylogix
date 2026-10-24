@@ -11,6 +11,7 @@ import { api } from '../src/api';
 import { uploadDireto } from '../src/api/upload';
 import { T } from '../src/tema';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -33,20 +34,19 @@ function Texto({ children }) {
 }
 
 export default function Chat() {
-  const { entregaId, tipo: tipoParam, protocolo } = useLocalSearchParams();
-  // Se veio COM tipo (lista de conversas), usa ele. Se veio SEM tipo (ícone da
-  // corrida), começa null e descobrimos qual conversa daquela corrida tem atividade.
-  const [tipo, setTipo] = useState(tipoParam === 'solicitante' ? 'solicitante' : tipoParam === 'suporte' ? 'suporte' : null);
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
+  const { entregaId, protocolo } = useLocalSearchParams();
+  // Chat é SEMPRE entre o entregador e a central (decisão de 24/10/2026: a loja não fala com o
+  // entregador pelo chat). Notificação antiga com tipo=solicitante cai aqui também.
+  const tipo = 'suporte';
   const [convId, setConvId] = useState(null);
   const [msgs, setMsgs] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [erroLoja, setErroLoja] = useState(false);
   const [erro, setErro] = useState(false);
   const [encerrada, setEncerrada] = useState(false);
   const [estado, setEstado] = useState(null);
-  const [lojaDisp, setLojaDisp] = useState(tipoParam === 'solicitante');
   const scrollRef = useRef(null);
   const timer = useRef(null);
 
@@ -69,37 +69,16 @@ export default function Chat() {
   }, []);
 
   const abrir = useCallback(async (t) => {
-    setCarregando(true); setErroLoja(false); setErro(false); setMsgs([]); setConvId(null);
+    setCarregando(true); setErro(false); setMsgs([]); setConvId(null);
     try {
       const r = await api.chatAbrir(entregaId, t);
       setConvId(r.conversa_id);
-      if (typeof r.loja_disponivel === 'boolean') setLojaDisp(r.loja_disponivel || t === 'solicitante');
       await carregarMsgs(r.conversa_id);
-    } catch (e) {
-      if (t === 'solicitante' && (e?.status === 403 || /loja/i.test(e?.message || ''))) setErroLoja(true);
-      else setErro(true);
-    }
+    } catch (e) { setErro(true); }
     setCarregando(false);
   }, [entregaId, carregarMsgs]);
 
-  // Sem tipo (veio da corrida): escolhe a conversa daquela corrida com atividade
-  // mais recente; se não houver nenhuma, cai no Suporte.
-  useEffect(() => {
-    let cancel = false;
-    if (tipo) return; // já tem tipo definido (veio da lista ou o usuário trocou)
-    (async () => {
-      let t = 'suporte';
-      try {
-        const r = await api.chatConversas();
-        const daCorrida = (r.conversas || []).filter(c => String(c.entrega_id) === String(entregaId) && c.ultima_msg_em);
-        if (daCorrida.length) { daCorrida.sort((a, b) => new Date(b.ultima_msg_em || 0) - new Date(a.ultima_msg_em || 0)); t = daCorrida[0].tipo; }
-      } catch {}
-      if (!cancel) setTipo(t);
-    })();
-    return () => { cancel = true; };
-  }, [entregaId, tipo]);
-
-  useEffect(() => { if (tipo) abrir(tipo); }, [tipo, entregaId]);
+  useEffect(() => { abrir(tipo); }, [entregaId]);
   useEffect(() => {
     clearInterval(timer.current);
     timer.current = setInterval(() => { if (convId) carregarMsgs(convId); }, 3500);
@@ -177,23 +156,15 @@ export default function Chat() {
         <View style={st.hTop}>
           <TouchableOpacity onPress={() => router.back()}><Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} /></TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={st.htit}>{tipo === 'solicitante' ? 'Loja (solicitante)' : tipo === 'suporte' ? 'Suporte' : 'Chat'}</Text>
+            <Text style={st.htit}>Suporte · central</Text>
             {!!protocolo && <Text style={st.hsub}>Corrida {protocolo}</Text>}
           </View>
         </View>
-        {lojaDisp && (
-          <View style={st.seg}>
-            <TouchableOpacity style={[st.segB, tipo === 'suporte' && st.segOn]} onPress={() => setTipo('suporte')}><Text style={[st.segT, tipo === 'suporte' && st.segTOn]}>Suporte</Text></TouchableOpacity>
-            <TouchableOpacity style={[st.segB, tipo === 'solicitante' && st.segOn]} onPress={() => setTipo('solicitante')}><Text style={[st.segT, tipo === 'solicitante' && st.segTOn]}>Loja (solicitante)</Text></TouchableOpacity>
-          </View>
-        )}
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
         {carregando ? (
           <View style={st.center}><ActivityIndicator color={C.azulV} /></View>
-        ) : erroLoja ? (
-          <View style={st.center}><Text style={{ color: C.tinta2, textAlign: 'center', padding: 30 }}>O chat direto com a loja não está disponível nesta corrida. Use o Suporte.</Text></View>
         ) : erro ? (
           <View style={st.center}>
             <Text style={{ color: C.tinta2, textAlign: 'center', paddingHorizontal: 30 }}>Não consegui abrir a conversa desta corrida.</Text>
@@ -212,10 +183,10 @@ export default function Chat() {
           </>
         )}
 
-        {!carregando && !erroLoja && !erro && (
+        {!carregando && !erro && (
           encerrada
-            ? <View style={st.encBar}><Text style={st.encTxt}>Conversa encerrada — a corrida foi finalizada.</Text></View>
-            : <View style={st.comp}>
+            ? <View style={[st.encBar, { paddingBottom: Math.max(26, 12 + insetBaixo) }]}><Text style={st.encTxt}>Conversa encerrada — a corrida foi finalizada.</Text></View>
+            : <View style={[st.comp, { paddingBottom: Math.max(26, 12 + insetBaixo) }]}>
                 <TouchableOpacity style={st.cIco} onPress={enviarFoto} disabled={enviando}><Icone nome="clipe" tam={20} cor={C.azulP} /></TouchableOpacity>
                 <TouchableOpacity style={st.cIco} onPress={enviarLocal} disabled={enviando}><Icone nome="pin" tam={20} cor={C.azulP} /></TouchableOpacity>
                 <TextInput style={st.compIn} value={texto} onChangeText={setTexto} placeholder="Mensagem…" placeholderTextColor={C.tinta3} multiline />

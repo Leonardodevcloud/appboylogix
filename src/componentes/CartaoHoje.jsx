@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { irPara } from '../navegacao/abas';
 import { api } from '../api';
 import { T, reais } from '../tema';
 import Icone from './Icone';
@@ -38,7 +38,7 @@ export default function CartaoHoje({ atualizar }) {
   if (!hoje) return null;
   const falta = missao ? Math.max(0, (missao.meta || 0) - (missao.feitas || 0)) : 0;
   return (
-    <TouchableOpacity style={st.card} activeOpacity={0.9} onPress={() => router.push('/ganhos')}
+    <TouchableOpacity style={st.card} activeOpacity={0.9} onPress={() => irPara('/ganhos')}
       accessibilityRole="button" accessibilityLabel={`Hoje: ${reais(hoje.total_cent)}, ${hoje.quantidade} corridas. Ver ganhos.`}>
       <View style={st.topo}>
         <Text style={st.dia}>{rotuloDia()}</Text>

@@ -7,6 +7,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro, roxo: '#6B4FC9',
@@ -23,6 +24,7 @@ function Selo({ nivel, tam = 16 }) {
 }
 
 export default function Score() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [d, setD] = useState(null);
   const [missoes, setMissoes] = useState([]);
   const [ranking, setRanking] = useState(null);
@@ -52,7 +54,7 @@ export default function Score() {
         <Text style={st.htitle}>Score e metas</Text>
       </View>
 
-      <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 40 }}
+      <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 40 + insetBaixo }}
         refreshControl={<RefreshControl refreshing={refresh} onRefresh={async () => { setRef(true); await carregar(); setRef(false); }} tintColor={C.azulV} />}>
 
         {d.erro ? (

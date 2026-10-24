@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, Image } fro
 import { T } from '../tema';
 import Icone from './Icone';
 import { APPS, registrarHostNavegacao, confirmarEscolha, getNavegacao, setNavegacao, wazeInstalado } from '../state/navegacao';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LOGO = {
   waze: require('../../assets/navegacao/waze.png'),
@@ -16,6 +17,7 @@ const LOGO = {
 //   modo 'abrir'    → escolhe, abre a rota e (se "Lembrar") salva
 //   modo 'escolher' → Perfil › Navegação: só salva (ou volta a perguntar)
 export default function SheetNavegacao() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [pedido, setPedido] = useState(null);
   const [app, setApp] = useState('waze');
   const [lembrar, setLembrar] = useState(true);
@@ -43,7 +45,7 @@ export default function SheetNavegacao() {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={fechar} statusBarTranslucent>
       <Pressable style={st.overlay} onPress={fechar}>
-        <Pressable style={st.sheet} onPress={() => {}}>
+        <Pressable style={[st.sheet, { paddingBottom: Math.max(30, 16 + insetBaixo) }]} onPress={() => {}}>
           <View style={st.grip} />
           <View style={st.topo}>
             <View style={st.badge}><Icone nome="mapa" tam={22} cor="#fff" /></View>

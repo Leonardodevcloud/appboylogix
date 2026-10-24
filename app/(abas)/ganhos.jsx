@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, StatusBar, RefreshControl,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { api } from '../src/api';
-import FiltroPeriodo from '../src/componentes/FiltroPeriodo';
-import ExtratoFinanceiro from '../src/componentes/ExtratoFinanceiro';
-import ListaAcertos from '../src/componentes/ListaAcertos';
-import { T } from '../src/tema';
-import Icone from '../src/componentes/Icone';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { irParaInicio } from '../../src/navegacao/abas';
+import { api } from '../../src/api';
+import FiltroPeriodo from '../../src/componentes/FiltroPeriodo';
+import ExtratoFinanceiro from '../../src/componentes/ExtratoFinanceiro';
+import ListaAcertos from '../../src/componentes/ListaAcertos';
+import { T } from '../../src/tema';
+import Icone from '../../src/componentes/Icone';
+import ValorDinamica from '../../src/componentes/ValorDinamica';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66', azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -36,7 +38,11 @@ const ABAS = ['corridas', 'extrato', 'acertos'];
 export default function Ganhos() {
   const params = useLocalSearchParams();
   const [aba, setAba] = useState(ABAS.includes(params.aba) ? params.aba : 'corridas');
-  const [puxou, setPuxou] = useState(0);   // puxar para baixo no extrato recarrega
+  // Abas internas (Corridas, Extrato, Acertos): cada uma é montada na primeira visita e
+  // fica montada — trocar de aba só mostra/esconde, sem buscar de novo. Puxar para baixo
+  // recarrega só a aba visível.
+  const [visitadas, setVisitadas] = useState(() => new Set([ABAS.includes(params.aba) ? params.aba : 'corridas']));
+  const [puxou, setPuxou] = useState({ extrato: 0, acertos: 0 });
   const [eu, setEu] = useState(null);
   const [filtro, setFiltro] = useState({ tipo: 'mes' });
   const [hist, setHist] = useState({ corridas: [], total_cent: 0, quantidade: 0 });
@@ -44,7 +50,11 @@ export default function Ganhos() {
   const [carregando, setCarregando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const ultimo = useRef(0);
+  const filtroRef = useRef(filtro);
+  filtroRef.current = filtro;
   const carregar = useCallback(async (f) => {
+    ultimo.current = Date.now();
     try {
       const qs = f.tipo === 'custom' ? `de=${f.de}&ate=${f.ate}` : `periodo=${f.tipo}`;
       const [e, h] = await Promise.all([
@@ -59,8 +69,13 @@ export default function Ganhos() {
     setRefreshing(false);
   }, []);
 
-  useEffect(() => { setCarregando(true); carregar(filtro); }, [filtro]);
+  // "Carregando" em tela cheia só na primeira vez; depois, o período novo entra por cima do
+  // que já está na tela, e voltar para a aba Ganhos atualiza em segundo plano (máx. a cada 20 s).
+  useEffect(() => { if (ultimo.current) setRefreshing(true); carregar(filtro); }, [filtro]);
+  useFocusEffect(useCallback(() => { if (ultimo.current && Date.now() - ultimo.current > 20000) carregar(filtroRef.current); }, [carregar]));
   useEffect(() => { if (ABAS.includes(params.aba)) setAba(params.aba); }, [params.aba]);
+  useEffect(() => { setVisitadas((v) => (v.has(aba) ? v : new Set([...v, aba]))); }, [aba]);
+  const mostra = (id) => ({ display: aba === id ? 'flex' : 'none' });
 
   const media = hist.quantidade > 0 ? Math.round(hist.total_cent / hist.quantidade) : 0;
 
@@ -72,7 +87,7 @@ export default function Ganhos() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => router.replace('/home')} style={st.btnVoltar}>
+        <TouchableOpacity onPress={() => irParaInicio()} style={st.btnVoltar}>
           <Icone nome="voltar" tam={24} cor={'#fff'} traco={2.4} />
         </TouchableOpacity>
         <Text style={st.headerTit}>Meus ganhos</Text>
@@ -96,9 +111,14 @@ export default function Ganhos() {
       )}
 
       <ScrollView style={st.body} contentContainerStyle={{ padding: 16, paddingTop: 8, paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); if (aba !== 'corridas') setPuxou((n) => n + 1); carregar(filtro); }} />}>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
+          if (aba === 'corridas') { setRefreshing(true); carregar(filtro); }
+          else setPuxou((p) => ({ ...p, [aba]: p[aba] + 1 }));
+        }} />}>
 
-        {aba === 'acertos' ? <ListaAcertos recarregarToken={puxou} /> : aba === 'extrato' ? <ExtratoFinanceiro filtro={filtro} recarregarToken={puxou} /> : (<>
+        {visitadas.has('acertos') && <View style={mostra('acertos')}><ListaAcertos recarregarToken={puxou.acertos} /></View>}
+        {visitadas.has('extrato') && <View style={mostra('extrato')}><ExtratoFinanceiro filtro={filtro} recarregarToken={puxou.extrato} /></View>}
+        {visitadas.has('corridas') && <View style={mostra('corridas')}>
         <Text style={st.periodoTit}>Mostrando: <Text style={{ color: C.azulP, fontWeight: '800' }}>{rotuloPeriodo(filtro)}</Text></Text>
 
         {/* Resumo do período */}
@@ -107,6 +127,7 @@ export default function Ganhos() {
             <Text style={st.cardGanhoLabel}>Recebido no período</Text>
             <Text style={st.cardGanhoVal}>{reais(hist.total_cent)}</Text>
             <Text style={st.cardGanhoSub}>{hist.quantidade} corrida{hist.quantidade !== 1 ? 's' : ''}</Text>
+            {Number(hist.dinamica_cent) > 0 && <Text style={st.cardGanhoDin}>{`inclui ${reais(hist.dinamica_cent)} de dinâmica`}</Text>}
           </View>
           <View style={[st.cardGanho, st.cardClaro]}>
             <Text style={[st.cardGanhoLabel, { color: C.tinta3 }]}>Média/corrida</Text>
@@ -157,11 +178,14 @@ export default function Ganhos() {
                 <Text style={st.linhaProto}>{c.protocolo}{c.cliente_nome ? ` · ${c.cliente_nome}` : ''}</Text>
                 <Text style={st.linhaData}>{hora(c.concluida_em)}{Number.isFinite(Number(c.distancia_km)) && Number(c.distancia_km) > 0 ? ` · ${Number(c.distancia_km).toFixed(1)} km` : ''}</Text>
               </View>
-              <Text style={st.linhaValor}>{reais(c.valor_motoboy_cent)}</Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={st.linhaValor}>{reais(c.valor_motoboy_cent)}</Text>
+                <ValorDinamica totalCent={c.valor_motoboy_cent} dinamicaCent={c.dinamica_motoboy_cent} />
+              </View>
             </View>
           ))
         )}
-        </>)}
+        </View>}
       </ScrollView>
     </View>
   );
@@ -194,6 +218,7 @@ const st = StyleSheet.create({
   cardGanhoLabel: { color: '#9fb8d0', fontSize: 12, fontWeight: '700' },
   cardGanhoVal: { color: '#fff', fontSize: 22, fontWeight: '900', marginTop: 6 },
   cardGanhoSub: { color: '#9fb8d0', fontSize: 11, marginTop: 3 },
+  cardGanhoDin: { color: '#d9c8fb', fontSize: 11, fontWeight: '700', marginTop: 3 },
 
   secao: { fontSize: 12, fontWeight: '800', color: C.tinta2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 },
   linha: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.sup, borderWidth: 1, borderColor: C.linha, borderRadius: 12, padding: 14, marginBottom: 8 },

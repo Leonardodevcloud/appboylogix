@@ -6,6 +6,7 @@ import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import { abrirNavegacao } from '../src/state/navegacao';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo,
@@ -15,6 +16,7 @@ const C = {
 };
 
 export default function Aceitar() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const { entregaId } = useLocalSearchParams();
   const [entrega, setEntrega] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -140,7 +142,7 @@ export default function Aceitar() {
       </ScrollView>
 
       {/* Botão fixo */}
-      <View style={s.rodape}>
+      <View style={[s.rodape, { paddingBottom: Math.max(32, 16 + insetBaixo) }]}>
         <TouchableOpacity
           style={[s.btnAceitar, aceitando && { opacity: 0.6 }]}
           onPress={aceitar} disabled={aceitando} activeOpacity={0.85}

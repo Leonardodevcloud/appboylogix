@@ -10,6 +10,7 @@ import { api, getToken } from '../src/api';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -27,6 +28,7 @@ const DOCS = [
 ];
 
 export default function CadastroStatus() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [estado, setEstado] = useState(null); // { situacao, motivo, documentos }
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -105,7 +107,7 @@ export default function CadastroStatus() {
     return (
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         <CameraView ref={camRef} style={{ flex: 1 }} facing={camAberta === 'selfie' ? 'front' : 'back'} />
-        <View style={st.camBar}>
+        <View style={[st.camBar, { paddingBottom: Math.max(40, 20 + insetBaixo) }]}>
           <TouchableOpacity onPress={() => setCamAberta(null)}><Text style={st.camCancel}>Cancelar</Text></TouchableOpacity>
           <TouchableOpacity style={st.camBtn} onPress={capturar}><View style={st.camBtnInner} /></TouchableOpacity>
           <View style={{ width: 70 }} />
@@ -123,7 +125,7 @@ export default function CadastroStatus() {
   return (
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 + insetBaixo }}>
         {/* Topo conforme situação */}
         {sit === 'pendente' && (
           <View style={[st.hero, { backgroundColor: C.navy900 }]}>
