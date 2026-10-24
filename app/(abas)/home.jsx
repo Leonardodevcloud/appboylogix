@@ -4,24 +4,24 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
-import { api } from '../src/api';
-import { useGPS } from '../src/hooks/useGPS';
+import { irPara } from '../../src/navegacao/abas';
+import { api } from '../../src/api';
+import { useGPS } from '../../src/hooks/useGPS';
 import * as SecureStore from 'expo-secure-store';
-import { garantirLocalizacaoSempre, temLocalizacaoSempre } from '../src/utils/disclosure';
-import { garantirUpdatesBackground, pararUpdatesBackground } from '../src/tasks/gpsTask';
-import { setOnline, assinarOnline } from '../src/state/online';
-import { consumirDestino, marcarOfertaAberta, ofertaJaAberta } from '../src/state/navegacaoPendente';
-import { registrarPush } from '../src/push';
-import { iniciarAlertasTempoReal } from '../src/realtime/alertas';
-import { T } from '../src/tema';
-import { Alerta } from '../src/utils/avisar';
-import BarraAbas from '../src/componentes/BarraAbas';
-import AvisoFilaConclusao from '../src/componentes/AvisoFilaConclusao';
-import CartaoSaldo from '../src/componentes/CartaoSaldo';
-import MapaInicio from '../src/componentes/MapaInicio';
-import GavetaCorridas from '../src/componentes/GavetaCorridas';
-import { assinarFila } from '../src/state/filaConclusao';
-import Icone from '../src/componentes/Icone';
+import { garantirLocalizacaoSempre, temLocalizacaoSempre } from '../../src/utils/disclosure';
+import { garantirUpdatesBackground, pararUpdatesBackground } from '../../src/tasks/gpsTask';
+import { setOnline, assinarOnline } from '../../src/state/online';
+import { consumirDestino, marcarOfertaAberta, ofertaJaAberta } from '../../src/state/navegacaoPendente';
+import { registrarPush } from '../../src/push';
+import { iniciarAlertasTempoReal } from '../../src/realtime/alertas';
+import { T } from '../../src/tema';
+import { Alerta } from '../../src/utils/avisar';
+import AvisoFilaConclusao from '../../src/componentes/AvisoFilaConclusao';
+import CartaoSaldo from '../../src/componentes/CartaoSaldo';
+import MapaInicio from '../../src/componentes/MapaInicio';
+import GavetaCorridas from '../../src/componentes/GavetaCorridas';
+import { assinarFila } from '../../src/state/filaConclusao';
+import Icone from '../../src/componentes/Icone';
 
 // Paleta exata do protótipo
 const C = {
@@ -244,8 +244,8 @@ export default function Home() {
     let ws;
     (async () => {
       try {
-        const { getToken } = require('../src/api');
-        const { abrirSocket } = require('../src/realtime/socket');
+        const { getToken } = require('../../src/api');
+        const { abrirSocket } = require('../../src/realtime/socket');
         const token = await getToken();
         if (!token) return;
         ws = abrirSocket(token);
@@ -336,7 +336,7 @@ export default function Home() {
   if (!eu) return (
     <View style={s.splash}>
       <StatusBar barStyle="light-content" backgroundColor={C.navy900} />
-      <Image source={require('../assets/marca/logo.png')} style={s.logoImg} resizeMode="contain" />
+      <Image source={require('../../assets/marca/logo.png')} style={s.logoImg} resizeMode="contain" />
       <ActivityIndicator color={C.azulV} size="large" style={{ marginTop: 20 }} />
     </View>
   );
@@ -372,7 +372,7 @@ export default function Home() {
       {/* Topo flutuante: foto, online e avisos; logo abaixo, o saldo. */}
       <View style={s.topo} pointerEvents="box-none">
         <View style={s.barra}>
-          <TouchableOpacity onPress={() => router.push('/perfil')} activeOpacity={0.8} style={s.avBorda}>
+          <TouchableOpacity onPress={() => irPara('/perfil')} activeOpacity={0.8} style={s.avBorda}>
             <Av nome={eu.nome_completo} foto={eu.foto_url} size={38} />
           </TouchableOpacity>
           <View style={s.online}>
@@ -427,8 +427,6 @@ export default function Home() {
         chatAtivo={chat.ativo}
         aviso={<AvisoFilaConclusao />}
       />
-
-      <BarraAbas ativa="inicio" />
     </View>
   );
 }

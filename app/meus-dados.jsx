@@ -10,6 +10,7 @@ import { uploadDireto } from '../src/api/upload';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -59,6 +60,7 @@ function Campo({ label, ...props }) {
 }
 
 export default function MeusDados() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [p, setP] = useState(null);
   const [docs, setDocs] = useState({});     // tipo -> status
   const [editPessoal, setEditPessoal] = useState(false);
@@ -146,7 +148,7 @@ export default function MeusDados() {
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
-        <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+        <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 40 + insetBaixo }} keyboardShouldPersistTaps="handled">
 
           {/* Dados pessoais */}
           <View style={[st.grpHd, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}><Icone nome="usuario" tam={13} cor={C.tinta2} /><Text style={st.grpTt}>Dados pessoais</Text></View>

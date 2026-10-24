@@ -4,6 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { api } from '../src/api';
 import { T } from '../src/tema';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const C = {
   navy900: T.profundo, azulP: T.primario, azulV: T.vivo, azulC: T.claro,
@@ -12,6 +13,7 @@ const C = {
 };
 
 export default function Mensagens() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [convs, setConvs] = useState(null);
   const [refresh, setRef] = useState(false);
 
@@ -31,22 +33,22 @@ export default function Mensagens() {
       {!convs ? (
         <View style={st.center}><ActivityIndicator color={C.azulV} size="large" /></View>
       ) : (
-        <ScrollView style={st.body} contentContainerStyle={{ padding: 14 }}
+        <ScrollView style={st.body} contentContainerStyle={{ padding: 14, paddingBottom: 14 + insetBaixo }}
           refreshControl={<RefreshControl refreshing={refresh} onRefresh={async () => { setRef(true); await carregar(); setRef(false); }} tintColor={C.azulV} />}>
-          {convs.length === 0 && (
+          {convs.filter(c => c.tipo === 'suporte' || !c.tipo).length === 0 && (
             <View style={{ alignItems: 'center', paddingTop: 60 }}>
               <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: '#eaf3fc', alignItems: 'center', justifyContent: 'center' }}><Icone nome="chat" tam={30} cor={C.azulP} traco={1.8} /></View>
               <Text style={{ color: C.tinta2, fontWeight: '700', marginTop: 10 }}>Nenhuma conversa</Text>
               <Text style={{ color: C.tinta3, fontSize: 12.5, marginTop: 4, textAlign: 'center' }}>Abra o chat pela corrida (botão "Mensagens").</Text>
             </View>
           )}
-          {convs.map(c => (
+          {convs.filter(c => c.tipo === 'suporte' || !c.tipo).map(c => (   /* só conversas com a central (24/10/2026) */
             <TouchableOpacity key={c.id} style={st.item} activeOpacity={0.8}
-              onPress={() => router.push({ pathname: '/chat', params: { entregaId: c.entrega_id, tipo: c.tipo, protocolo: c.protocolo || '' } })}>
-              <View style={st.ico}><Icone nome={c.tipo === 'suporte' ? 'fone' : 'loja'} tam={20} cor={C.azulP} /></View>
+              onPress={() => router.push({ pathname: '/chat', params: { entregaId: c.entrega_id, protocolo: c.protocolo || '' } })}>
+              <View style={st.ico}><Icone nome="fone" tam={20} cor={C.azulP} /></View>
               <View style={{ flex: 1 }}>
                 <View style={st.itemTop}>
-                  <Text style={st.itemNome}>{c.tipo === 'suporte' ? 'Suporte' : (c.loja_nome || 'Loja')}</Text>
+                  <Text style={st.itemNome}>Suporte · central</Text>
                   {!!c.nao_lidas && <View style={st.badge}><Text style={st.badgeTxt}>{c.nao_lidas}</Text></View>}
                 </View>
                 <Text style={st.itemSub} numberOfLines={1}>Corrida {c.protocolo || ''} · {c.ultima_previa || 'sem mensagens'}</Text>

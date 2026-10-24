@@ -32,6 +32,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, RefreshControl,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { irPara } from '../src/navegacao/abas';
 import { api } from '../src/api';
 import { T, reais } from '../src/tema';
 import { ouvirAntecipacao } from '../src/state/antecipacao';
@@ -43,6 +44,7 @@ const chaveTexto = (tipo, chave) => (chave ? `${ROTULO_PIX[tipo] || 'Chave'} ${(
 const VIVO_MS = 15000;   // conferência enquanto há pedido aberto (cobre o WebSocket caído)
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const centavos = (texto) => {
   const n = Math.round(Number(String(texto).replace(/[^\d,]/g, '').replace(',', '.')) * 100);
@@ -72,6 +74,7 @@ const SELO = {
 };
 
 export default function Antecipar() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const params = useLocalSearchParams();
   const [info, setInfo] = useState(null);          // saldo, limites, gratuidade, pedido aberto
   const [sim, setSim] = useState(null);            // taxa e recebe do valor digitado
@@ -233,7 +236,7 @@ export default function Antecipar() {
     <View style={st.tela}>
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
       <Comemoracao pedido={festa} aoFechar={() => setFesta(null)}
-        aoVerExtrato={() => { setFesta(null); router.push({ pathname: '/ganhos', params: { aba: 'extrato' } }); }} />
+        aoVerExtrato={() => { setFesta(null); irPara({ pathname: '/ganhos', params: { aba: 'extrato' } }); }} />
 
       <View style={st.cab}>
         <TouchableOpacity style={st.voltar} onPress={() => router.back()} hitSlop={10} accessibilityLabel="Voltar">
@@ -243,7 +246,7 @@ export default function Antecipar() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 30 }}
+        contentContainerStyle={{ paddingBottom: 30 + insetBaixo }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); carregar(); }} tintColor={T.primario} />}
       >
         {aba === 'pedir' ? (

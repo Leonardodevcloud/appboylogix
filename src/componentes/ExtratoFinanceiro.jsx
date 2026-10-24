@@ -82,6 +82,17 @@ function abrirDetalhe(i) {
     });
     return;
   }
+  if (i.tipo === 'corridas' && Number(d.dinamica_cent) > 0) {
+    Alerta.alert(i.titulo, 'Entregas concluídas no dia', [{ text: 'Fechar' }], {
+      tom: 'ok',
+      linhas: [
+        { rot: 'Tarifa das corridas', val: reais(i.valor_cent - d.dinamica_cent) },
+        { rot: `Dinâmica (${d.qtd_dinamica === 1 ? '1 corrida' : d.qtd_dinamica + ' corridas'})`, val: `+ ${reais(d.dinamica_cent)}` },
+        { rot: 'Total do dia', val: sinal(i.valor_cent), cor: 'ok', forte: true },
+      ],
+    });
+    return;
+  }
   Alerta.alert(i.titulo, i.sub, [{ text: 'Fechar' }], {
     tom: i.valor_cent >= 0 ? 'ok' : 'atencao',
     linhas: [{ rot: dataHora(i.em), val: sinal(i.valor_cent), cor: i.valor_cent >= 0 ? 'ok' : 'perigo', forte: true }],
@@ -107,7 +118,8 @@ export default function ExtratoFinanceiro({ filtro: periodo, recarregarToken }) 
     } catch (e) { setErro(e.message || 'Não foi possível carregar o extrato.'); }
   }, [periodo.tipo, periodo.de, periodo.ate]);
 
-  useEffect(() => { setDados(null); carregar(); }, [carregar, recarregarToken]);
+  // Fica montado na aba Ganhos: recarrega por cima do que já está na tela (sem piscar).
+  useEffect(() => { carregar(); }, [carregar, recarregarToken]);
 
   if (erro) return <Text style={st.erro}>{erro}</Text>;
   if (!dados) return <ActivityIndicator color={T.primario} style={{ marginTop: 30 }} />;
@@ -129,6 +141,15 @@ export default function ExtratoFinanceiro({ filtro: periodo, recarregarToken }) 
         <View style={st.resCard}><Text style={st.resRot}>Entrou</Text><Text style={[st.resVal, { color: T.ganhoEsc }]}>{`+ ${reais(dados.entradas_cent)}`}</Text></View>
         <View style={st.resCard}><Text style={st.resRot}>Saiu</Text><Text style={[st.resVal, { color: T.alerta }]}>{`− ${reais(dados.saidas_cent)}`}</Text></View>
       </View>
+      {Number(dados.dinamica_cent) > 0 && (
+        <View style={st.din}>
+          <View style={{ flex: 1 }}>
+            <Text style={st.dinTit}>Dinâmica no período</Text>
+            <Text style={st.dinSub}>{dados.qtd_dinamica === 1 ? '1 corrida com dinâmica' : `${dados.qtd_dinamica} corridas com dinâmica`} · já somada no Entrou</Text>
+          </View>
+          <Text style={st.dinVal}>{reais(dados.dinamica_cent)}</Text>
+        </View>
+      )}
 
       <View style={st.chips}>
         {FILTROS.map(([id, rot]) => (
@@ -177,6 +198,10 @@ const st = StyleSheet.create({
   resCard: { flex: 1, backgroundColor: T.sup, borderWidth: 1, borderColor: T.linha, borderRadius: 14, padding: 12 },
   resRot: { fontSize: 10.5, fontWeight: '800', color: T.tinta3, textTransform: 'uppercase', letterSpacing: 0.4 },
   resVal: { fontSize: 16, fontWeight: '800', marginTop: 2 },
+  din: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.dinamicaBg, borderRadius: 14, padding: 12, marginTop: 10 },
+  dinTit: { fontSize: 13, fontWeight: '800', color: T.tinta },
+  dinSub: { fontSize: 11.5, color: T.tinta2, marginTop: 2 },
+  dinVal: { fontSize: 16, fontWeight: '900', color: T.dinamica },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 },
   chip: { borderWidth: 1, borderColor: T.linha, backgroundColor: T.sup, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   chipOn: { backgroundColor: T.profundo, borderColor: T.profundo },

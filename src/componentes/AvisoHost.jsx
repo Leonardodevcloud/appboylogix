@@ -5,6 +5,7 @@ import {
 import { assinarAviso, responderAviso } from '../utils/aviso';
 import { T } from '../tema';
 import Icone from './Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Paleta do app (mesma da home/perfil).
 const C = {
@@ -33,6 +34,7 @@ const TONS = {
 //   botaoPrimario, botaoGhost                                → legado (2 botões)
 //   fecharPorFora (padrão true), chaveFechar (o que "tocar fora/voltar" responde)
 export default function AvisoHost() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [cfg, setCfg] = useState(null);
   const y = useRef(new Animated.Value(1)).current; // 1 = escondido embaixo, 0 = visível
 
@@ -66,7 +68,7 @@ export default function AvisoHost() {
       onRequestClose={() => fechar(chaveFora)}>
       <View style={st.dim}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => podeFecharFora && fechar(chaveFora)} />
-        <Animated.View style={[st.sheet, { transform: [{ translateY }] }]}>
+        <Animated.View style={[st.sheet, { paddingBottom: Math.max(30, 16 + insetBaixo), transform: [{ translateY }] }]}>
           <View style={st.grip} />
           <ScrollView bounces={false} style={{ maxHeight: 520 }}>
             <View style={st.titrow}>

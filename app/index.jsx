@@ -7,8 +7,10 @@ import {
 import { router } from 'expo-router';
 import { api, EMPRESA_NOME } from '../src/api';
 import { T } from '../src/tema';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Login() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [email, setEmail]       = useState('');
   const [senha, setSenha]       = useState('');
   const [carregando, setCarregando] = useState(true);
@@ -64,7 +66,7 @@ export default function Login() {
 
   return (
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insetBaixo + 24 }]} keyboardShouldPersistTaps="handled">
         {/* Marca da empresa (white-label) */}
         <View style={s.hero}>
           <View style={s.logoWrap}>

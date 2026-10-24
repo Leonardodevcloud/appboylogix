@@ -10,6 +10,7 @@ export const T = {
   ganho: '#1f9d6b', ganhoEsc: '#0f6e56', ganhoBg: '#e7f6ef', ganhoBd: '#b6e3ce',
   alerta: '#c9352b', alertaBg: '#fbe8e6', alertaTx: '#a23c34',
   atencaoBg: '#fbf2df', atencaoTx: '#7a5300',
+  dinamica: '#6d28d9', dinamicaBg: '#f1eafe',   // adicional da dinâmica (igual em todas as marcas)
   papel: '#f4f7fb', sup: '#ffffff', linha: '#dbe5f1', suave: '#eef4fb',
   tinta: '#0e2138', tinta2: '#46637f', tinta3: '#8ba5bc',
   r: 18,

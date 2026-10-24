@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { T } from '../tema';
 import Icone from './Icone';
 import { agruparPorLocal, rotuloGrupo } from '../utils/agrupar';
+import { zonasDeDemanda } from '../utils/zonasDemanda';
 
 // Mapa em tela cheia da Início (ADR-053, mockup aprovado em 18/10/2026).
 //
@@ -11,35 +12,34 @@ import { agruparPorLocal, rotuloGrupo } from '../utils/agrupar';
 //   r.current.centralizar()                    ← botão de mira
 //
 // Camadas:
-//   demanda  calor das coletas recentes (GET /regioes/app/calor → celulas), como "nuvem"
-//            com gradiente amarelo → laranja → vermelho (pedido de 18/10/2026). No Android, o
-//            Heatmap nativo do Google Maps; no iOS (provedor da Apple, sem Heatmap), anéis
-//            concêntricos cada vez mais transparentes, que dão o mesmo efeito de nuvem.
+//   demanda  coletas recentes (GET /regioes/app/calor → celulas) em RAIOS de 1 a 3 km em
+//            volta de cada região (pedido de 24/10/2026; antes era a "nuvem" do Heatmap, que
+//            é medida em pixels e virava um pontinho no zoom). O círculo é em metros: cresce
+//            com o zoom e mostra a região inteira. Cor e tamanho pelo volume; as regiões mais
+//            cheias ganham a etiqueta "Alta demanda · 3 km". Ver src/utils/zonasDemanda.js.
 //   lojas    pino de loja (nome ao tocar)
 //   minhas   os pontos que ele ainda tem que fazer: a coleta das corridas não coletadas
 //            (laranja, "C") e as entregas pendentes (verde, numeradas na ordem da rota).
 //            Pontos no mesmo lugar viram um pino só. Sem linha de rota (pedido de 18/10/2026:
 //            o traçado confundia; o que importa são os pontos).
 // A posição dele é o ponto azul nativo (showsUserLocation).
-let MapView = null, Marker = null, Circle = null, Heatmap = null, mapaDisponivel = false;
+let MapView = null, Marker = null, Circle = null, mapaDisponivel = false;
 try {
   const maps = require('react-native-maps');
-  MapView = maps.default; Marker = maps.Marker; Circle = maps.Circle; Heatmap = maps.Heatmap;
+  MapView = maps.default; Marker = maps.Marker; Circle = maps.Circle;
   mapaDisponivel = !!MapView;
 } catch { mapaDisponivel = false; }
 
 // Salvador como ponto de partida só se não houver posição nenhuma (nem a última conhecida).
 const REGIAO_PADRAO = { latitude: -12.9777, longitude: -38.5016, latitudeDelta: 0.09, longitudeDelta: 0.09 };
 
-function corDoPeso(p) {
-  if (p >= 0.6) return [201, 53, 43];      // vermelho
-  if (p >= 0.3) return [232, 106, 42];     // laranja
-  return [242, 178, 51];                   // amarelo
-}
+const COR_NIVEL = { alta: [201, 53, 43], media: [232, 86, 42], baixa: [230, 150, 40] };   // vermelho, laranja, âmbar
+const ROTULO_NIVEL = { alta: 'Alta demanda', media: 'Demanda média', baixa: 'Pouca demanda' };
 const rgba = ([r, g, b], a) => `rgba(${r},${g},${b},${a})`;
-const USA_HEATMAP = Platform.OS === 'android';
-// Anéis do fallback (iOS): do maior para o menor; empilhados, a cor engrossa no centro.
-const ANEIS = [1.6, 1.3, 1.05, 0.85, 0.65, 0.45, 0.28];
+// Anéis de cada raio, do maior para o menor: o centro fica mais forte.
+const ANEIS = [[1, 0.09], [0.62, 0.11], [0.3, 0.16]];
+const ETIQUETAS = 3;   // só as regiões mais cheias ganham etiqueta (o resto é só o círculo)
+const kmRaio = (m) => `${(m / 1000).toFixed(m % 1000 ? 1 : 0).replace('.', ',')} km`;
 // Número do pino = posição na rota otimizada (GET /minha-rota), não a ordem do aceite.
 // Sem a rota ainda (ou ponto sem coordenada lá), cai na ordem da lista.
 function rotuloRota(g) {
@@ -84,8 +84,7 @@ const MapaInicio = forwardRef(function MapaInicio({ calor, ativas = [], naFila, 
     },
   }), []);
 
-  const celulas = useMemo(() => (calor?.celulas || []).slice(0, 80), [calor]);
-  const pontosCalor = useMemo(() => celulas.map((c) => ({ latitude: c.lat, longitude: c.lng, weight: Math.max(1, c.qtd) })), [celulas]);
+  const zonas = useMemo(() => zonasDeDemanda((calor?.celulas || []).slice(0, 120)), [calor]);
   const lojas = calor?.lojas || [];
 
   // Pontos a fazer: coletas das corridas ainda não coletadas e entregas pendentes.
@@ -101,7 +100,7 @@ const MapaInicio = forwardRef(function MapaInicio({ calor, ativas = [], naFila, 
     });
     return { coletas: agruparPorLocal(cols).filter((g) => g.lat != null), entregas: agruparPorLocal(ents).filter((g) => g.lat != null) };
   }, [ativas, naFila, ordemPontos]);
-  const assinatura = `${coletas.length}:${entregas.length}:${lojas.length}:${camadas.minhas}:${camadas.lojas}:${online}`;
+  const assinatura = `${coletas.length}:${entregas.length}:${lojas.length}:${zonas.length}:${camadas.minhas}:${camadas.lojas}:${camadas.demanda}:${online}`;
 
   useEffect(() => {
     setDesenhando(true);
@@ -139,18 +138,19 @@ const MapaInicio = forwardRef(function MapaInicio({ calor, ativas = [], naFila, 
       pitchEnabled={false}
       mapPadding={{ top: 0, right: 0, bottom: rodape, left: 0 }}
     >
-      {camadas.demanda && USA_HEATMAP && pontosCalor.length > 0 && (
-        <Heatmap points={pontosCalor} radius={50} opacity={0.75}
-          gradient={{ colors: ['#ffd64f', '#ff9a3c', '#e8562a', '#c9352b'], startPoints: [0.08, 0.35, 0.65, 0.95], colorMapSize: 256 }} />
-      )}
-      {camadas.demanda && !USA_HEATMAP && celulas.slice(0, 40).map((c, i) => {
-        const cor = corDoPeso(c.peso);
-        const r = 300 + 500 * c.peso;
-        return ANEIS.map((k, j) => (
-          <Circle key={`h${i}-${j}`} center={{ latitude: c.lat, longitude: c.lng }} radius={r * k} fillColor={rgba(cor, (0.05 + 0.05 * c.peso))}
-            strokeWidth={0} strokeColor="transparent" zIndex={1 + j} />
+      {camadas.demanda && zonas.map((z, i) => {
+        const cor = COR_NIVEL[z.nivel];
+        return ANEIS.map(([k, a], j) => (
+          <Circle key={`z${i}-${j}`} center={{ latitude: z.lat, longitude: z.lng }} radius={z.raio * k}
+            fillColor={rgba(cor, a)} strokeWidth={j === 0 ? 2 : 0} strokeColor={j === 0 ? rgba(cor, 0.55) : 'transparent'} zIndex={1 + j} />
         ));
       })}
+      {camadas.demanda && zonas.filter((z) => z.nivel !== 'baixa').slice(0, ETIQUETAS).map((z, i) => (
+        <Marker key={`ze${i}`} coordinate={{ latitude: z.lat, longitude: z.lng }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={desenhando} zIndex={4}
+          title={`${ROTULO_NIVEL[z.nivel]} · raio de ${kmRaio(z.raio)}`} description={`${z.qtd} coleta${z.qtd !== 1 ? 's' : ''} recentes nesta região`}>
+          <View style={st.zonaEtq}><Text style={[st.zonaEtqTxt, { color: rgba(COR_NIVEL[z.nivel], 1) }]}>{ROTULO_NIVEL[z.nivel]} · {kmRaio(z.raio)}</Text></View>
+        </Marker>
+      ))}
 
       {camadas.lojas && lojas.map((l) => (
         <Marker key={'l' + l.id} coordinate={{ latitude: l.lat, longitude: l.lng }} title={l.nome} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={desenhando} zIndex={5}>
@@ -186,6 +186,8 @@ export default MapaInicio;
 
 const st = StyleSheet.create({
   semMapa: { backgroundColor: '#e6ecf1', alignItems: 'center', justifyContent: 'center' },
+  zonaEtq: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+  zonaEtqTxt: { fontSize: 11, fontWeight: '900' },
   loja: { width: 24, height: 24, borderRadius: 8, backgroundColor: '#fff', borderWidth: 1.5, borderColor: T.primario, alignItems: 'center', justifyContent: 'center' },
   pino: { minWidth: 28, height: 28, borderRadius: 14, borderWidth: 3, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   pinoLargo: { paddingHorizontal: 8 },

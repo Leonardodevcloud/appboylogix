@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Stack, router, usePathname } from 'expo-router';
+import { irPara } from '../src/navegacao/abas';
 import { setTelaAtual } from '../src/state/telaAtual';
 import { StatusBar } from 'expo-status-bar';
 // Importa a task de GPS para registra-la no app (defineTask roda no import).
@@ -24,7 +25,7 @@ function navegarPorNotificacao(dados) {
       else router.push('/ofertas');
       break;
     case 'chat':
-      if (dados.entregaId) router.push('/chat?entregaId=' + dados.entregaId + '&tipo=' + (dados.chatTipo || 'suporte'));
+      if (dados.entregaId) router.push('/chat?entregaId=' + dados.entregaId);
       else router.push('/mensagens');
       break;
     case 'antecipacao':
@@ -34,14 +35,14 @@ function navegarPorNotificacao(dados) {
       break;
     case 'acerto':
       // "Acerto pago": abre o comprovante (ADR-049 do backend).
-      router.push(dados.fechamentoId ? '/comprovante?id=' + dados.fechamentoId : '/ganhos?aba=acertos');
+      irPara(dados.fechamentoId ? '/comprovante?id=' + dados.fechamentoId : '/ganhos?aba=acertos');
       break;
     case 'atribuida':
     case 'atribuida_lote':
     case 'editada':
     case 'removida':
     default:
-      router.push('/home');
+      irPara('/home');
       break;
   }
 }
@@ -68,7 +69,7 @@ export default function Layout() {
     notificacaoQueAbriuApp().then((dados) => {
       if (!dados || !dados.tipo) return;
       if (dados.tipo === 'oferta' && dados.ofertaId) anotarDestino('/oferta-detalhe?oferta_id=' + dados.ofertaId);
-      else if (dados.tipo === 'chat' && dados.entregaId) anotarDestino('/chat?entregaId=' + dados.entregaId + '&tipo=' + (dados.chatTipo || 'suporte'));
+      else if (dados.tipo === 'chat' && dados.entregaId) anotarDestino('/chat?entregaId=' + dados.entregaId);
       else if (dados.tipo === 'antecipacao') anotarDestino(dados.status === 'processando' ? '/antecipar' : '/antecipar?aba=historico');
       else if (dados.tipo === 'acerto') anotarDestino(dados.fechamentoId ? '/comprovante?id=' + dados.fechamentoId : '/ganhos?aba=acertos');
     });

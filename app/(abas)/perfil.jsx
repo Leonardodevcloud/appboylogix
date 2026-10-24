@@ -3,16 +3,16 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator, StatusBar, Image,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { api } from '../src/api';
+import { irParaInicio } from '../../src/navegacao/abas';
+import { api } from '../../src/api';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
-import { assinarOnline } from '../src/state/online';
-import { T } from '../src/tema';
-import { Alerta } from '../src/utils/avisar';
-import BarraAbas from '../src/componentes/BarraAbas';
-import { itensDaFila } from '../src/state/filaConclusao';
-import { assinarNavegacao, escolherNavegacao, APPS } from '../src/state/navegacao';
-import Icone from '../src/componentes/Icone';
+import { assinarOnline } from '../../src/state/online';
+import { T } from '../../src/tema';
+import { Alerta } from '../../src/utils/avisar';
+import { itensDaFila } from '../../src/state/filaConclusao';
+import { assinarNavegacao, escolherNavegacao, APPS } from '../../src/state/navegacao';
+import Icone from '../../src/componentes/Icone';
 
 const VERSAO_APP = Constants.expoConfig?.version || '?';
 const ID_UPDATE = Updates.updateId ? String(Updates.updateId).slice(0, 8) : 'base';
@@ -26,7 +26,7 @@ const C = {
   ok: '#1f9d6b', okBg: '#e7f6ef', erro: '#dc2626', erroBg: '#fef2f2',
 };
 
-const LOGO_NAV = { waze: require('../assets/navegacao/waze.png'), google: require('../assets/navegacao/google-maps.png') };
+const LOGO_NAV = { waze: require('../../assets/navegacao/waze.png'), google: require('../../assets/navegacao/google-maps.png') };
 
 const PIX_LABEL = { cpf: 'CPF', cnpj: 'CNPJ', email: 'E-mail', telefone: 'Telefone', aleatoria: 'Aleatória' };
 
@@ -152,7 +152,7 @@ export default function Perfil() {
       {/* Header identidade */}
       <View style={st.header}>
         <View style={st.headerTop}>
-          <TouchableOpacity onPress={() => router.replace('/home')} style={st.voltar}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={C.azulC} traco={2.4} /><Text style={st.voltarTxt}>Início</Text></View></TouchableOpacity>
+          <TouchableOpacity onPress={() => irParaInicio()} style={st.voltar}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={C.azulC} traco={2.4} /><Text style={st.voltarTxt}>Início</Text></View></TouchableOpacity>
           <Text style={st.headerTitle}>Meu perfil</Text>
           <View style={{ width: 60 }} />
         </View>
@@ -167,7 +167,7 @@ export default function Perfil() {
         </View>
       </View>
 
-      <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 110 }}
+      <ScrollView style={st.body} contentContainerStyle={{ paddingBottom: 28 }}
         refreshControl={<RefreshControl refreshing={refresh} onRefresh={async () => { setRef(true); await carregar(); setRef(false); }} tintColor={C.azulV} />}>
 
         {/* Cards editáveis */}
@@ -223,7 +223,6 @@ export default function Perfil() {
       </ScrollView>
 
       {/* Bottom nav */}
-      <BarraAbas ativa="perfil" />
     </View>
   );
 }

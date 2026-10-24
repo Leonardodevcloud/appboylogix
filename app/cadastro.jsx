@@ -11,6 +11,7 @@ import { T } from '../src/tema';
 import { mascararPix, conferirPix, campoPix } from '../src/utils/pix';
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const C = {
   navy900: T.profundo, navy800: '#0a3a66',
@@ -28,6 +29,7 @@ const DOCS = [
 ];
 
 export default function Cadastro() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [carregando, setCarregando] = useState(true);
   const [ctx, setCtx] = useState(null);       // { empresa, modalidades, campos }
   const [etapa, setEtapa] = useState(0);       // 0=modalidade 1=dados 2=endereco 3=bancario 4=docs
@@ -164,7 +166,7 @@ export default function Cadastro() {
     return (
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         <CameraView ref={camRef} style={{ flex: 1 }} facing={camAberta === 'selfie' ? 'front' : 'back'} />
-        <View style={st.camBar}>
+        <View style={[st.camBar, { paddingBottom: Math.max(40, 20 + insetBaixo) }]}>
           <TouchableOpacity onPress={() => setCamAberta(null)}><Text style={st.camCancel}>Cancelar</Text></TouchableOpacity>
           <TouchableOpacity style={st.camBtn} onPress={capturar}><View style={st.camBtnInner} /></TouchableOpacity>
           <View style={{ width: 70 }} />
@@ -328,7 +330,7 @@ export default function Cadastro() {
           )}
         </ScrollView>
 
-        <View style={st.footer}>
+        <View style={[st.footer, { paddingBottom: Math.max(28, 16 + insetBaixo) }]}>
           <TouchableOpacity style={[st.btnAvancar, enviando && { opacity: 0.6 }]} onPress={avancar} disabled={enviando} activeOpacity={0.85}>
             {enviando ? <ActivityIndicator color="#fff" /> : <Text style={st.btnAvancarTxt}>{etapa < 4 ? 'Continuar' : 'Enviar cadastro'}</Text>}
           </TouchableOpacity>

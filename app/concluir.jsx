@@ -8,6 +8,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { irParaInicio } from '../src/navegacao/abas';
 import { api, getToken } from '../src/api';
 import { uploadDiretoVarios } from '../src/api/upload';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
@@ -16,8 +17,10 @@ import { Alerta } from '../src/utils/avisar';
 import { mostrarAviso } from '../src/utils/aviso';
 import { guardarConclusao, temInternet, enviarFila } from '../src/state/filaConclusao';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ConcluirScreen() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const router = useRouter();
   const { entregaId, pontoId, numero, total, protocolo } = useLocalSearchParams();
 
@@ -229,7 +232,7 @@ export default function ConcluirScreen() {
       const msg = geraRetorno
         ? 'Foi criado um ponto de retorno à coleta. A corrida só finaliza quando você concluir o retorno.'
         : 'Protocolo registrado com sucesso.';
-      Alerta.alert(titulo, msg, [{ text: 'OK', onPress: () => router.replace('/home') }]);
+      Alerta.alert(titulo, msg, [{ text: 'OK', onPress: () => irParaInicio() }]);
     } catch (err) {
       // Fora do raio configurado pela loja: bloqueia e oferece solicitar liberação.
       // Detecta pelo corpo do erro (err.dados) OU, como reforço, pela mensagem —
@@ -273,7 +276,7 @@ export default function ConcluirScreen() {
       chaveFechar: 'seguir',
     });
     if (escolha === 'tentar') enviarFila();
-    router.replace('/home');
+    irParaInicio();
   }
 
   const botaoTxt = geraRetorno ? 'Deslize para registrar o retorno' : (ehInsucesso ? 'Deslize para registrar' : 'Deslize para confirmar');
@@ -382,7 +385,7 @@ export default function ConcluirScreen() {
         {liberado && <View style={s.geoOk}><Text style={s.geoOkTxt}>Ponto liberado pela central — pode confirmar.</Text></View>}
       </ScrollView>
 
-      <View style={s.rodape}>
+      <View style={[s.rodape, { paddingBottom: Math.max(26, 12 + insetBaixo) }]}>
         <DeslizarParaConfirmar
           rotulo={botaoTxt} rotuloOk={geraRetorno ? 'Retorno registrado' : (ehInsucesso ? 'Ocorrência registrada' : 'Entrega confirmada')}
           cor={ehInsucesso ? T.alerta : T.ganho} corFundo={ehInsucesso ? T.alertaBg : T.ganhoBg} corBorda={ehInsucesso ? '#f0c4be' : T.ganhoBd}

@@ -6,10 +6,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, Share, Linking, Image } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { irPara } from '../src/navegacao/abas';
 import { api, API_URL } from '../src/api';
 import { T, reais } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const br = (iso, ano = true) => { if (!iso) return ''; const [a, m, d] = String(iso).slice(0, 10).split('-'); return ano ? `${d}/${m}/${a}` : `${d}/${m}`; };
 const dataHora = (iso) => {
@@ -27,6 +29,7 @@ function Linha({ rot, val, cor, forte, grande }) {
 }
 
 export default function Comprovante() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const { id } = useLocalSearchParams();
   const [c, setC] = useState(null);
   const [erro, setErro] = useState(null);
@@ -51,7 +54,7 @@ export default function Comprovante() {
     try { await Linking.openURL(urlPdf); } catch { Alerta.alert('Não deu para abrir o PDF', 'Tente pelo "Compartilhar PDF".', [{ text: 'Fechar' }]); }
   }
 
-  const voltar = () => (router.canGoBack() ? router.back() : router.replace('/ganhos?aba=acertos'));
+  const voltar = () => (router.canGoBack() ? router.back() : irPara('/ganhos?aba=acertos'));
   const pago = c && c.status === 'pago';
 
   return (
@@ -70,7 +73,7 @@ export default function Comprovante() {
         </View>
       )}
       {c && (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 + insetBaixo }}>
           <View style={st.card}>
             <View style={{ alignItems: 'center', marginBottom: 14 }}>
               <Image source={require('../assets/marca/logo.png')} style={st.logo} resizeMode="contain" />

@@ -10,6 +10,8 @@ import { Alerta } from '../src/utils/avisar';
 import { abrirNavegacao } from '../src/state/navegacao';
 import Icone from '../src/componentes/Icone';
 import { aceitarCorrida, ehErroDeRede } from '../src/utils/aceitar';
+import ValorDinamica from '../src/componentes/ValorDinamica';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Carrega react-native-maps com segurança (não existe no Expo Go).
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
@@ -21,6 +23,7 @@ try {
 
 
 export default function OfertaDetalhe() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const params = useLocalSearchParams();
   // A notificação abria `?id=` e a tela lia `oferta_id` → GET /app/ofertas/undefined → "Formato de
   // valor inválido" (Onda 11b). Aceita os dois nomes.
@@ -124,6 +127,7 @@ export default function OfertaDetalhe() {
           <>
             <Text style={st.grana}>{reais(oferta.valor_motoboy_cent)}</Text>
             <Text style={st.granaSub}>você recebe</Text>
+            <ValorDinamica totalCent={oferta.valor_motoboy_cent} dinamicaCent={oferta.dinamica_motoboy_cent} nome={oferta.dinamica_nome} alinhar="left" claro style={{ fontSize: 13, marginTop: 4 }} />
           </>
         ) : <Text style={[st.grana, { fontSize: 30 }]}>Serviço {oferta.protocolo}</Text>}
         <Text style={st.quem} numberOfLines={1}>{oferta.cliente_nome || oferta.coleta_nome || 'Cliente'}{oferta.cliente_razao && oferta.cliente_razao !== oferta.cliente_nome ? ` · ${oferta.cliente_razao}` : ''}</Text>
@@ -173,7 +177,7 @@ export default function OfertaDetalhe() {
               confundia com aceitar. O mapa acima já mostra onde é. */}
         </ScrollView>
 
-        <View style={st.decisao}>
+        <View style={[st.decisao, { paddingBottom: Math.max(26, 12 + insetBaixo) }]}>
           <DeslizarParaConfirmar rotulo={temValor ? `Deslize para aceitar · ${reais(oferta.valor_motoboy_cent)}` : 'Deslize para aceitar'} rotuloOk="Corrida aceita" ocupado={aceitando} feito={aceita} onConfirmar={aceitar} />
           <TouchableOpacity onPress={recusar} disabled={aceitando || aceita} style={st.recusa} activeOpacity={0.7}>
             <Text style={st.recusaTxt}>Não posso agora · <Text style={{ color: T.alerta }}>recusar</Text></Text>

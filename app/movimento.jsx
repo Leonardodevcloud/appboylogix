@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar } from 'react-native';
 import { router } from 'expo-router';
+import { irParaInicio } from '../src/navegacao/abas';
 import * as Location from 'expo-location';
 import { api } from '../src/api';
 import { T } from '../src/tema';
 import Icone from '../src/componentes/Icone';
 import { abrirNavegacao } from '../src/state/navegacao';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 let MapView = null, Polygon = null, Marker = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
 try {
@@ -43,6 +45,7 @@ function regiaoDoMapa(regioes, eu) {
 }
 
 export default function Movimento() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const [dados, setDados] = useState(null);
   const [erro, setErro] = useState(false);
   const [eu, setEu] = useState(null);
@@ -66,7 +69,7 @@ export default function Movimento() {
     <View style={st.root}>
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
       <View style={st.header}>
-        <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))} style={st.btnVoltar} accessibilityLabel="Voltar">
+        <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : irParaInicio())} style={st.btnVoltar} accessibilityLabel="Voltar">
           <Icone nome="voltar" tam={24} cor="#fff" traco={2.4} />
         </TouchableOpacity>
         <Text style={st.headerTit}>Onde tem corrida</Text>
@@ -113,7 +116,7 @@ export default function Movimento() {
             </View>
           </View>
 
-          <ScrollView style={st.lista} contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
+          <ScrollView style={st.lista} contentContainerStyle={{ padding: 16, paddingBottom: 30 + insetBaixo }}>
             <Text style={st.listaTit}>Mais movimentadas agora</Text>
             {!comMovimento.length && <Text style={st.listaVazia}>Nenhuma corrida criada na última hora. Fique online: o alerta chega assim que aparecer.</Text>}
             {comMovimento.map((r, i) => {

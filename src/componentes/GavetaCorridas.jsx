@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { T, reais, curto } from '../tema';
 import Icone from './Icone';
 import { abrirNavegacao } from '../state/navegacao';
+import ValorDinamica from './ValorDinamica';
 
 // Corridas na Início (ADR-053; botões aprovados em 18/10/2026). O mapa fica livre e,
 // embaixo, dois botões: "Disponíveis" (corridas para aceitar — fica verde e pisca quando
@@ -14,7 +15,7 @@ import { abrirNavegacao } from '../state/navegacao';
 // "Ficar online".
 
 const ALTURA_TELA = Dimensions.get('window').height;
-export const ABA_BARRA = 76;       // altura da BarraAbas (o painel fica em cima dela)
+export const ABA_BARRA = 0;        // a BarraAbas agora é a tabBar das abas: a tela já termina em cima dela
 
 function distKm(a, b) {
   if (!a || !b || a.lat == null || b.lat == null || !Number.isFinite(Number(b.lat))) return null;
@@ -54,21 +55,10 @@ export default function GavetaCorridas({ online, ofertas = [], ativas = [], eu, 
     );
   }
 
-  // ── Paradas na ordem da rota ────────────────────────────────────────
-  // Coletas pendentes primeiro (na ordem das corridas, já ordenadas pela rota), depois as
-  // entregas pelo número da parada na rota otimizada (o mesmo dos pinos do mapa).
-  const paradas = [];
-  ativas.forEach((e) => {
-    if (e.status !== 'em_rota') paradas.push({ tipo: 'coleta', e, lat: e.coleta_lat, lng: e.coleta_lng, endereco: e.coleta_endereco, chave: 'c' + e.id });
-  });
-  const entregas = [];
-  ativas.forEach((e) => (e.pontos || []).filter((p) => !feitoP(p)).forEach((p) => entregas.push({
-    tipo: 'entrega', e, p, lat: p.lat, lng: p.lng, endereco: p.endereco, n: ordemPontos[String(p.id)] || null, chave: 'p' + p.id,
-  })));
-  entregas.sort((a, b) => (a.n || 999) - (b.n || 999));
-  paradas.push(...entregas);
-  const nColetar = paradas.filter((x) => x.tipo === 'coleta').length;
-  const nEntregar = entregas.length;
+  // ── Contagem para o botão "Minhas corridas" ─────────────────────────
+  const pendentes = (e) => (e.pontos || []).filter((p) => !feitoP(p));
+  const nColetar = ativas.filter((e) => e.status !== 'em_rota').length;
+  const nEntregar = ativas.reduce((n, e) => n + pendentes(e).length, 0);
 
   // ── Barra: Disponíveis | Minhas corridas ────────────────────────────
   const temNovas = ofertas.length > 0;
@@ -97,43 +87,81 @@ export default function GavetaCorridas({ online, ofertas = [], ativas = [], eu, 
     </View>
   );
 
-  // ── Minhas corridas (por cima do mapa) ──────────────────────────────
-  const Linha = ({ x, anterior }) => {
-    const { e } = x;
-    const coleta = x.tipo === 'coleta';
-    const d = kmTxt(distKm(eu, x));
-    const mesmoLocal = anterior && anterior.tipo === x.tipo && distKm(anterior, x) != null && distKm(anterior, x) < 0.03;
-    const valor = Number(e.valor_motoboy_cent) > 0 ? reais(e.valor_motoboy_cent) : null;
-    const nPontos = (e.pontos || []).length;
-    const titulo = coleta ? (e.cliente_nome || e.coleta_nome || 'Coleta') : (x.p.nome_fantasia || x.p.nome || 'Entrega');
+  // ── Minhas corridas (por cima do mapa): UM cartão por corrida ───────
+  // Aprovado em 24/10/2026: antes a lista era de PARADAS (a mesma corrida aparecia uma vez
+  // na coleta e outra em cada entrega). Agora cada corrida aceita é um cartão com tudo dela —
+  // cliente, protocolo, situação, coleta, cada entrega com NF, km e valor (com a dinâmica
+  // separada). Tocar no cartão abre a tela da corrida; o botão principal abre a navegação
+  // direto no próximo ponto pendente.
+  const Cartao = ({ e }) => {
+    const pts = e.pontos || [];
+    const coletou = e.status === 'em_rota';
+    const proxIdx = pts.findIndex((p) => !feitoP(p));
+    const prox = !coletou ? { lat: e.coleta_lat, lng: e.coleta_lng, endereco: e.coleta_endereco }
+      : proxIdx >= 0 ? { lat: pts[proxIdx].lat, lng: pts[proxIdx].lng, endereco: pts[proxIdx].endereco } : null;
+    const feitas = pts.filter(feitoP).length;
+    const tag = !coletou ? (e.status === 'em_coleta' ? 'Coletando' : 'Coletar') : `Em rota · ${Math.min(feitas + 1, pts.length)} de ${pts.length}`;
+    const dProx = kmTxt(distKm(eu, prox));
+    const kmCorrida = Number(e.distancia_km) > 0 ? `${Number(e.distancia_km).toFixed(1).replace('.', ',')} km` : null;
+    const abrir = () => { setGrupo(null); router.push({ pathname: '/corrida', params: { entrega_id: e.id } }); };
     return (
-      <TouchableOpacity style={st.lin} activeOpacity={0.85} onPress={() => { setGrupo(null); router.push({ pathname: '/corrida', params: { entrega_id: e.id } }); }}>
-        <View style={[st.ic, { backgroundColor: coleta ? '#e8562a' : T.ganho }]}>
-          <Text style={st.icTxt}>{coleta ? 'C' : (x.n || '•')}</Text>
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={st.tagLinha}>
-            <View style={[st.tag, coleta ? { backgroundColor: T.atencaoBg } : { backgroundColor: T.ganhoBg }]}>
-              <Text style={[st.tagTxt, { color: coleta ? T.atencaoTx : T.ganhoEsc }]}>{coleta ? (e.status === 'em_coleta' ? 'Coletando' : 'Coletar') : 'Entregar'} · {e.protocolo}</Text>
+      <TouchableOpacity style={st.card} activeOpacity={0.88} onPress={abrir}
+        accessibilityRole="button" accessibilityLabel={`Corrida ${e.protocolo}, ${e.cliente_nome || ''}, ${tag}`}>
+        <View style={st.cardTopo}>
+          <Text style={st.prot}>#{e.protocolo}</Text>
+          <View style={[st.tag, coletou ? { backgroundColor: T.suave } : { backgroundColor: T.atencaoBg }]}>
+            <Text style={[st.tagTxt, { color: coletou ? T.primario : T.atencaoTx }]}>{tag}</Text>
+          </View>
+          <View style={{ flex: 1 }} />
+          {Number(e.valor_motoboy_cent) > 0 && (
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={st.valor}>{reais(e.valor_motoboy_cent)}</Text>
+              <ValorDinamica totalCent={e.valor_motoboy_cent} dinamicaCent={e.dinamica_motoboy_cent} style={{ fontSize: 10.5 }} />
             </View>
-            {mesmoLocal && <Text style={st.mesmo}>mesmo local</Text>}
-          </View>
-          <Text style={st.nome} numberOfLines={1}>{titulo}</Text>
-          <Text style={st.end} numberOfLines={2}>{curto(x.endereco)}{!coleta && x.p.complemento ? ` · ${x.p.complemento}` : ''}</Text>
-          <View style={st.meta}>
-            {!!d && <Text style={st.metaTxt}>{d}</Text>}
-            {coleta && <Text style={st.metaTxt}>{nPontos === 1 ? '1 entrega' : `${nPontos} entregas`}</Text>}
-            {!coleta && !!x.p.numero_nf && <Text style={st.metaTxt}>NF {x.p.numero_nf}</Text>}
-            {!!valor && <Text style={[st.metaTxt, st.metaValor]}>{valor}</Text>}
-          </View>
-          {!coleta && !!x.p.observacoes && <Text style={st.obs} numberOfLines={2}>{x.p.observacoes}</Text>}
+          )}
         </View>
-        <View style={{ gap: 6 }}>
-          <TouchableOpacity style={st.nav} onPress={() => abrirNavegacao({ lat: x.lat, lng: x.lng, label: x.endereco })} accessibilityLabel="Navegar">
-            <Icone nome="navegar" tam={18} cor={T.primario} />
+        <Text style={st.cliente} numberOfLines={1}>{e.cliente_nome || e.coleta_nome || 'Cliente'}</Text>
+
+        <View style={st.trilho}>
+          <View style={st.pt}>
+            <View style={[st.ptIc, { backgroundColor: coletou ? T.tinta3 : '#e8562a' }]}><Text style={st.ptIcTxt}>C</Text></View>
+            <Text style={[st.ptTxt, coletou && st.ptFeito]} numberOfLines={2}>
+              <Text style={st.ptForte}>{coletou ? 'Coletada' : 'Coleta'}</Text> · {curto(e.coleta_endereco)}
+            </Text>
+          </View>
+          {pts.map((p, i) => {
+            const feito = feitoP(p);
+            return (
+              <View key={p.id || i} style={st.pt}>
+                <View style={[st.ptIc, { backgroundColor: feito ? T.tinta3 : T.ganho }]}><Text style={st.ptIcTxt}>{i + 1}</Text></View>
+                <Text style={[st.ptTxt, feito && st.ptFeito]} numberOfLines={2}>
+                  <Text style={st.ptForte}>{p.nome_fantasia || p.nome || `Entrega ${i + 1}`}</Text> · {curto(p.endereco)}{p.numero_nf ? ` · NF ${p.numero_nf}` : ''}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={st.meta}>
+          {!!kmCorrida && <Text style={st.metaTxt}>{kmCorrida}</Text>}
+          <Text style={st.metaTxt}>{pts.length === 1 ? '1 entrega' : `${pts.length} entregas`}</Text>
+          {!!dProx && <Text style={st.metaTxt}>{coletou ? 'próxima' : 'coleta'} a {dProx}</Text>}
+        </View>
+
+        <View style={st.acoes}>
+          {!!prox && prox.lat != null && (
+            <TouchableOpacity style={[st.ac, st.acPri]} activeOpacity={0.85}
+              onPress={() => abrirNavegacao({ lat: Number(prox.lat), lng: Number(prox.lng), label: prox.endereco })}>
+              <Icone nome="navegar" tam={15} cor="#fff" />
+              <Text style={[st.acTxt, { color: '#fff' }]} numberOfLines={1}>{coletou ? `Ir para a entrega ${proxIdx + 1}` : 'Ir para a coleta'}</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={st.ac} activeOpacity={0.85} onPress={abrir}>
+            <Text style={st.acTxt}>Abrir corrida</Text>
           </TouchableOpacity>
           {chatAtivo && (
-            <TouchableOpacity style={st.nav} onPress={() => router.push({ pathname: '/chat', params: { entregaId: e.id, protocolo: e.protocolo } })} accessibilityLabel="Chat da corrida">
+            <TouchableOpacity style={st.acIco} activeOpacity={0.85} accessibilityLabel="Falar com a central sobre esta corrida"
+              onPress={() => router.push({ pathname: '/chat', params: { entregaId: e.id, protocolo: e.protocolo } })}>
               <Icone nome="chat" tam={18} cor={T.primario} />
             </TouchableOpacity>
           )}
@@ -152,9 +180,9 @@ export default function GavetaCorridas({ online, ofertas = [], ativas = [], eu, 
           <View style={{ flex: 1 }} />
           <TouchableOpacity style={st.fechar} onPress={() => setGrupo(null)} accessibilityLabel="Fechar"><Icone nome="fechar" tam={18} cor={T.tinta2} /></TouchableOpacity>
         </View>
-        <ScrollView contentContainerStyle={{ paddingBottom: 14 }} showsVerticalScrollIndicator={false}>
-          {!paradas.length && <Text style={st.vazio}>Nenhuma parada pendente.</Text>}
-          {paradas.map((x, i) => <Linha key={x.chave} x={x} anterior={paradas[i - 1]} />)}
+        <ScrollView contentContainerStyle={{ paddingBottom: 14, gap: 10 }} showsVerticalScrollIndicator={false}>
+          {!ativas.length && <Text style={st.vazio}>Nenhuma corrida aceita.</Text>}
+          {ativas.map((e) => <Cartao key={e.id} e={e} />)}
           {ativas.length > 0 && (
             <TouchableOpacity style={st.btnRota} onPress={() => { setGrupo(null); router.push('/rota'); }} activeOpacity={0.85}>
               <Icone nome="mapa" tam={16} cor="#fff" /><Text style={st.btnRotaTxt}>Ver rota completa</Text>
@@ -202,13 +230,8 @@ const st = StyleSheet.create({
   painelSub: { fontSize: 11.5, fontWeight: '600', color: T.tinta3 },
   tag: { borderRadius: 7, paddingHorizontal: 7, paddingVertical: 2 },
   tagTxt: { fontSize: 10.5, fontWeight: '800' },
-  tagLinha: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  mesmo: { fontSize: 10.5, fontWeight: '800', color: T.primario },
-  end: { fontSize: 12, color: T.tinta2, fontWeight: '600', marginTop: 1, lineHeight: 16 },
   meta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 5 },
   metaTxt: { fontSize: 11, fontWeight: '800', color: T.tinta2, backgroundColor: T.suave, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 2, overflow: 'hidden' },
-  metaValor: { color: T.ganhoEsc, backgroundColor: T.ganhoBg },
-  obs: { fontSize: 11.5, color: T.tinta2, marginTop: 4, fontStyle: 'italic' },
   dk: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: T.linha, borderRadius: 16, padding: 10 },
   dkN: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   dkNTxt: { fontSize: 17, fontWeight: '900' },
@@ -217,10 +240,23 @@ const st = StyleSheet.create({
   painelTopo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   fechar: { width: 38, height: 38, borderRadius: 12, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center' },
   vazio: { textAlign: 'center', color: T.tinta3, fontWeight: '600', marginTop: 24 },
-  lin: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: T.linha },
-  ic: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  icTxt: { color: '#fff', fontWeight: '900', fontSize: 12.5 },
-  nav: { width: 38, height: 38, borderRadius: 12, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center' },
+  card: { borderWidth: 1, borderColor: T.linha, borderRadius: 16, padding: 12, backgroundColor: T.sup },
+  cardTopo: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  prot: { fontSize: 11.5, fontWeight: '800', color: T.tinta2 },
+  valor: { fontSize: 16, fontWeight: '900', color: T.ganhoEsc },
+  cliente: { fontSize: 15, fontWeight: '800', color: T.tinta, marginTop: 6 },
+  trilho: { marginTop: 8, gap: 7 },
+  pt: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  ptIc: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  ptIcTxt: { color: '#fff', fontWeight: '900', fontSize: 10.5 },
+  ptTxt: { flex: 1, fontSize: 12.5, color: T.tinta2, fontWeight: '600', lineHeight: 17 },
+  ptForte: { color: T.tinta, fontWeight: '800' },
+  ptFeito: { textDecorationLine: 'line-through', color: T.tinta3 },
+  acoes: { flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' },
+  ac: { flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: T.linha, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8 },
+  acPri: { backgroundColor: T.primario, borderColor: T.primario, flex: 1.3 },
+  acTxt: { fontSize: 12.5, fontWeight: '800', color: T.primario },
+  acIco: { width: 40, height: 40, borderRadius: 12, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center' },
   btnRota: { marginTop: 12, backgroundColor: T.primario, borderRadius: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnRotaTxt: { color: '#fff', fontWeight: '800', fontSize: 13.5 },
   ttl: { fontSize: 13, fontWeight: '800', color: T.tinta, marginBottom: 2 },

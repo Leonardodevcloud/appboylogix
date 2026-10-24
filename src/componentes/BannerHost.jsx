@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Text, View, StyleSheet, TouchableOpacity, PanResponder, Platform, StatusBar } from 'react-native';
-import { router } from 'expo-router';
+import { irPara } from '../navegacao/abas';
 import { assinarBanner } from '../state/banner';
 import { T } from '../tema';
 import Icone from './Icone';
@@ -61,7 +61,7 @@ export default function BannerHost() {
   return (
     <Animated.View style={[st.wrap, { transform: [{ translateY: y }] }]} {...pan.panHandlers}>
       <TouchableOpacity activeOpacity={0.92} style={[st.card, { borderLeftColor: t.cor }]}
-        onPress={() => { const r = cfg.rota; fechar(() => { if (r) try { router.push(r); } catch {} }); }}>
+        onPress={() => { const r = cfg.rota; fechar(() => { if (r) try { irPara(r); } catch {} }); }}>
         <View style={st.icoWrap}>
           <Animated.View style={[st.pulso, { borderColor: t.cor, transform: [{ scale: escalaPulso }], opacity: opacPulso }]} />
           <View style={[st.ico, { backgroundColor: t.cor + '22' }]}><Icone nome={t.ico} tam={20} cor={t.cor} /></View>

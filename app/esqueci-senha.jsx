@@ -13,11 +13,13 @@ import { api } from '../src/api';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SENHA_MIN = 6;
 const emailValido = (v) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(String(v || '').trim());
 
 export default function EsqueciSenha() {
+  const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const params = useLocalSearchParams();
   const [passo, setPasso] = useState('email');            // 'email' | 'codigo'
   const [email, setEmail] = useState(String(params.email || ''));
@@ -65,7 +67,7 @@ export default function EsqueciSenha() {
         <Text style={s.cabTitulo}>Criar nova senha</Text>
       </View>
 
-      <ScrollView contentContainerStyle={s.corpo} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[s.corpo, { paddingBottom: 40 + insetBaixo }]} keyboardShouldPersistTaps="handled">
         {passo === 'email' ? (
           <>
             <Text style={s.titulo}>Qual é o seu e-mail?</Text>
