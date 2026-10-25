@@ -4,7 +4,8 @@ import * as Location from 'expo-location';
 import { T } from '../tema';
 import Icone from './Icone';
 import { agruparPorLocal, rotuloGrupo } from '../utils/agrupar';
-import { zonasDeDemanda } from '../utils/zonasDemanda';
+import { zonasDeDemanda, zonasPerto, RAIO_VER_DEMANDA_KM } from '../utils/zonasDemanda';
+import { PROPS_MAPA_LIMPO } from '../utils/estiloMapa';
 
 // Mapa em tela cheia da Início (ADR-053, mockup aprovado em 18/10/2026).
 //
@@ -74,7 +75,32 @@ const MapaInicio = forwardRef(function MapaInicio({ calor, ativas = [], naFila, 
     return () => { vivo = false; };
   }, []);
 
+  // "Demanda" ligada (24/10/2026): afasta o mapa para mostrar as regiões com movimento até
+  // RAIO_VER_DEMANDA_KM dele, com ele no quadro — dá para ver uma demanda a 10 km e ir para lá.
+  const zonasRef = useRef([]);
+  zonasRef.current = zonas;
   useImperativeHandle(ref, () => ({
+    verDemanda() {
+      if (!mapa.current) return;
+      const base = eu.current || (regiao && { latitude: regiao.latitude, longitude: regiao.longitude });
+      if (!base) return;
+      const perto = zonasPerto(zonasRef.current, { lat: base.latitude, lng: base.longitude }, RAIO_VER_DEMANDA_KM);
+      if (!perto.length) {
+        mapa.current.animateToRegion({ ...base, latitudeDelta: 0.22, longitudeDelta: 0.22 }, 500);   // ~12 km de lado
+        return;
+      }
+      // Cada zona entra inteira (centro ± raio), e ele também.
+      const pts = [base];
+      perto.forEach((z) => {
+        const dLat = z.raio / 111320, dLng = z.raio / (111320 * Math.cos((z.lat * Math.PI) / 180));
+        pts.push({ latitude: z.lat + dLat, longitude: z.lng + dLng }, { latitude: z.lat - dLat, longitude: z.lng - dLng });
+      });
+      try { mapa.current.fitToCoordinates(pts, { edgePadding: { top: 230, right: 40, bottom: rodape + 40, left: 40 }, animated: true }); } catch {}
+    },
+    voltarParaMim() {
+      const base = eu.current;
+      if (base && mapa.current) mapa.current.animateToRegion({ ...base, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 450);
+    },
     async centralizar() {
       try {
         const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -126,7 +152,7 @@ const MapaInicio = forwardRef(function MapaInicio({ calor, ativas = [], naFila, 
   if (!regiao) return <View style={[StyleSheet.absoluteFill, { backgroundColor: '#e6ecf1' }]} />;
 
   return (
-    <MapView
+    <MapView {...PROPS_MAPA_LIMPO}
       ref={mapa}
       style={StyleSheet.absoluteFill}
       initialRegion={regiao}

@@ -8,6 +8,7 @@ import { T } from '../src/tema';
 import Icone from '../src/componentes/Icone';
 import { abrirNavegacao } from '../src/state/navegacao';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PROPS_MAPA_LIMPO } from '../src/utils/estiloMapa';
 
 let MapView = null, Polygon = null, Marker = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
 try {
@@ -93,7 +94,7 @@ export default function Movimento() {
         <>
           <View style={st.mapaWrap}>
             {mapaDisponivel && regiao ? (
-              <MapView style={StyleSheet.absoluteFill} provider={PROVIDER_DEFAULT} initialRegion={regiao} rotateEnabled={false} pitchEnabled={false} showsUserLocation>
+              <MapView {...PROPS_MAPA_LIMPO} style={StyleSheet.absoluteFill} provider={PROVIDER_DEFAULT} initialRegion={regiao} rotateEnabled={false} pitchEnabled={false} showsUserLocation>
                 {regioes.map((r) => {
                   const f = FAIXA[r.faixa] || FAIXA.baixo;
                   return (

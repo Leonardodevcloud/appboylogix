@@ -10,6 +10,7 @@ import { abrirNavegacao } from '../src/state/navegacao';
 import Icone from '../src/componentes/Icone';
 import { agruparPorLocal, rotuloGrupo, distM } from '../src/utils/agrupar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PROPS_MAPA_LIMPO } from '../src/utils/estiloMapa';
 
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
 try {
@@ -164,7 +165,7 @@ export default function Rota() {
           {/* Mapa */}
           {mapaDisponivel && regiao && (
             <View style={st.mapaWrap}>
-              <MapView style={st.mapa} provider={PROVIDER_DEFAULT} initialRegion={regiao} mapType="standard"
+              <MapView {...PROPS_MAPA_LIMPO} style={st.mapa} provider={PROVIDER_DEFAULT} initialRegion={regiao} mapType="standard"
                 onMapReady={() => setMapaPronto(true)} rotateEnabled={false} pitchEnabled={false}>
                 {linhaRota.length > 1 && <Polyline coordinates={linhaRota} strokeColor={C.azulP} strokeWidth={4} zIndex={3} />}
                 {temColeta && (
