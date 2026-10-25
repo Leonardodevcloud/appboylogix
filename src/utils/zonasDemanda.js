@@ -42,3 +42,16 @@ export function zonasDeDemanda(celulas) {
     return { lat: +z.lat.toFixed(5), lng: +z.lng.toFixed(5), qtd: z.qtd, rel: +rel.toFixed(3), raio, nivel: rel >= 0.6 ? 'alta' : rel >= 0.3 ? 'media' : 'baixa' };
   });
 }
+
+// Até onde o "Demanda" abre o mapa (e a lista "Demanda perto de você" procura).
+export const RAIO_VER_DEMANDA_KM = 15;
+
+// Zonas a até `raioKm` de `eu` ({ lat, lng }), com a distância em km, da mais cheia para a
+// menos cheia (empate: a mais perto primeiro).
+export function zonasPerto(zonas, eu, raioKm = RAIO_VER_DEMANDA_KM) {
+  if (!eu || eu.lat == null) return [];
+  return (zonas || [])
+    .map((z) => ({ ...z, distKm: distM(eu, z) / 1000 }))
+    .filter((z) => z.distKm <= raioKm)
+    .sort((a, b) => (b.qtd - a.qtd) || (a.distKm - b.distKm));
+}

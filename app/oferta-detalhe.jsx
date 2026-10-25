@@ -12,6 +12,7 @@ import Icone from '../src/componentes/Icone';
 import { aceitarCorrida, ehErroDeRede } from '../src/utils/aceitar';
 import ValorDinamica from '../src/componentes/ValorDinamica';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PROPS_MAPA_LIMPO } from '../src/utils/estiloMapa';
 
 // Carrega react-native-maps com segurança (não existe no Expo Go).
 let MapView = null, Marker = null, Polyline = null, UrlTile = null, PROVIDER_DEFAULT = undefined, mapaDisponivel = false;
@@ -143,7 +144,7 @@ export default function OfertaDetalhe() {
       <View style={st.folha}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
           {mostrarMapa && mapaDisponivel && regiao && (
-            <MapView style={st.mapa} provider={PROVIDER_DEFAULT} initialRegion={regiao} mapType="standard" onMapReady={() => setMapaPronto(true)} rotateEnabled={false} pitchEnabled={false}>
+            <MapView {...PROPS_MAPA_LIMPO} style={st.mapa} provider={PROVIDER_DEFAULT} initialRegion={regiao} mapType="standard" onMapReady={() => setMapaPronto(true)} rotateEnabled={false} pitchEnabled={false}>
               {rotaOrs.length > 1 && <Polyline coordinates={rotaOrs} strokeColor={T.primario} strokeWidth={5} zIndex={3} />}
               {rotaOrs.length <= 1 && temColetaGeo && pontosGeo.length > 0 && (
                 <Polyline coordinates={[{ latitude: coleta.lat, longitude: coleta.lng }, ...pontosGeo.map(p => ({ latitude: p.lat, longitude: p.lng }))]} strokeColor={T.primario} strokeWidth={4} lineDashPattern={[8, 6]} zIndex={3} />

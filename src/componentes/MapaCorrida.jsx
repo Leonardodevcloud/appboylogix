@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { api } from '../api';
 import { T } from '../tema';
 import { agruparPorLocal, rotuloGrupo } from '../utils/agrupar';
+import { PROPS_MAPA_LIMPO } from '../utils/estiloMapa';
 
 // Mapa com o traçado da corrida no cartão de "Corridas disponíveis" (ADR-053, mockup
 // aprovado em 18/10/2026): coleta, entregas e a linha da rota pelas ruas. A geometria vem
@@ -51,7 +52,7 @@ export default function MapaCorrida({ oferta, ativo = true, altura = 150, onPres
     <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={[st.caixa, { height: altura }]}
       accessibilityRole="button" accessibilityLabel="Ver a corrida no mapa">
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <MapView style={StyleSheet.absoluteFill} initialRegion={regiao} liteMode scrollEnabled={false} zoomEnabled={false}
+        <MapView {...PROPS_MAPA_LIMPO} style={StyleSheet.absoluteFill} initialRegion={regiao} liteMode scrollEnabled={false} zoomEnabled={false}
           rotateEnabled={false} pitchEnabled={false} toolbarEnabled={false} moveOnMarkerPress={false}>
           {linha.length > 1 && <Polyline coordinates={linha} strokeColor={T.profundo} strokeWidth={4} />}
           {coleta && (

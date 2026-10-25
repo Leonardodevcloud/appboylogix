@@ -62,33 +62,13 @@ export default function Corrida() {
         ws.onmessage = (ev) => {
           try {
             const { evento, dados } = JSON.parse(ev.data);
+            // O aviso (no centro da tela) vem do canal global (src/realtime/alertas.js); aqui só
+            // a tela reage — antes ela abria o próprio alerta e os dois ficavam um por cima do outro.
+            const estaCorrida = !dados?.entregaId || dados.entregaId === params.entrega_id;
             if (evento === 'entrega.editada') {
-              if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
-                Alerta.alert('Corrida atualizada', 'A central alterou esta corrida. Atualizando os dados.');
-                carregar();
-              }
-            } else if (evento === 'entrega.removida') {
-              if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
-                Alerta.alert('Corrida removida', 'Esta corrida foi removida de você pela central.', [
-                  { text: 'OK', onPress: () => irParaInicio() },
-                ]);
-              } else {
-                carregar();
-              }
-            } else if (evento === 'entrega.cancelada') {
-              // A central cancelou ESTA corrida enquanto o motoboy está nela: avisa e volta para a Home.
-              if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
-                Alerta.alert('Corrida cancelada', 'Esta corrida foi cancelada pela central.', [
-                  { text: 'OK', onPress: () => irParaInicio() },
-                ]);
-              } else {
-                carregar();
-              }
-            } else if (evento === 'entrega.concluida') {
-              // Esta corrida foi finalizada (pela central): volta para a Home.
-              if (!dados?.entregaId || dados.entregaId === params.entrega_id) {
-                irParaInicio();
-              }
+              if (estaCorrida) carregar();
+            } else if (evento === 'entrega.removida' || evento === 'entrega.cancelada' || evento === 'entrega.concluida') {
+              if (estaCorrida) irParaInicio(); else carregar();
             } else if (evento === 'entrega.atribuida') {
               carregar();
             }

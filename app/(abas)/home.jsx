@@ -22,6 +22,11 @@ import MapaInicio from '../../src/componentes/MapaInicio';
 import GavetaCorridas from '../../src/componentes/GavetaCorridas';
 import { assinarFila } from '../../src/state/filaConclusao';
 import Icone from '../../src/componentes/Icone';
+import { zonasDeDemanda, zonasPerto } from '../../src/utils/zonasDemanda';
+import { abrirNavegacao } from '../../src/state/navegacao';
+const NIVEL_DEMANDA = { alta: 'Alta demanda', media: 'Demanda média', baixa: 'Pouca demanda' };
+const COR_DEMANDA = { alta: '#c9352b', media: '#e8562a', baixa: '#e6962a' };
+const kmTexto = (km) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`);
 
 // Paleta exata do protótipo
 const C = {
@@ -354,7 +359,15 @@ export default function Home() {
       })
     : ativas;
 
-  const alternar = (k) => setCamadas(c => ({ ...c, [k]: !c[k] }));
+  const alternar = (k) => {
+    const liga = !camadas[k];
+    setCamadas(c => ({ ...c, [k]: liga }));
+    // Demanda (24/10/2026): ligar afasta o mapa para mostrar a demanda da região (até 15 km);
+    // desligar volta para perto dele.
+    if (k === 'demanda') setTimeout(() => { if (liga) mapaRef.current?.verDemanda(); else mapaRef.current?.voltarParaMim(); }, 60);
+  };
+  // "Demanda perto de você": as 3 regiões mais cheias até 15 km, com a distância (tocar abre a rota).
+  const demandaPerto = camadas.demanda && posEu ? zonasPerto(zonasDeDemanda((calor?.celulas || []).slice(0, 120)), posEu).slice(0, 3) : [];
   const Camada = ({ k, rotulo, cor, icone }) => (
     <TouchableOpacity style={[s.cam, camadas[k] && s.camOn]} onPress={() => alternar(k)} activeOpacity={0.85}
       accessibilityRole="switch" accessibilityState={{ checked: camadas[k] }} accessibilityLabel={rotulo}>
@@ -404,7 +417,22 @@ export default function Home() {
             <Icone nome="mira" tam={20} cor={C.navy900} />
           </TouchableOpacity>
         </View>
-        {!online && camadas.demanda && (
+        {demandaPerto.length > 0 && (
+          <View style={s.demPerto}>
+            <Text style={s.legTit}>Demanda perto de você · {calor?.janela_min > 60 ? 'últimas 3 h' : 'última hora'}</Text>
+            {demandaPerto.map((z, i) => (
+              <TouchableOpacity key={i} style={s.demLin} activeOpacity={0.8}
+                onPress={() => abrirNavegacao({ lat: z.lat, lng: z.lng, label: NIVEL_DEMANDA[z.nivel] })}
+                accessibilityRole="button" accessibilityLabel={`${NIVEL_DEMANDA[z.nivel]} a ${kmTexto(z.distKm)}, abrir rota`}>
+                <View style={[s.demPt, { backgroundColor: COR_DEMANDA[z.nivel] }]} />
+                <Text style={s.demTx}>{NIVEL_DEMANDA[z.nivel]}</Text>
+                <Text style={s.demKm}>a {kmTexto(z.distKm)}</Text>
+                <Icone nome="navegar" tam={14} cor={T.primario} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        {!online && camadas.demanda && !demandaPerto.length && (
           <View style={s.legenda}>
             <Text style={s.legTit}>Demanda · {calor?.janela_min > 60 ? 'últimas 3 h' : 'última hora'}</Text>
             <View style={s.legEsc}>
@@ -454,6 +482,11 @@ const s = StyleSheet.create({
   camDot:    { width: 9, height: 9, borderRadius: 5 },
   camTxt:    { fontSize: 11.5, fontWeight: '800', color: C.tinta2 },
   mira:      { width: 42, height: 42, borderRadius: 14, backgroundColor: C.sup, alignItems: 'center', justifyContent: 'center', ...sombra },
+  demPerto:  { alignSelf: 'flex-start', minWidth: 210, backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10, gap: 2, ...sombra },
+  demLin:    { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 5 },
+  demPt:     { width: 9, height: 9, borderRadius: 5 },
+  demTx:     { fontSize: 12.5, fontWeight: '800', color: C.tinta, flex: 1 },
+  demKm:     { fontSize: 12, fontWeight: '700', color: C.tinta2 },
   legenda:   { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, paddingVertical: 7, paddingHorizontal: 10, ...sombra },
   legTit:    { fontSize: 10.5, fontWeight: '800', color: C.tinta2 },
   legEsc:    { flexDirection: 'row', marginTop: 4, borderRadius: 4, overflow: 'hidden', width: 120, height: 7 },

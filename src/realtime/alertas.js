@@ -17,25 +17,33 @@ import { mostrarBanner } from '../state/banner';
 import { telaAtual } from '../state/telaAtual';
 import { avisarAntecipacao, telaDeAntecipacaoAberta } from '../state/antecipacao';
 
-// Mapeia o evento da central para o banner in-app (ícone/cor/texto/rota).
-function bannerDoEvento(evento) {
+// Mapeia o evento da central para o AVISO in-app (no centro da tela — BannerHost; pedido de
+// 24/10/2026). rota + acao = botão "Ver/Abrir" ao lado do OK; sem rota, só OK.
+const prot = (d) => (d && d.protocolo ? ` #${d.protocolo}` : '');
+function bannerDoEvento(evento, d) {
   switch (evento) {
-    case 'oferta.nova':       return { tipo: 'oferta',    titulo: 'Nova corrida disponível!', sub: 'Toque para ver e aceitar', rota: '/ofertas' };
-    case 'entrega.atribuida': return { tipo: 'atribuida', titulo: 'Corrida atribuída a você', sub: 'Toque para abrir', rota: '/home' };
-    case 'entrega.editada':   return { tipo: 'editada',   titulo: 'Corrida atualizada', sub: 'A central alterou uma corrida', rota: '/home' };
-    case 'entrega.removida':  return { tipo: 'removida',  titulo: 'Corrida removida', sub: 'A central removeu uma corrida', rota: '/home' };
-    case 'entrega.cancelada': return { tipo: 'cancelada', titulo: 'Corrida cancelada', sub: 'A central cancelou uma corrida', rota: '/home' };
-    case 'ponto.liberado':    return { tipo: 'ponto',     titulo: 'Ponto liberado', sub: 'Você já pode marcar a entrega', rota: '/home' };
+    case 'oferta.nova':       return { tipo: 'oferta',    titulo: 'Nova corrida disponível!', sub: 'Veja os detalhes e aceite se der para cumprir no prazo.', rota: '/ofertas', acao: 'Ver corrida' };
+    case 'entrega.atribuida': return { tipo: 'atribuida', titulo: 'Corrida atribuída a você', sub: `A corrida${prot(d)} é sua. Ela já está em Minhas corridas.`, rota: '/home', acao: 'Abrir' };
+    case 'entrega.editada':   return { tipo: 'editada',   titulo: `Corrida${prot(d)} atualizada`, sub: 'A central alterou esta corrida. Os dados novos já estão na tela.' };
+    case 'entrega.removida':  return { tipo: 'removida',  titulo: `Corrida${prot(d)} removida`, sub: 'A central tirou esta corrida de você. Ela saiu da sua lista.' };
+    case 'entrega.cancelada': {
+      const quem = d && d.canceladoPor === 'loja' ? (d.lojaNome ? `A loja ${d.lojaNome}` : 'A loja') : 'A central';
+      return { tipo: 'cancelada', titulo: `Corrida${prot(d)} cancelada`, sub: `${quem} cancelou a corrida. Ela já saiu da sua lista.`, motivo: d && d.motivo };
+    }
+    case 'entrega.concluida':
+      // Só a finalização feita PELA CENTRAL vira aviso (a dele mesmo já tem a comemoração).
+      return d && d.porCentral ? { tipo: 'finalizada', titulo: `Corrida${prot(d)} finalizada`, sub: 'A central finalizou esta corrida. Ela saiu da sua lista e conta no seu histórico.', rota: '/historico', acao: 'Ver histórico' } : null;
+    case 'ponto.liberado':    return { tipo: 'ponto',     titulo: 'Ponto liberado', sub: 'A central liberou o ponto. Você já pode marcar a entrega.' };
     default: return null;
   }
 }
 
 function bannerDaAntecipacao(status) {
   switch (status) {
-    case 'processando': return { tipo: 'dinheiro', titulo: 'Pedido aprovado', sub: 'O Pix está a caminho. Toque para acompanhar.', rota: '/antecipar' };
-    case 'paga':      return { tipo: 'dinheiro', titulo: 'Antecipação paga!', sub: 'O Pix foi enviado. Toque para ver quanto caiu.', rota: '/antecipar?aba=historico' };
-    case 'recusada':  return { tipo: 'recusa', titulo: 'Antecipação recusada', sub: 'O valor voltou para o seu saldo. Toque para ver o motivo.', rota: '/antecipar?aba=historico' };
-    case 'devolvida': return { tipo: 'recusa', titulo: 'O banco devolveu o Pix', sub: 'O valor voltou para o seu saldo. Confira sua chave.', rota: '/antecipar?aba=historico' };
+    case 'processando': return { tipo: 'dinheiro', titulo: 'Pedido aprovado', sub: 'O Pix está a caminho. Toque para acompanhar.', rota: '/antecipar', acao: 'Acompanhar' };
+    case 'paga':      return { tipo: 'dinheiro', titulo: 'Antecipação paga!', sub: 'O Pix foi enviado. Toque para ver quanto caiu.', rota: '/antecipar?aba=historico', acao: 'Ver' };
+    case 'recusada':  return { tipo: 'recusa', titulo: 'Antecipação recusada', sub: 'O valor voltou para o seu saldo. Toque para ver o motivo.', rota: '/antecipar?aba=historico', acao: 'Ver' };
+    case 'devolvida': return { tipo: 'recusa', titulo: 'O banco devolveu o Pix', sub: 'O valor voltou para o seu saldo. Confira sua chave.', rota: '/antecipar?aba=historico', acao: 'Ver' };
     default: return null;
   }
 }
@@ -54,6 +62,7 @@ const EVENTOS_ALERTA = new Set([
   'entrega.cancelada',  // corrida cancelada pela central
   'entrega.editada',    // corrida alterada pela central
   'ponto.liberado',     // central liberou a marcação de um ponto
+  'entrega.concluida',  // só com porCentral (central finalizou) — filtrado abaixo
 ]);
 
 const TELAS_SEM_AVISO_DE_OFERTA = new Set(['/home', '/ofertas', '/oferta-detalhe']);
@@ -95,11 +104,12 @@ async function abrir() {
           return;
         }
         if (EVENTOS_ALERTA.has(evento)) {
+          if (evento === 'entrega.concluida' && !(dados && dados.porCentral)) return;   // concluiu ele mesmo
           dispararAlerta();
           // Corrida nova com ele na Início ou nas telas de corrida: a Início já abre a corrida
           // em tela cheia, então o aviso de cima só cobria a tela (ADR-053). Toca o som e pronto.
           if (evento === 'oferta.nova' && TELAS_SEM_AVISO_DE_OFERTA.has(telaAtual())) return;
-          const b = bannerDoEvento(evento);
+          const b = bannerDoEvento(evento, dados);
           if (b) mostrarBanner(b);
         }
       } catch {}
