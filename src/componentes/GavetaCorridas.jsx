@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { T, reais, curto } from '../tema';
 import Icone from './Icone';
 import { abrirNavegacao } from '../state/navegacao';
@@ -14,7 +15,6 @@ import ValorDinamica from './ValorDinamica';
 // com o número da parada igual ao do pino no mapa. Offline: regiões com movimento e o
 // "Ficar online".
 
-const ALTURA_TELA = Dimensions.get('window').height;
 export const ABA_BARRA = 0;        // a BarraAbas agora é a tabBar das abas: a tela já termina em cima dela
 
 function distKm(a, b) {
@@ -29,6 +29,7 @@ const kmTxt = (d) => (d == null ? null : d < 1 ? `${Math.round(d * 1000)} m` : `
 
 export default function GavetaCorridas({ online, ofertas = [], ativas = [], eu, regioes = [], naFila, ordemPontos = {}, onFicarOnline, aviso, chatAtivo }) {
   const [grupo, setGrupo] = useState(null);     // null | 'minhas'
+  const insetTopo = useSafeAreaInsets().top;
 
   const feitoP = (p) => p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em || !!naFila?.has(String(p.id));
   const zonas = useMemo(() => regioes.filter((r) => r.quantidade > 0).slice(0, 3)
@@ -173,7 +174,7 @@ export default function GavetaCorridas({ online, ofertas = [], ativas = [], eu, 
   const painel = grupo && (
     <>
       <TouchableOpacity style={st.scrim} activeOpacity={1} onPress={() => setGrupo(null)} />
-      <View style={[st.gaveta, st.painel]}>
+      <View style={[st.gaveta, st.painel, { paddingTop: insetTopo + 10 }]}>
         <View style={st.painelTopo}>
           <Text style={st.painelTit}>Minhas corridas · {ativas.length}</Text>
           <Text style={st.painelSub}>na ordem da rota</Text>
@@ -219,7 +220,8 @@ function Pulso() {
 const sombra = { shadowColor: T.profundo, shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: -4 }, elevation: 14 };
 const st = StyleSheet.create({
   gaveta: { position: 'absolute', left: 0, right: 0, bottom: ABA_BARRA, backgroundColor: T.sup, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12, ...sombra },
-  painel: { top: Math.max(100, ALTURA_TELA * 0.16), paddingBottom: 0 },
+  // Minhas corridas em TELA CHEIA (24/10/2026): do topo (abaixo da barra de status) até a barra de abas.
+  painel: { top: 0, paddingBottom: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0, elevation: 20 },
   scrim: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(4,20,40,0.35)' },
   pulso: { width: 10, height: 10, borderRadius: 5, backgroundColor: T.ganho },
   doca: { flexDirection: 'row', gap: 8 },
