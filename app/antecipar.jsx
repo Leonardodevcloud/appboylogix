@@ -44,6 +44,7 @@ const chaveTexto = (tipo, chave) => (chave ? `${ROTULO_PIX[tipo] || 'Chave'} ${(
 const VIVO_MS = 15000;   // conferência enquanto há pedido aberto (cobre o WebSocket caído)
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
+import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const centavos = (texto) => {
@@ -267,14 +268,7 @@ export default function Antecipar() {
                 texto="Sua central não está com a antecipação ligada no momento." />
             ) : aCaminho ? (
               <>
-                <Faixa tipo="info"
-                  titulo="Aprovado · o Pix está saindo"
-                  texto="A central aprovou seu pedido e o banco está processando o Pix. Esta tela atualiza sozinha quando cair." />
-                <View style={[st.bloco, { gap: 14 }]}>
-                  <Passo feito titulo="Pedido recebido" sub={dataHora(aberto.criado_em)} />
-                  <Passo feito titulo="Aprovado pela central" sub={aberto.decidido_em ? dataHora(aberto.decidido_em) : null} />
-                  <Passo atual numero="3" titulo="Pix sendo enviado" sub="para a sua chave cadastrada" />
-                </View>
+                <PixSaindo aberto={aberto} />
                 <View style={st.bloco}>
                   <Resumo pede={aberto.valor_cent} taxa={aberto.taxa_cent} recebe={aberto.recebe_cent} gratis={aberto.gratuidade}
                     regra={aberto.taxa_regra} saiu={reservado ? 'ja' : null} rotuloRecebe="Vai cair na sua conta" />
@@ -502,7 +496,63 @@ function Resumo({ pede, taxa, recebe, gratis, regra, saiu, saldoDepois, rotuloRe
   );
 }
 
-function Passo({ feito, atual, numero, titulo, sub }) {
+// Temporizador do Pix saindo (aprovado em 27/10/2026): o entregador vê o tempo correr desde a
+// aprovação e não acha que travou. Normal: cai em menos de 1 min. Passou de 2 min: a faixa fica
+// âmbar e explica que o banco ainda processa — sem precisar pedir de novo.
+const NORMAL_S = 60;
+const DEMORA_S = 120;
+function useSegundosDesde(iso) {
+  const calc = () => (iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000)) : 0);
+  const [seg, setSeg] = useState(calc);
+  useEffect(() => {
+    setSeg(calc());
+    const t = setInterval(() => setSeg(calc()), 1000);
+    return () => clearInterval(t);
+  }, [iso]);
+  return seg;
+}
+const relogio = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+function AnelTempo({ seg, cor }) {
+  const r = 16; const c = 2 * Math.PI * r; const p = Math.min(1, seg / NORMAL_S);
+  return (
+    <Svg width={40} height={40} viewBox="0 0 40 40">
+      <Circle cx={20} cy={20} r={r} stroke={T.linha} strokeWidth={4} fill="none" />
+      <Circle cx={20} cy={20} r={r} stroke={cor} strokeWidth={4} fill="none" strokeLinecap="round"
+        strokeDasharray={`${c}`} strokeDashoffset={c * (1 - p)} transform="rotate(-90 20 20)" />
+    </Svg>
+  );
+}
+
+function PixSaindo({ aberto }) {
+  const seg = useSegundosDesde(aberto.decidido_em || aberto.atualizado_em || aberto.criado_em);
+  const demora = seg > DEMORA_S;
+  const cor = demora ? T.atencaoTx : T.primario;
+  return (
+    <>
+      {demora
+        ? <Faixa tipo="espera" titulo="O banco está demorando um pouco mais"
+            texto="Seu Pix continua sendo processado — não precisa pedir de novo. Esta tela atualiza sozinha." />
+        : <Faixa tipo="info" titulo="Aprovado · o Pix está saindo"
+            texto="Normalmente cai em menos de 1 minuto. Esta tela atualiza sozinha." />}
+      <View style={[st.bloco, { gap: 14 }]}>
+        <Passo feito titulo="Pedido recebido" sub={dataHora(aberto.criado_em)} />
+        <Passo feito titulo="Aprovado pela central" sub={aberto.decidido_em ? dataHora(aberto.decidido_em) : null} />
+        <Passo atual numero="3" titulo="Pix sendo enviado" sub="para a sua chave cadastrada">
+          <View style={st.relogio} accessibilityLabel={`Pix saindo há ${Math.floor(seg / 60)} minutos e ${seg % 60} segundos`}>
+            <AnelTempo seg={seg} cor={cor} />
+            <View>
+              <Text style={[st.relogioTempo, { color: cor }]}>{relogio(seg)}</Text>
+              <Text style={st.relogioNota}>{demora ? 'conferindo com o banco a cada instante' : 'desde a aprovação · costuma levar até 1 min'}</Text>
+            </View>
+          </View>
+        </Passo>
+      </View>
+    </>
+  );
+}
+
+function Passo({ feito, atual, numero, titulo, sub, children }) {
   return (
     <View style={st.passo}>
       <View style={[st.bola, feito ? st.bolaFeita : atual ? st.bolaAtual : null]}>
@@ -511,6 +561,7 @@ function Passo({ feito, atual, numero, titulo, sub }) {
       <View style={{ flex: 1 }}>
         <Text style={[st.passoTitulo, atual && { color: T.primario }]}>{titulo}</Text>
         {!!sub && <Text style={st.passoSub}>{sub}</Text>}
+        {children}
       </View>
     </View>
   );
@@ -612,6 +663,9 @@ const st = StyleSheet.create({
   bolaTx: { color: '#fff', fontSize: 12, fontWeight: '800' },
   passoTitulo: { fontSize: 14, fontWeight: '800', color: T.tinta },
   passoSub: { fontSize: 12, color: T.tinta3, marginTop: 1 },
+  relogio: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  relogioTempo: { fontSize: 20, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  relogioNota: { fontSize: 11.5, color: T.tinta3 },
 
   faixa: { marginHorizontal: 14, marginTop: 14, borderRadius: 14, borderWidth: 1, paddingHorizontal: 15, paddingVertical: 13 },
   faixaTitulo: { fontSize: 13.5, fontWeight: '800' },
