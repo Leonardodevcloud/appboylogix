@@ -19,6 +19,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const PROXIMO = { aguardando_coleta: 'em_coleta', em_coleta: 'em_rota' };
 
 
+// Volta à loja criada para trazer o canhoto (regra do cliente) — o resto é mercadoria que voltou.
+const ehCanhoto = (p) => /canhoto/i.test(String(p && p.observacoes || ''));
+
 export default function Corrida() {
   const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const params = useLocalSearchParams();
@@ -129,9 +132,11 @@ export default function Corrida() {
   const pontos = entrega.pontos || [];
   const jaColetou = entrega.status === 'em_rota';
   const feitoDe = (p) => p.status === 'entregue' || p.status === 'concluido' || !!p.finalizado_em || naFila.has(String(p.id));
-  const concluidos = pontos.filter(feitoDe).length;
-  const totalPontos = pontos.length;
   const proxPonto = pontos.find(p => !feitoDe(p));
+  // Destinos de verdade (sem a volta à loja) — é o que numera "Entrega 1, 2…".
+  const totalEntregas = pontos.filter(p => !p.eh_retorno).length;
+  const proxEhRetorno = !!(proxPonto && proxPonto.eh_retorno);
+  const numProx = proxPonto ? pontos.slice(0, pontos.indexOf(proxPonto) + 1).filter(p => !p.eh_retorno).length : 0;
   const idxProx = proxPonto ? pontos.findIndex(p => p.id === proxPonto.id) : -1;
 
   // Etapa atual explícita para a pílula e o rodapé.
@@ -244,19 +249,24 @@ export default function Corrida() {
           const feito = feitoDe(p);
           const atual = jaColetou && !feito && proxPonto && p.id === proxPonto.id;
           const estado = feito ? 'feita' : atual ? 'agora' : 'depois';
-          const titulo = totalPontos > 1 ? `Entrega ${i + 1}` : 'Entrega';
+          // Volta à loja (canhoto ou mercadoria que não foi entregue): parada "R", sem número.
+          const ret = !!p.eh_retorno;
+          const nEnt = pontos.slice(0, i + 1).filter(x => !x.eh_retorno).length;
+          const titulo = ret ? 'Voltar à loja' : (totalEntregas > 1 ? `Entrega ${nEnt}` : 'Entrega');
           return (
             <No key={p.id}
-              num={i + 1} tipo="ent"
+              num={ret ? 'R' : nEnt} tipo="ent"
               titulo={titulo}
-              tag={p.numero_nf ? `NF ${p.numero_nf}` : (p.nome_fantasia || null)}
+              tag={ret ? (ehCanhoto(p) ? 'Canhoto' : 'Retorno') : (p.numero_nf ? `NF ${p.numero_nf}` : (p.nome_fantasia || null))}
               endereco={p.endereco + (p.complemento ? ` · ${p.complemento}` : '')}
-              detalhes={[p.nome && p.nome !== p.nome_fantasia ? p.nome : null, p.observacoes ? `"${p.observacoes}"` : null, !feito && !atual && i > 0 ? `Depois da entrega ${i}` : null]}
+              detalhes={ret
+                ? [ehCanhoto(p) ? 'Leve os canhotos assinados de volta à loja.' : 'Leve a mercadoria de volta à loja.', !feito && !atual ? 'Depois do último destino' : null]
+                : [p.nome && p.nome !== p.nome_fantasia ? p.nome : null, p.observacoes ? `"${p.observacoes}"` : null, !feito && !atual && i > 0 ? `Depois da entrega ${nEnt - 1 || 1}` : null]}
               estado={estado}
               ultimo={i === pontos.length - 1}
               subs={[
-                { txt: 'Cheguei no local', estado: p.chegou_em ? 'feito' : (atual && !p.chegou_em ? 'agora' : 'depois'), hora: p.chegou_em ? hora(p.chegou_em) : null },
-                { txt: 'Confirmei a entrega', estado: feito ? 'feito' : (atual && p.chegou_em ? 'agora' : 'depois'), hora: feito && p.finalizado_em ? hora(p.finalizado_em) : null },
+                { txt: ret ? 'Cheguei na loja' : 'Cheguei no local', estado: p.chegou_em ? 'feito' : (atual && !p.chegou_em ? 'agora' : 'depois'), hora: p.chegou_em ? hora(p.chegou_em) : null },
+                { txt: ret ? 'Confirmei a volta' : 'Confirmei a entrega', estado: feito ? 'feito' : (atual && p.chegou_em ? 'agora' : 'depois'), hora: feito && p.finalizado_em ? hora(p.finalizado_em) : null },
               ]}
               acoes={atual ? [
                 { icone: 'navegar', label: 'Navegar', onPress: () => navegar(p.lat, p.lng, p.endereco) },
@@ -288,16 +298,22 @@ export default function Corrida() {
         ) : proxPonto && !proxPonto.chegou_em ? (
           <>
             <TouchableOpacity style={st.btn} onPress={() => chegarEntrega(proxPonto.id)} disabled={busy} activeOpacity={0.85}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>Cheguei na entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>}
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={st.btnTxt}>{proxEhRetorno ? 'Cheguei na loja' : `Cheguei na entrega${totalEntregas > 1 ? ` ${numProx}` : ''}`}</Text>}
             </TouchableOpacity>
-            <Text style={st.rodapeSub}>Ao chegar, abre o protocolo da entrega</Text>
+            <Text style={st.rodapeSub}>{proxEhRetorno ? 'Ao chegar, confirme a volta à loja' : 'Ao chegar, abre o protocolo da entrega'}</Text>
           </>
         ) : proxPonto ? (
           <>
             <TouchableOpacity style={[st.btn, { backgroundColor: T.ganho }]}
-              onPress={() => router.push({ pathname: '/concluir', params: { entregaId: entrega.id, pontoId: proxPonto.id, endereco: proxPonto.endereco, numero: concluidos + 1, total: totalPontos, protocolo: entrega.protocolo } })}
+              onPress={() => router.push({ pathname: '/concluir', params: {
+                entregaId: entrega.id, pontoId: proxPonto.id, endereco: proxPonto.endereco,
+                numero: proxEhRetorno ? '' : numProx, total: totalEntregas, protocolo: entrega.protocolo,
+                // Regras de comprovante e retorno do cliente desta corrida (vêm na fila).
+                regras: JSON.stringify(entrega.protocolo_regras || {}),
+                retorno: proxEhRetorno ? (ehCanhoto(proxPonto) ? 'canhoto' : 'mercadoria') : '',
+              } })}
               activeOpacity={0.85}>
-              <Text style={st.btnTxt}>Marcar entrega{totalPontos > 1 ? ` ${concluidos + 1}` : ''}</Text>
+              <Text style={st.btnTxt}>{proxEhRetorno ? 'Marcar volta à loja' : `Marcar entrega${totalEntregas > 1 ? ` ${numProx}` : ''}`}</Text>
             </TouchableOpacity>
             <Text style={st.rodapeSub}>Foto, resultado e observação na próxima tela</Text>
           </>

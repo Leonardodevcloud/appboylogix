@@ -17,7 +17,10 @@ function ligar(tel) {
 }
 
 export default function CartaoCorrida({ oferta: o, destaque = false, onVer, onMapa, mostrarAcoes = true }) {
-  const pontos = Array.isArray(o.pontos) ? o.pontos : [];
+  const todos = Array.isArray(o.pontos) ? o.pontos : [];
+  // A volta à loja (canhoto) não é entrega: fica fora da contagem e vira um aviso no cartão.
+  const pontos = todos.filter(p => !p.eh_retorno);
+  const comVolta = !!o.com_retorno || todos.some(p => p.eh_retorno);
   const totalDest = pontos.length || Number(o.qtd_pontos) || 1;
   const ateColeta = km(o.distancia_km), rota = Number(o.rota_km) > 0 ? km(o.rota_km) : null;
   const nfs = pontos.map(p => p.numero_nf).filter(Boolean);
@@ -86,6 +89,9 @@ export default function CartaoCorrida({ oferta: o, destaque = false, onVer, onMa
         </View>
       </View>
 
+      {comVolta && (
+        <View style={st.volta}><Text style={st.voltaTxt}>Volta à loja no fim: leve os canhotos assinados.</Text></View>
+      )}
       {obs.length > 0 && (
         <View style={st.obs}><Text style={st.obsTxt} numberOfLines={3}>{obs.join(' · ')}</Text></View>
       )}
@@ -131,6 +137,8 @@ const st = StyleSheet.create({
   tel: { color: T.primario, fontWeight: '800' },
   pTxt: { fontSize: 14, color: T.tinta, lineHeight: 19, marginTop: 1 },
   destinatario: { fontSize: 12.5, color: T.tinta2, fontWeight: '600', marginTop: 3 },
+  volta: { marginTop: 10, backgroundColor: T.suave, borderRadius: 10, padding: 10 },
+  voltaTxt: { fontSize: 13, color: T.primario, lineHeight: 18, fontWeight: '700' },
   obs: { marginTop: 10, backgroundColor: T.atencaoBg, borderRadius: 10, padding: 10 },
   obsTxt: { fontSize: 13, color: T.atencaoTx, lineHeight: 18, fontWeight: '600' },
   acoes: { flexDirection: 'row', gap: 10, marginTop: 14 },

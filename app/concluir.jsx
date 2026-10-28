@@ -19,10 +19,28 @@ import { guardarConclusao, temInternet, enviarFila } from '../src/state/filaConc
 import Icone from '../src/componentes/Icone';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// Regras de comprovante do cliente, vindas da fila como texto (params do expo-router).
+const EXIG = ['obrigatorio', 'opcional', 'oculto'];
+function lerRegras(txt) {
+  let r = {};
+  try { r = txt ? JSON.parse(String(txt)) : {}; } catch { r = {}; }
+  const ex = (v) => (EXIG.includes(v) ? v : 'obrigatorio');
+  return {
+    comprovante_foto: ex(r.comprovante_foto),
+    comprovante_recebedor: ex(r.comprovante_recebedor),
+    comprovante_foto_insucesso: ex(r.comprovante_foto_insucesso),
+    retorno_insucesso: r.retorno_insucesso === 'sempre' ? 'sempre' : 'ocorrencia',
+  };
+}
+
 export default function ConcluirScreen() {
   const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
   const router = useRouter();
-  const { entregaId, pontoId, numero, total, protocolo } = useLocalSearchParams();
+  const { entregaId, pontoId, numero, total, protocolo, regras: regrasTxt, retorno } = useLocalSearchParams();
+  // Regras do cliente (28/10/2026): cada item 'obrigatorio' | 'opcional' | 'oculto'. Sem regra
+  // (corrida aberta por outro caminho, app antigo da fila) = tudo obrigatório, como sempre foi.
+  const regras = lerRegras(regrasTxt);
+  const ehRetorno = !!retorno;                 // volta à loja: 'canhoto' ou 'mercadoria'
 
   const [ocorrencias, setOcorrencias] = useState([]);
   const [carregandoOc, setCarregandoOc] = useState(true);
@@ -119,7 +137,15 @@ export default function ConcluirScreen() {
   }
 
   const ehInsucesso = ocSel && ocSel.tipo === 'insucesso';
-  const geraRetorno = ehInsucesso && ocSel.comportamento === 'retorno';
+  // Insucesso volta à loja pela ocorrência ou porque o cliente pede que sempre volte. A própria
+  // volta à loja não gera outra volta.
+  const sempreVolta = regras.retorno_insucesso === 'sempre';
+  const geraRetorno = !ehRetorno && ehInsucesso && (ocSel.comportamento === 'retorno' || sempreVolta);
+  // O que este ponto pede agora.
+  const exigFoto = ehInsucesso ? regras.comprovante_foto_insucesso : (ehRetorno ? (regras.comprovante_foto === 'oculto' ? 'oculto' : 'opcional') : regras.comprovante_foto);
+  const exigNome = ehInsucesso ? 'oculto' : regras.comprovante_recebedor;
+  const fotoObrig = exigFoto === 'obrigatorio';
+  const nomeObrig = exigNome === 'obrigatorio';
 
   async function tirarFoto() {
     try {
@@ -190,8 +216,8 @@ export default function ConcluirScreen() {
 
   async function concluir() {
     if (!ocSel) { Alerta.alert('Atenção', 'Selecione o resultado da entrega.'); return; }
-    if (!ehInsucesso && !recebedor.trim()) { Alerta.alert('Atenção', 'Informe quem recebeu.'); return; }
-    if (fotos.length === 0) { Alerta.alert('Atenção', 'A foto de protocolo é obrigatória.'); return; }
+    if (nomeObrig && !recebedor.trim()) { Alerta.alert('Atenção', ehRetorno ? 'Informe quem recebeu na loja.' : 'Informe quem recebeu.'); return; }
+    if (fotoObrig && fotos.length === 0) { Alerta.alert('Atenção', ehInsucesso ? 'A foto do local é obrigatória para este cliente.' : 'A foto do canhoto é obrigatória para este cliente.'); return; }
 
     setEnviando(true);
     // O horário que vale é o de AGORA, no celular — mesmo que o envio só aconteça
@@ -205,7 +231,7 @@ export default function ConcluirScreen() {
       const loc = pontoId ? await obterLocalizacao() : null;
       const corpo = {
         ocorrencia_id: ocSel.id,
-        recebedor:  ehInsucesso ? null : recebedor.trim(),
+        recebedor:  (ehInsucesso || exigNome === 'oculto') ? null : (recebedor.trim() || null),
         observacao: observacao.trim() || null,
         concluido_em: concluidoEm,
         ...(loc ? { lat: loc.lat, lng: loc.lng } : {}),
@@ -228,10 +254,10 @@ export default function ConcluirScreen() {
         throw e;
       }
 
-      const titulo = geraRetorno ? 'Retorno registrado' : (ehInsucesso ? 'Ocorrência registrada' : 'Entregue!');
+      const titulo = geraRetorno ? 'Retorno registrado' : (ehInsucesso ? 'Ocorrência registrada' : (ehRetorno ? 'Volta confirmada' : 'Entregue!'));
       const msg = geraRetorno
-        ? 'Foi criado um ponto de retorno à coleta. A corrida só finaliza quando você concluir o retorno.'
-        : 'Protocolo registrado com sucesso.';
+        ? 'A volta à loja ficou como última parada. A corrida só finaliza quando você concluir o retorno.'
+        : (ehRetorno ? 'Volta à loja registrada.' : 'Protocolo registrado com sucesso.');
       Alerta.alert(titulo, msg, [{ text: 'OK', onPress: () => irParaInicio() }]);
     } catch (err) {
       // Fora do raio configurado pela loja: bloqueia e oferece solicitar liberação.
@@ -262,12 +288,14 @@ export default function ConcluirScreen() {
       return;
     }
     const horaTxt = new Date(corpo.concluido_em).toLocaleTimeString('pt-BR', { timeZone: 'America/Bahia', hour: '2-digit', minute: '2-digit' });
-    const nFotos = fotos.length === 1 ? 'a foto' : `as ${fotos.length} fotos`;
+    const partes = [];
+    if (fotos.length) partes.push(fotos.length === 1 ? 'a foto' : `as ${fotos.length} fotos`);
+    partes.push(ehInsucesso ? 'a ocorrência' : (recebedor.trim() ? 'quem recebeu' : 'a confirmação'));
     const escolha = await mostrarAviso({
       icone: 'semSinal',
       titulo: 'Sem internet agora',
       sub: 'A entrega ficou guardada no celular',
-      lead: `Assim que o sinal voltar, o app envia sozinho: ${nFotos}, ${ehInsucesso ? 'a ocorrência' : 'quem recebeu'} e o horário de agora (${horaTxt}). Você pode seguir para a próxima.`,
+      lead: `Assim que o sinal voltar, o app envia sozinho: ${partes.join(', ')} e o horário de agora (${horaTxt}). Você pode seguir para a próxima.`,
       botoes: [
         { chave: 'seguir', texto: 'Seguir para a próxima', estilo: 'primario' },
         { chave: 'tentar', texto: 'Tentar enviar agora', estilo: 'ghost' },
@@ -279,7 +307,7 @@ export default function ConcluirScreen() {
     irParaInicio();
   }
 
-  const botaoTxt = geraRetorno ? 'Deslize para registrar o retorno' : (ehInsucesso ? 'Deslize para registrar' : 'Deslize para confirmar');
+  const botaoTxt = geraRetorno ? 'Deslize para registrar o retorno' : (ehInsucesso ? 'Deslize para registrar' : (ehRetorno ? 'Deslize: voltei à loja' : 'Deslize para confirmar'));
   const bloqueado = !!bloqueio && !liberado;
 
   return (
@@ -300,17 +328,23 @@ export default function ConcluirScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 64 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={T.claro} traco={2.4} /><Text style={s.voltar}>Corrida</Text></View></TouchableOpacity>
-        <Text style={s.headerTit}>{total && Number(total) > 1 ? `Entrega ${numero}` : 'Marcar entrega'}</Text>
-        <View style={{ minWidth: 64, alignItems: 'flex-end' }}>{!!total && Number(total) > 1 && <Text style={s.pill}>{numero} de {total}</Text>}</View>
+        <Text style={s.headerTit}>{ehRetorno ? 'Voltar à loja' : (total && Number(total) > 1 ? `Entrega ${numero}` : 'Marcar entrega')}</Text>
+        <View style={{ minWidth: 64, alignItems: 'flex-end' }}>{!ehRetorno && !!total && Number(total) > 1 && <Text style={s.pill}>{numero} de {total}</Text>}</View>
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-        {/* 1. Foto — o que trava a conclusão vem primeiro e grande */}
-        {fotos.length === 0 ? (
-          <TouchableOpacity style={s.fotoVazia} onPress={tirarFoto} activeOpacity={0.85}>
-            <Icone nome="camera" tam={34} cor={T.primario} traco={1.8} />
-            <Text style={s.fotoVaziaTit}>Tirar foto do protocolo</Text>
-            <Text style={s.fotoVaziaSub}>Obrigatória — sem ela a entrega não fecha</Text>
+        {ehRetorno && (
+          <View style={s.infoRet}><Text style={s.infoRetTxt}>{retorno === 'canhoto'
+            ? 'Entregue os canhotos assinados na loja e confirme a volta.'
+            : 'Devolva a mercadoria na loja e confirme a volta.'}</Text></View>
+        )}
+        {/* 1. Foto — o que trava a conclusão vem primeiro e grande (some se o cliente não usa) */}
+        {exigFoto === 'oculto' ? null : fotos.length === 0 ? (
+          <TouchableOpacity style={[s.fotoVazia, !fotoObrig && s.fotoVaziaOpc]} onPress={tirarFoto} activeOpacity={0.85}>
+            <Icone nome="camera" tam={34} cor={fotoObrig ? T.primario : T.tinta2} traco={1.8} />
+            <Text style={[s.fotoVaziaTit, !fotoObrig && { color: T.tinta2 }]}>{ehInsucesso ? 'Foto do local' : (ehRetorno ? 'Foto da entrega na loja' : 'Tirar foto do canhoto')}</Text>
+            <Text style={s.fotoVaziaSub}>{fotoObrig ? (ehInsucesso ? 'Mostra que você esteve lá' : 'Sem ela a entrega não fecha') : 'Este cliente não exige foto'}</Text>
+            <Text style={fotoObrig ? s.tagObrig : s.tagOpc}>{fotoObrig ? 'Obrigatória' : 'Opcional'}</Text>
           </TouchableOpacity>
         ) : (
           <View style={s.fotoBox}>
@@ -319,7 +353,7 @@ export default function ConcluirScreen() {
             <TouchableOpacity style={s.fotoRemover} onPress={() => removerFoto(0)}><Text style={s.fotoRemoverTxt}>×</Text></TouchableOpacity>
           </View>
         )}
-        {fotos.length > 0 && (
+        {exigFoto !== 'oculto' && fotos.length > 0 && (
           <View style={s.fotosLinha}>
             {fotos.slice(1).map((f, i) => (
               <View key={i + 1} style={s.miniWrap}>
@@ -349,14 +383,16 @@ export default function ConcluirScreen() {
           </View>
         )}
         {geraRetorno && (
-          <View style={s.aviso}><Text style={s.avisoTxt}>Será criado um ponto de retorno à coleta. A corrida só finaliza quando você concluir esse retorno.</Text></View>
+          <View style={s.aviso}><Text style={s.avisoTxt}>{ocSel.comportamento !== 'retorno' && sempreVolta
+            ? 'Este cliente pede que a mercadoria volte à loja. Será criado o retorno à coleta — a corrida só fecha quando você concluir a volta.'
+            : 'Será criado um ponto de retorno à coleta. A corrida só finaliza quando você concluir esse retorno.'}</Text></View>
         )}
 
-        {/* 3. Quem recebeu (só sucesso) e observação */}
-        {!ehInsucesso && (
+        {/* 3. Quem recebeu (só sucesso, se o cliente usa) e observação */}
+        {exigNome !== 'oculto' && (
           <View style={s.campo}>
-            <Text style={s.label}>Quem recebeu</Text>
-            <TextInput style={s.input} value={recebedor} onChangeText={setRecebedor} placeholder="Nome de quem assinou / recebeu" placeholderTextColor={T.tinta3} returnKeyType="next" />
+            <Text style={s.label}>{ehRetorno ? 'Quem recebeu na loja' : 'Quem recebeu'}{!nomeObrig && <Text style={s.opcional}> (opcional)</Text>}</Text>
+            <TextInput style={s.input} value={recebedor} onChangeText={setRecebedor} placeholder={ehRetorno ? 'Nome de quem recebeu na loja' : 'Nome de quem assinou / recebeu'} placeholderTextColor={T.tinta3} returnKeyType="next" />
           </View>
         )}
         <View style={s.campo}>
@@ -387,10 +423,10 @@ export default function ConcluirScreen() {
 
       <View style={[s.rodape, { paddingBottom: Math.max(26, 12 + insetBaixo) }]}>
         <DeslizarParaConfirmar
-          rotulo={botaoTxt} rotuloOk={geraRetorno ? 'Retorno registrado' : (ehInsucesso ? 'Ocorrência registrada' : 'Entrega confirmada')}
+          rotulo={botaoTxt} rotuloOk={geraRetorno ? 'Retorno registrado' : (ehInsucesso ? 'Ocorrência registrada' : (ehRetorno ? 'Volta confirmada' : 'Entrega confirmada'))}
           cor={ehInsucesso ? T.alerta : T.ganho} corFundo={ehInsucesso ? T.alertaBg : T.ganhoBg} corBorda={ehInsucesso ? '#f0c4be' : T.ganhoBd}
           ocupado={enviando} onConfirmar={concluir} icone="check" />
-        <Text style={s.rodapeSub}>{fotos.length === 0 ? 'Tire a foto do protocolo para liberar a confirmação' : 'Fora do raio? A central pode liberar — o pedido sai daqui mesmo.'}</Text>
+        <Text style={s.rodapeSub}>{fotoObrig && fotos.length === 0 ? (ehInsucesso ? 'Tire a foto do local para liberar a confirmação' : 'Tire a foto do canhoto para liberar a confirmação') : 'Fora do raio? A central pode liberar — o pedido sai daqui mesmo.'}</Text>
       </View>
       </KeyboardAvoidingView>
     </View>
@@ -408,6 +444,11 @@ const s = StyleSheet.create({
   fotoVazia: { height: 196, borderRadius: T.r, borderWidth: 2, borderStyle: 'dashed', borderColor: T.claro, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center', gap: 6 },
   fotoVaziaTit: { fontSize: 16, fontWeight: '800', color: T.primario },
   fotoVaziaSub: { fontSize: 12.5, color: T.tinta2, fontWeight: '600' },
+  fotoVaziaOpc: { borderColor: T.linha, backgroundColor: T.sup },
+  tagObrig: { marginTop: 4, fontSize: 11, fontWeight: '800', color: T.alertaTx, backgroundColor: T.alertaBg, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
+  tagOpc: { marginTop: 4, fontSize: 11, fontWeight: '800', color: T.tinta2, backgroundColor: T.suave, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
+  infoRet: { backgroundColor: T.suave, borderRadius: 14, padding: 12, marginBottom: 12 },
+  infoRetTxt: { color: T.primario, fontWeight: '700', fontSize: 13.5, lineHeight: 19 },
   fotoBox: { height: 196, borderRadius: T.r, overflow: 'hidden', borderWidth: 2, borderColor: T.ganho, backgroundColor: T.ganhoBg },
   fotoGrande: { width: '100%', height: '100%' },
   fotoTag: { position: 'absolute', right: 10, top: 10, backgroundColor: T.ganho, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 },

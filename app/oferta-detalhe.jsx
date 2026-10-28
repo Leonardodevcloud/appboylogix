@@ -107,7 +107,9 @@ export default function OfertaDetalhe() {
     };
   }
 
-  const totalDest = pontos.length || Number(oferta.qtd_pontos) || 1;
+  // A volta à loja (canhoto) não é entrega: conta só os destinos e mostra a volta como última linha.
+  const destinos = (pontos || []).filter(p => !p.eh_retorno);
+  const totalDest = destinos.length || Number(oferta.qtd_pontos) || 1;
   const ateColeta = km(oferta.distancia_km), rotaKm = Number(oferta.rota_km) > 0 ? km(oferta.rota_km) : null;
   const temValor = Number(oferta.valor_motoboy_cent) > 0;
 
@@ -159,11 +161,20 @@ export default function OfertaDetalhe() {
               <View style={[st.bola, { backgroundColor: T.vivo }]} />
               <View style={{ flex: 1 }}><Text style={st.pLbl}>Coleta</Text><Text style={st.pTxt}>{curto(oferta.coleta_endereco) || '—'}</Text></View>
             </View>
-            {pontos.map((p, i) => (
+            {pontos.map((p, i) => p.eh_retorno ? (
+              <View key={i} style={st.p}>
+                <View style={[st.bola, { backgroundColor: T.vivo }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={st.pLbl}>Volta à loja{/canhoto/i.test(p.observacoes || '') ? ' · canhoto' : ''}</Text>
+                  <Text style={st.pTxt}>{curto(p.endereco) || '—'}</Text>
+                  <Text style={st.pObs}>Depois do último destino, volte à loja com os canhotos assinados.</Text>
+                </View>
+              </View>
+            ) : (
               <View key={i} style={st.p}>
                 <View style={[st.bola, { backgroundColor: i === pontos.length - 1 ? T.ganho : T.claro }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={st.pLbl}>{pontos.length > 1 ? `Entrega ${i + 1}` : 'Entrega'}{p.numero_nf ? ` · NF ${p.numero_nf}` : ''}</Text>
+                  <Text style={st.pLbl}>{destinos.length > 1 ? `Entrega ${destinos.indexOf(p) + 1}` : 'Entrega'}{p.numero_nf ? ` · NF ${p.numero_nf}` : ''}</Text>
                   <Text style={st.pTxt}>{curto(p.endereco) || '—'}{p.complemento ? ` (${p.complemento})` : ''}</Text>
                   {(!!(p.nome_fantasia || p.nome) || (!!p.telefone && !/@/.test(String(p.telefone)))) && (
                     <Text style={st.pObs}>{(p.nome_fantasia || p.nome) ? `Destinatário: ${p.nome_fantasia || p.nome}` : 'Destinatário'}{!!p.telefone && !/@/.test(String(p.telefone)) && <Text style={st.tel} onPress={() => Linking.openURL('tel:' + String(p.telefone).replace(/\D/g, '')).catch(() => {})}>{'  '}{p.telefone}</Text>}</Text>
