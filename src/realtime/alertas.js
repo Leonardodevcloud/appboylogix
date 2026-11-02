@@ -23,7 +23,9 @@ const prot = (d) => (d && d.protocolo ? ` #${d.protocolo}` : '');
 function bannerDoEvento(evento, d) {
   switch (evento) {
     case 'oferta.nova':       return { tipo: 'oferta',    titulo: 'Nova corrida disponível!', sub: 'Veja os detalhes e aceite se der para cumprir no prazo.', rota: '/ofertas', acao: 'Ver corrida' };
-    case 'entrega.atribuida': return { tipo: 'atribuida', titulo: 'Corrida atribuída a você', sub: `A corrida${prot(d)} é sua. Ela já está em Minhas corridas.`, rota: '/home', acao: 'Abrir' };
+    // 02/11/2026: sem OK e sem tempo — o aviso fica na tela até ele tocar em "Abrir corrida".
+    case 'entrega.atribuida': return { tipo: 'atribuida', fixo: true, titulo: 'Corrida atribuída a você', sub: `A corrida${prot(d)} é sua. Ela já está em Minhas corridas.`,
+      rota: d && d.entregaId ? `/corrida?entrega_id=${encodeURIComponent(d.entregaId)}` : '/home', acao: 'Abrir corrida' };
     case 'entrega.editada':   return { tipo: 'editada',   titulo: `Corrida${prot(d)} atualizada`, sub: 'A central alterou esta corrida. Os dados novos já estão na tela.' };
     case 'entrega.removida':  return { tipo: 'removida',  titulo: `Corrida${prot(d)} removida`, sub: 'A central tirou esta corrida de você. Ela saiu da sua lista.' };
     case 'entrega.cancelada': {

@@ -94,7 +94,7 @@ export default function GavetaCorridas({ online, ofertas = [], ativas = [], eu, 
   // cliente, protocolo, situação, coleta, cada entrega com NF, km e valor (com a dinâmica
   // separada). Tocar no cartão abre a tela da corrida; o botão principal abre a navegação
   // direto no próximo ponto pendente.
-  const Cartao = ({ e }) => {
+  const Cartao = ({ e, n }) => {
     const pts = e.pontos || [];
     const coletou = e.status === 'em_rota';
     const proxIdx = pts.findIndex((p) => !feitoP(p));
@@ -106,9 +106,10 @@ export default function GavetaCorridas({ online, ofertas = [], ativas = [], eu, 
     const kmCorrida = Number(e.distancia_km) > 0 ? `${Number(e.distancia_km).toFixed(1).replace('.', ',')} km` : null;
     const abrir = () => { setGrupo(null); router.push({ pathname: '/corrida', params: { entrega_id: e.id } }); };
     return (
-      <TouchableOpacity style={st.card} activeOpacity={0.88} onPress={abrir}
+      <TouchableOpacity style={[st.card, n === 1 && st.cardPrimeira]} activeOpacity={0.88} onPress={abrir}
         accessibilityRole="button" accessibilityLabel={`Corrida ${e.protocolo}, ${e.cliente_nome || ''}, ${tag}`}>
         <View style={st.cardTopo}>
+          <View style={[st.ordem, n === 1 && st.ordemPrimeira]} accessibilityLabel={`${n}ª da rota`}><Text style={[st.ordemTxt, n === 1 && { color: '#fff' }]}>{n}</Text></View>
           <Text style={st.prot}>#{e.protocolo}</Text>
           <View style={[st.tag, coletou ? { backgroundColor: T.suave } : { backgroundColor: T.atencaoBg }]}>
             <Text style={[st.tagTxt, { color: coletou ? T.primario : T.atencaoTx }]}>{tag}</Text>
@@ -150,15 +151,10 @@ export default function GavetaCorridas({ online, ofertas = [], ativas = [], eu, 
         </View>
 
         <View style={st.acoes}>
-          {!!prox && prox.lat != null && (
-            <TouchableOpacity style={[st.ac, st.acPri]} activeOpacity={0.85}
-              onPress={() => abrirNavegacao({ lat: Number(prox.lat), lng: Number(prox.lng), label: prox.endereco })}>
-              <Icone nome="navegar" tam={15} cor="#fff" />
-              <Text style={[st.acTxt, { color: '#fff' }]} numberOfLines={1}>{coletou ? `Ir para a entrega ${proxIdx + 1}` : 'Ir para a coleta'}</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={st.ac} activeOpacity={0.85} onPress={abrir}>
-            <Text style={st.acTxt}>Abrir corrida</Text>
+          {/* 02/11/2026: saiu o "Ir para a coleta/entrega" (abria o mapa externo e repetia o
+              que a tela da corrida já faz). Fica só "Abrir corrida" e a conversa. */}
+          <TouchableOpacity style={[st.ac, st.acPri]} activeOpacity={0.85} onPress={abrir} accessibilityRole="button">
+            <Text style={[st.acTxt, { color: '#fff' }]}>Abrir corrida</Text>
           </TouchableOpacity>
           {chatAtivo && (
             <TouchableOpacity style={st.acIco} activeOpacity={0.85} accessibilityLabel="Falar com a central sobre esta corrida"
@@ -177,13 +173,13 @@ export default function GavetaCorridas({ online, ofertas = [], ativas = [], eu, 
       <View style={[st.gaveta, st.painel, { paddingTop: insetTopo + 10 }]}>
         <View style={st.painelTopo}>
           <Text style={st.painelTit}>Minhas corridas · {ativas.length}</Text>
-          <Text style={st.painelSub}>na ordem da rota</Text>
+          <Text style={st.painelSub} numberOfLines={1}>na ordem em que você vai fazer</Text>
           <View style={{ flex: 1 }} />
           <TouchableOpacity style={st.fechar} onPress={() => setGrupo(null)} accessibilityLabel="Fechar"><Icone nome="fechar" tam={18} cor={T.tinta2} /></TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 14, gap: 10 }} showsVerticalScrollIndicator={false}>
           {!ativas.length && <Text style={st.vazio}>Nenhuma corrida aceita.</Text>}
-          {ativas.map((e) => <Cartao key={e.id} e={e} />)}
+          {ativas.map((e, i) => <Cartao key={e.id} e={e} n={i + 1} />)}
           {ativas.length > 0 && (
             <TouchableOpacity style={st.btnRota} onPress={() => { setGrupo(null); router.push('/rota'); }} activeOpacity={0.85}>
               <Icone nome="mapa" tam={16} cor="#fff" /><Text style={st.btnRotaTxt}>Ver rota completa</Text>
@@ -256,7 +252,11 @@ const st = StyleSheet.create({
   ptFeito: { textDecorationLine: 'line-through', color: T.tinta3 },
   acoes: { flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' },
   ac: { flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: T.linha, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8 },
-  acPri: { backgroundColor: T.primario, borderColor: T.primario, flex: 1.3 },
+  acPri: { backgroundColor: T.primario, borderColor: T.primario, paddingVertical: 12 },
+  cardPrimeira: { borderColor: T.primario, borderWidth: 1.5 },
+  ordem: { width: 24, height: 24, borderRadius: 8, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center' },
+  ordemPrimeira: { backgroundColor: T.primario },
+  ordemTxt: { fontSize: 12.5, fontWeight: '900', color: T.primario },
   acTxt: { fontSize: 12.5, fontWeight: '800', color: T.primario },
   acIco: { width: 40, height: 40, borderRadius: 12, backgroundColor: T.suave, alignItems: 'center', justifyContent: 'center' },
   btnRota: { marginTop: 12, backgroundColor: T.primario, borderRadius: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },

@@ -53,8 +53,11 @@ export default function DeslizarParaConfirmar({ rotulo, rotuloOk, cor = T.ganho,
       style={[st.trilho, { backgroundColor: feito ? cor : corFundo, borderColor: feito ? cor : corBorda }]}>
       {!feito && <Animated.View style={[st.cheio, { backgroundColor: cor, width: larguraCheio }]} />}
       <Animated.View style={[st.rotuloBox, { opacity: feito ? 1 : opacidadeRotulo }]}>
-        <Text style={[st.rotulo, { color: feito ? '#fff' : (cor === T.ganho ? T.ganhoEsc : cor) }]}>{feito ? rotuloOk : rotulo}</Text>
-        {!feito && <View style={st.setas}>{[0, 1, 2].map((i) => <Icone key={i} nome="seta" tam={14} cor={corBorda} traco={2.6} style={{ marginLeft: -6 }} />)}</View>}
+        {/* Tela pequena (02/11/2026): o texto não pode cortar. Uma linha só, encolhe até 80%
+            se faltar espaço, e as setinhas somem quando o trilho é estreito. */}
+        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}
+          style={[st.rotulo, { color: feito ? '#fff' : (cor === T.ganho ? T.ganhoEsc : cor), flexShrink: 1 }]}>{feito ? rotuloOk : rotulo}</Text>
+        {!feito && largura >= 300 && <View style={st.setas}>{[0, 1, 2].map((i) => <Icone key={i} nome="seta" tam={14} cor={corBorda} traco={2.6} style={{ marginLeft: -6 }} />)}</View>}
       </Animated.View>
       {!feito && (
         <Animated.View {...pan.panHandlers} style={[st.bolha, { backgroundColor: cor, transform: [{ translateX: x }] }]}>
@@ -68,7 +71,7 @@ export default function DeslizarParaConfirmar({ rotulo, rotuloOk, cor = T.ganho,
 const st = StyleSheet.create({
   trilho: { height: ALTURA, borderRadius: ALTURA / 2, borderWidth: 2, overflow: 'hidden', justifyContent: 'center' },
   cheio: { position: 'absolute', left: 0, top: 0, bottom: 0, opacity: 0.14 },
-  rotuloBox: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingLeft: 40 },
+  rotuloBox: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingLeft: BOLHA + FOLGA * 2, paddingRight: 14 },
   rotulo: { fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
   setas: { marginLeft: 12, flexDirection: 'row', alignItems: 'center' },
   bolha: { position: 'absolute', left: FOLGA, top: FOLGA, width: BOLHA, height: BOLHA, borderRadius: BOLHA / 2, alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },

@@ -10,7 +10,9 @@ import Icone from './Icone';
 // antes (DURACAO): some sozinho, com a barra embaixo mostrando o tempo; o entregador pode
 // tocar em OK para dar ciência na hora, ou na ação ("Abrir", "Ver histórico"…) quando houver.
 // Avisos que chegam juntos entram numa fila e aparecem um depois do outro, nunca empilhados.
-// API inalterada: qualquer parte do app chama mostrarBanner({ tipo, titulo, sub, motivo?, rota?, acao? }).
+// API inalterada: qualquer parte do app chama mostrarBanner({ tipo, titulo, sub, motivo?, rota?, acao?, fixo? }).
+// `fixo` (02/11/2026, corrida atribuída): sem OK, sem tempo e sem fechar tocando fora — fica até
+// ele tocar na ação. Várias atribuídas na fila viram um aviso só ("3 corridas atribuídas").
 const TIPOS = {
   oferta:     { ico: 'moto', cor: T.vivo },
   atribuida:  { ico: 'caixa', cor: '#1f9d6b' },
@@ -42,8 +44,15 @@ export default function BannerHost() {
   useEffect(() => () => clearTimeout(timer.current), []);
 
   function proximo() {
-    const c = fila.current.shift();
+    let c = fila.current.shift();
     if (!c) { aberto.current = false; setCfg(null); return; }
+    if (c.fixo && c.tipo === 'atribuida') {
+      const mais = fila.current.filter((x) => x.fixo && x.tipo === 'atribuida');
+      if (mais.length) {
+        fila.current = fila.current.filter((x) => !(x.fixo && x.tipo === 'atribuida'));
+        c = { ...c, titulo: `${mais.length + 1} corridas atribuídas a você`, sub: 'Elas já estão em Minhas corridas, na ordem em que você vai fazer.', rota: '/home', acao: 'Abrir minhas corridas' };
+      }
+    }
     aberto.current = true;
     const dur = c.motivo ? COM_MOTIVO : DURACAO;
     setCfg(c);
@@ -52,8 +61,9 @@ export default function BannerHost() {
       Animated.timing(opac, { toValue: 1, duration: 180, useNativeDriver: true }),
       Animated.timing(escala, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start();
-    Animated.timing(prog, { toValue: 1, duration: dur, easing: Easing.linear, useNativeDriver: false }).start();
     clearTimeout(timer.current);
+    if (c.fixo) return;   // fica até ele tocar na ação
+    Animated.timing(prog, { toValue: 1, duration: dur, easing: Easing.linear, useNativeDriver: false }).start();
     timer.current = setTimeout(() => fechar(), dur);
   }
 
@@ -73,7 +83,7 @@ export default function BannerHost() {
 
   return (
     <Animated.View style={[st.scrim, { opacity: opac }]} accessibilityViewIsModal accessibilityLiveRegion="assertive">
-      <Pressable style={StyleSheet.absoluteFill} onPress={() => fechar()} accessibilityLabel="Fechar aviso" />
+      <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (!cfg.fixo) fechar(); }} accessibilityLabel={cfg.fixo ? undefined : 'Fechar aviso'} />
       <Animated.View style={[st.card, { transform: [{ scale: escala }] }]}>
         <View style={[st.ico, { backgroundColor: t.cor }]}><Icone nome={t.ico} tam={26} cor="#fff" traco={2.4} /></View>
         <Text style={st.tt}>{cfg.titulo}</Text>
@@ -82,9 +92,11 @@ export default function BannerHost() {
           <View style={st.motivo}><Text style={st.motivoRot}>Motivo</Text><Text style={st.motivoTx}>{cfg.motivo}</Text></View>
         )}
         <View style={st.bts}>
-          <TouchableOpacity style={[st.bt, !temAcao && st.btPri]} activeOpacity={0.85} onPress={() => fechar()} accessibilityRole="button">
-            <Text style={[st.btTx, !temAcao && st.btTxPri]}>OK</Text>
-          </TouchableOpacity>
+          {!(cfg.fixo && temAcao) && (
+            <TouchableOpacity style={[st.bt, !temAcao && st.btPri]} activeOpacity={0.85} onPress={() => fechar()} accessibilityRole="button">
+              <Text style={[st.btTx, !temAcao && st.btTxPri]}>OK</Text>
+            </TouchableOpacity>
+          )}
           {temAcao && (
             <TouchableOpacity style={[st.bt, st.btPri]} activeOpacity={0.85} accessibilityRole="button"
               onPress={() => { const r = cfg.rota; fechar(() => irPara(r)); }}>
@@ -92,8 +104,8 @@ export default function BannerHost() {
             </TouchableOpacity>
           )}
         </View>
-        <Text style={st.tempo}>fecha sozinho</Text>
-        <Animated.View style={[st.barra, { backgroundColor: t.cor, width: largura }]} />
+        {!cfg.fixo && <Text style={st.tempo}>fecha sozinho</Text>}
+        {!cfg.fixo && <Animated.View style={[st.barra, { backgroundColor: t.cor, width: largura }]} />}
       </Animated.View>
     </Animated.View>
   );

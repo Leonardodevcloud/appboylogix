@@ -156,23 +156,31 @@ export default function Home() {
           }
         } catch (e) {}
       }
-      // Ordem otimizada das corridas ativas (mesma rota do "Ver minha rota").
-      // Não bloqueia a tela: ordena assim que chegar; se falhar, mantém a ordem natural.
-      // Só pede a rota quando as corridas/pontos mudam (ou a cada 3 min): ela otimiza no
-      // ORS e, pedida a cada 30 s, deixava o servidor lento (18/10/2026).
+      // Ordem das corridas ativas. Desde 02/11/2026 o servidor já devolve a /app/fila na
+      // ordem em que ele vai fazer (`ordem_rota` na corrida e nos pontos), calculada sem API
+      // de rota — então a Início não pede mais a /minha-rota (duas chamadas ao ORS a cada
+      // mudança). Servidor antigo, sem `ordem_rota`: cai no jeito anterior.
       const ativasAgora = (entregas || []).filter(e => ['aguardando_coleta', 'em_coleta', 'em_rota'].includes(e.status));
-      const assin = ativasAgora.map(e => `${e.id}:${e.status}:${(e.pontos || []).filter(p => p.status !== 'entregue' && !p.finalizado_em).length}`).sort().join('|');
+      const servidorOrdena = ativasAgora.length > 0 && ativasAgora.every(e => e.ordem_rota != null);
       if (!ativasAgora.length) { rotaRef.current = { assin: '', em: 0 }; setOrdemRota([]); setOrdemPontos({}); }
-      else if (assin !== rotaRef.current.assin || Date.now() - rotaRef.current.em > 3 * 60 * 1000) {
-        rotaRef.current = { assin, em: Date.now() };
-        api.get('/motoboys/app/minha-rota').then(r => {
-          const ordem = []; const pts = {};
-          (r.paradas || []).forEach((p, i) => {
-            if (p.entrega_id && !ordem.includes(p.entrega_id)) ordem.push(p.entrega_id);
-            if (p.ponto_id) pts[String(p.ponto_id)] = i + 1;
-          });
-          setOrdemRota(ordem); setOrdemPontos(pts);
-        }).catch(() => { rotaRef.current.em = 0; });
+      else if (servidorOrdena) {
+        const ordem = [...ativasAgora].sort((a, b) => a.ordem_rota - b.ordem_rota).map(e => e.id);
+        const pts = {};
+        ativasAgora.forEach(e => (e.pontos || []).forEach(p => { if (p.ordem_rota != null) pts[String(p.id)] = p.ordem_rota; }));
+        setOrdemRota(ordem); setOrdemPontos(pts);
+      } else {
+        const assin = ativasAgora.map(e => `${e.id}:${e.status}:${(e.pontos || []).filter(p => p.status !== 'entregue' && !p.finalizado_em).length}`).sort().join('|');
+        if (assin !== rotaRef.current.assin || Date.now() - rotaRef.current.em > 3 * 60 * 1000) {
+          rotaRef.current = { assin, em: Date.now() };
+          api.get('/motoboys/app/minha-rota').then(r => {
+            const ordem = []; const pts = {};
+            (r.paradas || []).forEach((p, i) => {
+              if (p.entrega_id && !ordem.includes(p.entrega_id)) ordem.push(p.entrega_id);
+              if (p.ponto_id) pts[String(p.ponto_id)] = i + 1;
+            });
+            setOrdemRota(ordem); setOrdemPontos(pts);
+          }).catch(() => { rotaRef.current.em = 0; });
+        }
       }
       // Reconta ofertas em TODO refresh (foco ao voltar, pull-to-refresh, polling de 30s).
       // Sem isto o contador/banner "Disponíveis" ficava preso após aceitar — mostrava um

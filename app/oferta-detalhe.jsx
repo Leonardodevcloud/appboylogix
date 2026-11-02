@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, Linking, Platform,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, StatusBar, Linking, Platform, useWindowDimensions,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { api } from '../src/api';
@@ -8,8 +8,9 @@ import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
 import { T, reais, hora, km, curto } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import { abrirNavegacao } from '../src/state/navegacao';
+import { irParaInicio } from '../src/navegacao/abas';
 import Icone from '../src/componentes/Icone';
-import { aceitarCorrida, ehErroDeRede } from '../src/utils/aceitar';
+import { aceitarCorrida, ehErroDeRede, corridaDaVez } from '../src/utils/aceitar';
 import ValorDinamica from '../src/componentes/ValorDinamica';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PROPS_MAPA_LIMPO } from '../src/utils/estiloMapa';
@@ -25,6 +26,10 @@ try {
 
 export default function OfertaDetalhe() {
   const insetBaixo = useSafeAreaInsets().bottom;   // botões do Android no rodapé: o conteúdo fica acima deles
+  // Celular de tela baixa (02/11/2026): o topo grande empurrava a folha e o "Deslize para
+  // aceitar" ficava cortado. Abaixo de 720 de altura o topo fica compacto e o mapa menor;
+  // o meio rola e o deslizar continua sempre visível no rodapé.
+  const compacto = useWindowDimensions().height < 720;
   const params = useLocalSearchParams();
   // A notificação abria `?id=` e a tela lia `oferta_id` → GET /app/ofertas/undefined → "Formato de
   // valor inválido" (Onda 11b). Aceita os dois nomes.
@@ -66,10 +71,10 @@ export default function OfertaDetalhe() {
     try {
       await aceitarCorrida({ oferta_id: ofertaId, entrega_id: dados?.oferta?.entrega_id });
       setAceita(true);
-      // NÃO vai direto pra corrida: volta pro carrossel de ofertas pra ele poder
-      // aceitar outras sem refazer o caminho. Se não sobrar nenhuma, a tela de
-      // ofertas cai pra Home sozinha. A corrida aceita aparece em "A caminho".
-      setTimeout(() => router.replace('/ofertas'), 500);
+      // 02/11/2026: aceitou, vai direto para a tela da corrida que é a 1ª da ordem da rota.
+      // Outras corridas disponíveis continuam no "Disponíveis" da Início.
+      const entregaId = await corridaDaVez(dados?.oferta?.entrega_id);
+      setTimeout(() => { if (entregaId) router.replace({ pathname: '/corrida', params: { entrega_id: entregaId } }); else irParaInicio(); }, 300);
     } catch (e) {
       setAceitando(false);
       const conexao = ehErroDeRede(e);
@@ -120,7 +125,7 @@ export default function OfertaDetalhe() {
       <StatusBar barStyle="light-content" backgroundColor={T.profundo} />
 
       {/* Topo escuro: o que decide em 3 segundos */}
-      <View style={st.topo}>
+      <View style={[st.topo, compacto && st.topoC]}>
         <View style={st.topoLinha}>
           <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 64 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}><Icone nome="voltar" tam={18} cor={T.claro} traco={2.4} /><Text style={st.voltar}>Voltar</Text></View></TouchableOpacity>
           <Text style={st.rotulo}>Nova corrida para você</Text>
@@ -128,14 +133,14 @@ export default function OfertaDetalhe() {
         </View>
         {temValor ? (
           <>
-            <Text style={st.grana}>{reais(oferta.valor_motoboy_cent)}</Text>
+            <Text style={[st.grana, compacto && st.granaC]}>{reais(oferta.valor_motoboy_cent)}</Text>
             <Text style={st.granaSub}>você recebe</Text>
             <ValorDinamica totalCent={oferta.valor_motoboy_cent} dinamicaCent={oferta.dinamica_motoboy_cent} nome={oferta.dinamica_nome} alinhar="left" claro style={{ fontSize: 13, marginTop: 4 }} />
           </>
         ) : <Text style={[st.grana, { fontSize: 30 }]}>Serviço {oferta.protocolo}</Text>}
         <Text style={st.quem} numberOfLines={1}>{oferta.cliente_nome || oferta.coleta_nome || 'Cliente'}{oferta.cliente_razao && oferta.cliente_razao !== oferta.cliente_nome ? ` · ${oferta.cliente_razao}` : ''}</Text>
         <Text style={st.quemSub}>serviço {oferta.protocolo}{oferta.pedido ? ` · pedido ${oferta.pedido}` : ''}{oferta.prazo_em ? ` · entregar até ${hora(oferta.prazo_em)}` : ''}{oferta.tempo_estimado_min != null ? ` · ~${oferta.tempo_estimado_min} min` : ''}</Text>
-        <View style={st.fatos}>
+        <View style={[st.fatos, compacto && st.fatosC]}>
           {!!ateColeta && <View style={st.fato}><Text style={st.fatoB}>{ateColeta}</Text><Text style={st.fatoL}>até a coleta</Text></View>}
           {!!rotaKm && <View style={st.fato}><Text style={st.fatoB}>{rotaKm}</Text><Text style={st.fatoL}>de rota</Text></View>}
           <View style={st.fato}><Text style={st.fatoB}>{totalDest}</Text><Text style={st.fatoL}>{totalDest === 1 ? 'entrega' : 'entregas'}</Text></View>
@@ -146,7 +151,7 @@ export default function OfertaDetalhe() {
       <View style={st.folha}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
           {mostrarMapa && mapaDisponivel && regiao && (
-            <MapView {...PROPS_MAPA_LIMPO} style={st.mapa} provider={PROVIDER_DEFAULT} initialRegion={regiao} mapType="standard" onMapReady={() => setMapaPronto(true)} rotateEnabled={false} pitchEnabled={false}>
+            <MapView {...PROPS_MAPA_LIMPO} style={[st.mapa, compacto && st.mapaC]} provider={PROVIDER_DEFAULT} initialRegion={regiao} mapType="standard" onMapReady={() => setMapaPronto(true)} rotateEnabled={false} pitchEnabled={false}>
               {rotaOrs.length > 1 && <Polyline coordinates={rotaOrs} strokeColor={T.primario} strokeWidth={5} zIndex={3} />}
               {rotaOrs.length <= 1 && temColetaGeo && pontosGeo.length > 0 && (
                 <Polyline coordinates={[{ latitude: coleta.lat, longitude: coleta.lng }, ...pontosGeo.map(p => ({ latitude: p.lat, longitude: p.lng }))]} strokeColor={T.primario} strokeWidth={4} lineDashPattern={[8, 6]} zIndex={3} />
@@ -189,8 +194,8 @@ export default function OfertaDetalhe() {
               confundia com aceitar. O mapa acima já mostra onde é. */}
         </ScrollView>
 
-        <View style={[st.decisao, { paddingBottom: Math.max(26, 12 + insetBaixo) }]}>
-          <DeslizarParaConfirmar rotulo={temValor ? `Deslize para aceitar · ${reais(oferta.valor_motoboy_cent)}` : 'Deslize para aceitar'} rotuloOk="Corrida aceita" ocupado={aceitando} feito={aceita} onConfirmar={aceitar} />
+        <View style={[st.decisao, { paddingBottom: Math.max(compacto ? 14 : 26, 12 + insetBaixo) }]}>
+          <DeslizarParaConfirmar rotulo="Deslize para aceitar" rotuloOk="Corrida aceita" ocupado={aceitando} feito={aceita} onConfirmar={aceitar} />
           <TouchableOpacity onPress={recusar} disabled={aceitando || aceita} style={st.recusa} activeOpacity={0.7}>
             <Text style={st.recusaTxt}>Não posso agora · <Text style={{ color: T.alerta }}>recusar</Text></Text>
           </TouchableOpacity>
@@ -212,6 +217,10 @@ const st = StyleSheet.create({
   quem: { color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 10 },
   quemSub: { color: T.claro, fontSize: 13, fontWeight: '600', marginTop: 2 },
   fatos: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  topoC: { paddingTop: 36, paddingHorizontal: 18, paddingBottom: 12 },
+  granaC: { fontSize: 40, lineHeight: 44 },
+  fatosC: { marginTop: 10 },
+  mapaC: { height: 130, marginBottom: 10 },
   fato: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 },
   fatoB: { color: '#fff', fontSize: 18, fontWeight: '800' },
   fatoL: { color: T.claro, fontSize: 12, fontWeight: '600' },

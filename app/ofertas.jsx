@@ -9,9 +9,9 @@ import { api, getToken } from '../src/api';
 import { alertaCorrida, pararAlerta } from '../src/utils/alerta';
 import CartaoCorrida from '../src/componentes/CartaoCorrida';
 import MapaCorrida from '../src/componentes/MapaCorrida';
-import { aceitarCorrida, ehErroDeRede } from '../src/utils/aceitar';
+import { aceitarCorrida, ehErroDeRede, corridaDaVez } from '../src/utils/aceitar';
 import DeslizarParaConfirmar from '../src/componentes/DeslizarParaConfirmar';
-import { T, reais } from '../src/tema';
+import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,11 +44,11 @@ export default function Ofertas() {
   }
 
   // Remove uma oferta da pilha (aceita/recusada/encerrada) e, se esvaziar, volta pra home.
-  function removerOferta(ofertaId) {
+  function removerOferta(ofertaId, { ficar = false } = {}) {
     setOfertas(prev => {
       const nova = prev.filter(o => o.oferta_id !== ofertaId);
       qtdAnterior.current = nova.length;
-      if (!nova.length) setTimeout(() => irParaInicio(), 350);
+      if (!nova.length && !ficar) setTimeout(() => irParaInicio(), 350);
       else setIndice(i => Math.min(i, nova.length - 1));
       return nova;
     });
@@ -59,10 +59,14 @@ export default function Ofertas() {
     setAceitandoId(o.oferta_id);
     try {
       await aceitarCorrida(o);
-      // NÃO redireciona pra corrida: marca como aceita e deixa o motoboy seguir
-      // deslizando/aceitando outras. A corrida aceita aparece na Home ("A caminho").
+      // 02/11/2026: aceitou, vai direto para a tela da corrida que é a 1ª da ordem da rota.
+      // As outras corridas disponíveis continuam no "Disponíveis" da Início.
       setAceitaIds(prev => [...prev, o.oferta_id]);
-      setTimeout(() => { setAceitandoId(null); removerOferta(o.oferta_id); }, 650);
+      const entregaId = await corridaDaVez(o.entrega_id);
+      setTimeout(() => {
+        setAceitandoId(null); removerOferta(o.oferta_id, { ficar: true });
+        if (entregaId) router.replace({ pathname: '/corrida', params: { entrega_id: entregaId } }); else irParaInicio();
+      }, 400);
     } catch (e) {
       setAceitandoId(null);
       const conexao = ehErroDeRede(e);
@@ -145,7 +149,6 @@ export default function Ofertas() {
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={onScroll}
             renderItem={({ item: o }) => {
-              const temValor = Number(o.valor_motoboy_cent) > 0;
               const aceita = aceitaIds.includes(o.oferta_id);
               return (
                 <View style={{ width }}>
@@ -156,7 +159,7 @@ export default function Ofertas() {
                       onPress={() => router.push('/oferta-detalhe?oferta_id=' + o.oferta_id)} />
                     <View style={st.decisao}>
                       <DeslizarParaConfirmar
-                        rotulo={temValor ? `Deslize para aceitar · ${reais(o.valor_motoboy_cent)}` : 'Deslize para aceitar'}
+                        rotulo="Deslize para aceitar"
                         rotuloOk="Corrida aceita"
                         ocupado={aceitandoId === o.oferta_id}
                         feito={aceita}

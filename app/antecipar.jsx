@@ -397,7 +397,7 @@ export default function Antecipar() {
                 >
                   {enviando
                     ? <ActivityIndicator color="#fff" />
-                    : <Text style={st.botaoTx}>{sim && sim.pode ? `Solicitar · recebo ${reais(sim.recebe_cent)}` : 'Solicitar'}</Text>}
+                    : <Text style={st.botaoTx}>Solicitar</Text>}
                 </TouchableOpacity>
 
                 <Text style={st.rodape}>
