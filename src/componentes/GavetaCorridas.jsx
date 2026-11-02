@@ -240,7 +240,7 @@ const st = StyleSheet.create({
   vazio: { textAlign: 'center', color: T.tinta3, fontWeight: '600', marginTop: 24 },
   card: { borderWidth: 1, borderColor: T.linha, borderRadius: 16, padding: 12, backgroundColor: T.sup },
   cardTopo: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  prot: { fontSize: 11.5, fontWeight: '800', color: T.tinta2 },
+  prot: { fontSize: 16, fontWeight: '900', color: T.tinta, letterSpacing: 0.2 },   // protocolo maior (02/11/2026)
   valor: { fontSize: 16, fontWeight: '900', color: T.ganhoEsc },
   cliente: { fontSize: 15, fontWeight: '800', color: T.tinta, marginTop: 6 },
   trilho: { marginTop: 8, gap: 7 },
