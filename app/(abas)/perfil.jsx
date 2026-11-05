@@ -207,6 +207,7 @@ export default function Perfil() {
         <Text style={st.secLbl}>Suporte</Text>
         <View style={st.menu}>
           <Item ico="ajuda" tt="Ajuda e suporte" breve />
+          <Item ico="documento" tt="Termo de uso" sub="O termo que você aceitou" onPress={() => router.push('/termo')} />
           <View style={[st.item, { borderBottomWidth: 0 }]}>
             <View style={st.itIco}><Icone nome="info" tam={17} cor={C.azulP} /></View>
             <View style={{ flex: 1 }}>

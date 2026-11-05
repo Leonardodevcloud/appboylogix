@@ -24,6 +24,7 @@ import { assinarFila } from '../../src/state/filaConclusao';
 import Icone from '../../src/componentes/Icone';
 import { zonasDeDemanda, zonasPerto } from '../../src/utils/zonasDemanda';
 import { abrirNavegacao } from '../../src/state/navegacao';
+import { conferirTermo, abrirAceiteSePendente } from '../../src/utils/termo';
 const NIVEL_DEMANDA = { alta: 'Alta demanda', media: 'Demanda média', baixa: 'Pouca demanda' };
 const COR_DEMANDA = { alta: '#c9352b', media: '#e8562a', baixa: '#e6962a' };
 const kmTexto = (km) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`);
@@ -211,6 +212,9 @@ export default function Home() {
       const destino = consumirDestino();
       if (destino) setTimeout(() => router.push(destino), 250);
       carregar();
+      // Termo de uso: versão nova pedindo re-aceite → tela de aceite (uma vez por abertura;
+      // servidor antigo sem a rota é ignorado).
+      conferirTermo();
       // Registra/atualiza o token de push deste aparelho (nao bloqueia a tela).
       registrarPush().catch(() => {});
       // Canal de alertas em tempo real (som+vibracao a prova de MIUI).
@@ -228,6 +232,7 @@ export default function Home() {
     const subApp = AppState.addEventListener('change', async (estado) => {
       if (estado !== 'active') return;
       carregar();
+      conferirTermo();
       try {
         const me = await api.get('/motoboys/app/eu').catch(() => null);
         if (me && me.online) {
@@ -320,7 +325,8 @@ export default function Home() {
   }, []);
 
   // Ao voltar o foco para a home (ex.: vindo do perfil), re-sincroniza os dados.
-  useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
+  // Re-aceite do termo que ficou para depois (ele estava numa corrida quando voltou do fundo).
+  useFocusEffect(useCallback(() => { carregar(); abrirAceiteSePendente(true); }, [carregar]));
 
   async function toggleOnline(val) {
     // Localização "o tempo todo" é OBRIGATÓRIA para ficar online. Sem ela, o app

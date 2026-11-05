@@ -9,6 +9,7 @@ import { api } from '../src/api';
 import { uploadDireto } from '../src/api/upload';
 import { T } from '../src/tema';
 import { Alerta } from '../src/utils/avisar';
+import { so, mascararTelefone, erroTelefone, telefoneParaEnvio } from '../src/utils/validarPessoa';
 import Icone from '../src/componentes/Icone';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -50,13 +51,23 @@ const DOC_ST = {
   pendente: { txt: 'pendente', s: [C.atenBg, C.aten] },
 };
 
-function Campo({ label, ...props }) {
+function Campo({ label, erro, ...props }) {
   return (
     <View style={{ marginBottom: 11 }}>
       <Text style={st.label}>{label}</Text>
-      <TextInput style={st.input} placeholderTextColor={C.tinta3} {...props} />
+      <TextInput style={[st.input, !!erro && st.inputErro]} placeholderTextColor={C.tinta3} {...props} />
+      {!!erro && <Text style={st.erroTxt} accessibilityLiveRegion="polite">{erro}</Text>}
     </View>
   );
+}
+
+// Erro de cada telefone (null = ok). O principal é obrigatório; o de emergência, se vier, tem
+// de ser válido. Mesmas regras do cadastro e do servidor (src/utils/validarPessoa.js).
+function errosTelefones(f) {
+  return {
+    telefone_principal: !so(f.telefone_principal) ? 'Informe o telefone' : erroTelefone(f.telefone_principal),
+    telefone_emergencia: erroTelefone(f.telefone_emergencia),
+  };
 }
 
 export default function MeusDados() {
@@ -69,13 +80,18 @@ export default function MeusDados() {
   const [enviandoDoc, setEnviandoDoc] = useState(null);
   const [f, setF] = useState({});
   const set = (k, v) => setF(s => ({ ...s, [k]: v }));
+  // Erro embaixo do telefone: aparece ao sair do campo (ou ao salvar) e some quando fica certo.
+  const [tocado, setTocado] = useState({});
+  const tocar = (k) => setTocado(t => (t[k] ? t : { ...t, [k]: true }));
+  const errosTel = errosTelefones(f);
+  const erroTel = (k) => (tocado[k] ? errosTel[k] : null);
 
   const carregar = useCallback(async () => {
     try {
       const perfil = await api.perfil();
       setP(perfil);
       setF({
-        telefone_principal: perfil.telefone_principal || '', telefone_emergencia: perfil.telefone_emergencia || '',
+        telefone_principal: mascararTelefone(perfil.telefone_principal || ''), telefone_emergencia: mascararTelefone(perfil.telefone_emergencia || ''),
         cep: perfil.cep || '', logradouro: perfil.logradouro || '', numero: perfil.numero || '',
         complemento: perfil.complemento || '', bairro: perfil.bairro || '', cidade: perfil.cidade || '', estado: perfil.estado || '',
       });
@@ -87,8 +103,11 @@ export default function MeusDados() {
   useFocusEffect(useCallback(() => { carregar(); }, [carregar]));
 
   async function salvarPessoal() {
+    setTocado({ telefone_principal: true, telefone_emergencia: true });
+    const e = errosTelefones(f);
+    if (e.telefone_principal || e.telefone_emergencia) return;
     setSalvando(true);
-    const payload = { telefone_principal: f.telefone_principal, telefone_emergencia: f.telefone_emergencia };
+    const payload = { telefone_principal: telefoneParaEnvio(f.telefone_principal), telefone_emergencia: telefoneParaEnvio(f.telefone_emergencia) };
     try { await api.atualizarMeusDados(payload); setEditPessoal(false); await carregar(); }
     catch (e) {
       const conexao = /sem conex|network|tempo|timeout/i.test(e?.message || '') || e?.status >= 500;
@@ -163,16 +182,18 @@ export default function MeusDados() {
               </>
             ) : (
               <View style={{ paddingTop: 6 }}>
-                <Campo label="Telefone (WhatsApp)" value={f.telefone_principal} onChangeText={t => set('telefone_principal', t)} keyboardType="phone-pad" />
-                <Campo label="Telefone de emergência" value={f.telefone_emergencia} onChangeText={t => set('telefone_emergencia', t)} keyboardType="phone-pad" />
+                <Campo label="Telefone (WhatsApp)" value={f.telefone_principal} onChangeText={t => set('telefone_principal', mascararTelefone(t))}
+                  onBlur={() => tocar('telefone_principal')} erro={erroTel('telefone_principal')} keyboardType="phone-pad" placeholder="(71) 99876-5432" maxLength={15} />
+                <Campo label="Telefone de emergência" value={f.telefone_emergencia} onChangeText={t => set('telefone_emergencia', mascararTelefone(t))}
+                  onBlur={() => tocar('telefone_emergencia')} erro={erroTel('telefone_emergencia')} keyboardType="phone-pad" placeholder="(71) 99876-5432" maxLength={15} />
               </View>
             )}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><Icone nome="cadeado" tam={11} cor={C.tinta3} style={{ marginTop: 6 }} /><Text style={st.lockNota}>Nome, CPF e nascimento só a central altera.</Text></View>
           {!editPessoal
-            ? <TouchableOpacity style={st.editaBtn} onPress={() => setEditPessoal(true)}><Text style={st.editaTxt}>Editar telefones</Text></TouchableOpacity>
+            ? <TouchableOpacity style={st.editaBtn} onPress={() => { setTocado({}); setEditPessoal(true); }}><Text style={st.editaTxt}>Editar telefones</Text></TouchableOpacity>
             : <View style={st.edRow}>
-                <TouchableOpacity style={[st.editaBtn, st.editaSec]} onPress={() => { setEditPessoal(false); carregar(); }}><Text style={[st.editaTxt, { color: C.tinta2 }]}>Cancelar</Text></TouchableOpacity>
+                <TouchableOpacity style={[st.editaBtn, st.editaSec]} onPress={() => { setEditPessoal(false); setTocado({}); carregar(); }}><Text style={[st.editaTxt, { color: C.tinta2 }]}>Cancelar</Text></TouchableOpacity>
                 <TouchableOpacity style={[st.editaBtn, st.editaPri, salvando && { opacity: 0.6 }]} onPress={salvarPessoal} disabled={salvando}>{salvando ? <ActivityIndicator color="#fff" /> : <Text style={[st.editaTxt, { color: '#fff' }]}>Salvar</Text>}</TouchableOpacity>
               </View>}
 
@@ -265,6 +286,8 @@ const st = StyleSheet.create({
 
   label: { fontSize: 12, fontWeight: '700', color: C.tinta2, marginBottom: 6 },
   input: { backgroundColor: C.sup2, borderWidth: 1, borderColor: C.linha, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 11, fontSize: 14.5, color: C.tinta },
+  inputErro: { borderColor: '#d0584f', borderWidth: 1.5 },
+  erroTxt: { fontSize: 12, color: '#b23b32', fontWeight: '600', marginTop: 5, lineHeight: 16 },
 
   editaBtn: { marginTop: 10, backgroundColor: '#eaf3fc', borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
   editaTxt: { color: C.azulP, fontWeight: '800', fontSize: 12.5 },

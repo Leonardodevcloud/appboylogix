@@ -139,6 +139,20 @@ export const api = {
   async meuCadastro() {
     return this.get('/motoboys/app/meu-cadastro');
   },
+  // Cidade onde vai trabalhar (cadastro aguardando a região) — autenticado. Devolve o mesmo
+  // formato do meu-cadastro.
+  async minhaRegiao(codigo) {
+    return this.patch('/motoboys/app/minha-regiao', { regiao_municipio: Number(codigo) });
+  },
+
+  // ── Termo de uso ──
+  // Público (antes do login), pela empresa do app. 404 = a empresa não publicou termo.
+  async termoPublico(slug) {
+    return this.get('/motoboys/cadastro/termo/' + encodeURIComponent(slug || EMPRESA_SLUG));
+  },
+  // Logado: { termo, aceite, precisa_aceitar }.
+  async termoApp() { return this.get('/motoboys/app/termo'); },
+  async aceitarTermo(versao) { return this.post('/motoboys/app/termo/aceitar', { versao }); },
 
   // ── Ofertas ──
   async ofertaAtiva() { return this.get('/motoboys/app/oferta-ativa'); },
