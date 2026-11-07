@@ -14,6 +14,7 @@ import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, EMPRESA_NOME } from '../src/api';
 import { T } from '../src/tema';
+import TermoFormatado from '../src/componentes/TermoFormatado';
 import { Alerta } from '../src/utils/avisar';
 import { dataBR, horaBR, termoAceito } from '../src/utils/termo';
 import Icone from '../src/componentes/Icone';
@@ -182,7 +183,7 @@ export default function Termo() {
             </View>
           ) : (
             <ScrollView style={st.cartao} contentContainerStyle={{ padding: 16 }}>
-              <Text style={st.texto} selectable>{termo.texto || ''}</Text>
+              <TermoFormatado termo={termo} />
             </ScrollView>
           )}
 
