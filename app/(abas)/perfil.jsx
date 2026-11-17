@@ -12,6 +12,7 @@ import { T } from '../../src/tema';
 import { Alerta } from '../../src/utils/avisar';
 import { itensDaFila } from '../../src/state/filaConclusao';
 import { assinarNavegacao, escolherNavegacao, APPS } from '../../src/state/navegacao';
+import { assinarComunicados } from '../../src/state/comunicados';
 import Icone from '../../src/componentes/Icone';
 
 const VERSAO_APP = Constants.expoConfig?.version || '?';
@@ -81,6 +82,9 @@ export default function Perfil() {
   const [refresh, setRef] = useState(false);
   const [nav, setNav] = useState(null);       // Waze ou Google Maps escolhido (ou perguntar)
   useEffect(() => assinarNavegacao(setNav), []);
+  // Comunicados da central: o item some se a central não tem o módulo; o número é o que falta confirmar.
+  const [com, setCom] = useState({ pendentes: [], disponivel: null });
+  useEffect(() => assinarComunicados(setCom), []);
 
   const carregar = useCallback(async () => {
     try { const perfil = await api.perfil(); setP(perfil); if (perfil) setOn(!!perfil.online); }
@@ -191,6 +195,9 @@ export default function Perfil() {
         <Text style={st.secLbl}>Operação</Text>
         <View style={st.menu}>
           <Item ico="sinal" tt="Rastreamento sempre ativo" sub="Evita que o celular bloqueie o app" badge="ação" onPress={() => router.push('/rastreamento-ativo')} />
+          {com.disponivel !== false && (
+            <Item ico="megafone" tt="Comunicados" sub="Avisos da central" badge={com.pendentes.length ? String(com.pendentes.length) : null} onPress={() => router.push('/comunicados')} />
+          )}
           <Item ico="sino" tt="Notificações e som" sub="Alerta, vibração e som de corrida" onPress={() => router.push('/notificacoes')} />
           <Item ico="mapa" imagem={nav ? LOGO_NAV[nav] : null} tt="Navegação" sub={nav ? `${APPS[nav].nome} · toque para trocar` : 'Pergunta qual app abrir a cada rota'} onPress={escolherNavegacao} />
         </View>

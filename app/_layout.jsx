@@ -10,6 +10,8 @@ import AvisoHost from '../src/componentes/AvisoHost';
 import ErroBoundary from '../src/componentes/ErroBoundary';
 import BannerHost from '../src/componentes/BannerHost';
 import SheetNavegacao from '../src/componentes/SheetNavegacao';
+import ComunicadoHost from '../src/componentes/ComunicadoHost';
+import { conferirComunicados } from '../src/state/comunicados';
 import { carregarPrefs } from '../src/state/prefsAlerta';
 import { carregarNavegacao } from '../src/state/navegacao';
 import { iniciarFilaConclusao, aoDescartarConclusao } from '../src/state/filaConclusao';
@@ -36,6 +38,11 @@ function navegarPorNotificacao(dados) {
     case 'acerto':
       // "Acerto pago": abre o comprovante (ADR-049 do backend).
       irPara(dados.fechamentoId ? '/comprovante?id=' + dados.fechamentoId : '/ganhos?aba=acertos');
+      break;
+    case 'comunicado':
+      // Comunicado da central: vai para o início e o modal abre por cima.
+      conferirComunicados();
+      irPara('/home');
       break;
     case 'atribuida':
     case 'atribuida_lote':
@@ -71,6 +78,7 @@ export default function Layout() {
       if (dados.tipo === 'oferta' && dados.ofertaId) anotarDestino('/oferta-detalhe?oferta_id=' + dados.ofertaId);
       else if (dados.tipo === 'chat' && dados.entregaId) anotarDestino('/chat?entregaId=' + dados.entregaId);
       else if (dados.tipo === 'antecipacao') anotarDestino(dados.status === 'processando' ? '/antecipar' : '/antecipar?aba=historico');
+      // Comunicado: nada a anotar — a Home confere os pendentes ao abrir e o modal aparece.
       else if (dados.tipo === 'acerto') anotarDestino(dados.fechamentoId ? '/comprovante?id=' + dados.fechamentoId : '/ganhos?aba=acertos');
     });
     // App ja aberto: toque na notificacao.
@@ -90,6 +98,8 @@ export default function Layout() {
       <BannerHost />
       {/* Folha "Abrir a rota com" (Waze ou Google Maps). */}
       <SheetNavegacao />
+      {/* Comunicados da central: modal ao entrar no app (nunca por cima de uma corrida). */}
+      <ComunicadoHost />
     </ErroBoundary>
   );
 }

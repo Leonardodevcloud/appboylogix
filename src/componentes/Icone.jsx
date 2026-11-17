@@ -80,6 +80,7 @@ export const ICONES = {
   entrada: [P('M12 19V5'), P('M5 12l7-7 7 7')],
   saida: [P('M12 5v14'), P('M19 12l-7 7-7-7')],
   lista: [P('M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01')],
+  megafone: [P('M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z'), P('M16.5 9a4 4 0 0 1 0 6'), P('M19 6.5a8 8 0 0 1 0 11')],
 };
 
 export default function Icone({ nome, tam = 16, cor = T.tinta, traco = 2, style }) {

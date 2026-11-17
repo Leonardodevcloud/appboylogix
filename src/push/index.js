@@ -14,6 +14,7 @@ import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
 import { api, getToken, API_URL } from '../api';
 import { alertaCorrida } from '../utils/alerta';
+import { conferirComunicados } from '../state/comunicados';
 import { T } from '../tema';
 import marca from '../../marca.config';
 import * as TaskManager from 'expo-task-manager';
@@ -34,6 +35,8 @@ try {
 // Canal de notificação. IMPORTANTE: as configs de um canal travam após a 1a
 // criação no Android — se precisar mudar som/vibração, troque o ID (sufixo _vN).
 const CANAL_ID = 'corridas_v4';
+const CANAL_AVISOS = 'avisos_v1';
+const canaisCriados = new Set();
 
 // Foreground: quando o app esta aberto, ainda assim exibe banner + toca som.
 export function configurarNotificacoes() {
@@ -74,6 +77,22 @@ export async function criarCanalAndroid() {
   } catch (e) {
     console.log('[push] canal android:', e?.message);
   }
+  // Canal dos comunicados da central: som padrão do celular, sem o alarme de corrida e sem
+  // pop-up insistente. Só entra em CANAIS_DO_APARELHO se foi criado: o servidor usa o canal
+  // apenas nos aparelhos que o declaram (canal inexistente = notificação que não aparece).
+  try {
+    await Notifications.setNotificationChannelAsync(CANAL_AVISOS, {
+      name: 'Comunicados',
+      importance: Notifications.AndroidImportance.DEFAULT,
+      vibrationPattern: [0, 200],
+      lightColor: T.primario,
+      enableVibrate: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+    canaisCriados.add(CANAL_AVISOS);
+  } catch (e) {
+    console.log('[push] canal de comunicados:', e?.message);
+  }
 }
 
 // Pede permissao e devolve o ExpoPushToken (string) ou null.
@@ -111,6 +130,8 @@ export async function registrarPush() {
     await api.post('/motoboys/app/push/registrar', {
       token,
       plataforma: Platform.OS,
+      // Canais que este aparelho já tem (servidor antigo ignora o campo).
+      canais: [CANAL_ID, ...canaisCriados],
     });
     // Guarda para conseguir descadastrar no logout.
     globalThis.__lxPushToken = token;
@@ -176,6 +197,8 @@ export function aoReceberNotificacao() {
     // Push silencioso de "acordar o GPS": quem trata é a task de fundo (roda também com o
     // app aberto). Aqui só não toca o som de corrida.
     if (ehAcordarGps(dados) || ehAcordarGps(n?.request?.trigger)) return;
+    // Comunicado da central: não é corrida — sem o alarme. Só busca o aviso para o modal abrir.
+    if (dados.tipo === 'comunicado') { conferirComunicados(); return; }
     try { alertaCorrida(); } catch {}
   });
   return () => sub.remove();

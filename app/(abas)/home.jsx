@@ -12,6 +12,7 @@ import { garantirLocalizacaoSempre, temLocalizacaoSempre } from '../../src/utils
 import { garantirUpdatesBackground, pararUpdatesBackground } from '../../src/tasks/gpsTask';
 import { setOnline, assinarOnline } from '../../src/state/online';
 import { consumirDestino, marcarOfertaAberta, ofertaJaAberta } from '../../src/state/navegacaoPendente';
+import { conferirComunicados } from '../../src/state/comunicados';
 import { registrarPush } from '../../src/push';
 import { iniciarAlertasTempoReal } from '../../src/realtime/alertas';
 import { T } from '../../src/tema';
@@ -212,6 +213,8 @@ export default function Home() {
       const destino = consumirDestino();
       if (destino) setTimeout(() => router.push(destino), 250);
       carregar();
+      // Comunicados da central que este entregador ainda não confirmou (o modal abre sozinho).
+      conferirComunicados();
       // Termo de uso: versão nova pedindo re-aceite → tela de aceite (uma vez por abertura;
       // servidor antigo sem a rota é ignorado).
       conferirTermo();
