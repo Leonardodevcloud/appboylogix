@@ -46,12 +46,11 @@ import { Alerta } from '../src/utils/avisar';
 import Icone from '../src/componentes/Icone';
 import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { centavosDoTexto, campoDeCentavos } from '../src/utils/dinheiro';
 
-const centavos = (texto) => {
-  const n = Math.round(Number(String(texto).replace(/[^\d,]/g, '').replace(',', '.')) * 100);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-};
-const paraCampo = (cent) => (cent ? (cent / 100).toFixed(2).replace('.', ',') : '');
+// Conversão do valor digitado: src/utils/dinheiro.js (testado em test/dinheiro.test.mjs).
+const centavos = centavosDoTexto;
+const paraCampo = campoDeCentavos;
 const dataHora = (iso) => {
   try {
     const d = new Date(iso);

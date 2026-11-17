@@ -1,0 +1,65 @@
+# CI do app do entregador. Até 17/11/2026 o app não tinha teste, lint nem CI: o erro só
+# aparecia no aparelho do entregador. Três portões, em todo PR e em todo push na main:
+#   checagens  lint (só regra de correção) + testes (node --test, sem dependência nova)
+#   pacote     monta o pacote Android como o `eas update` monta — importação quebrada reprova
+#   segredos   gitleaks nos commits novos
+# O contrato app ↔ API é conferido no repositório do Logix
+# (`node scripts/checar-contrato-api.js --app ../appboylogix`, regra 30 do AGENTS de lá).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checagens:
+    name: Checagens (lint · testes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Testes
+        run: npm test
+
+  pacote:
+    name: Pacote Android monta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Monta o pacote (mesmo passo do eas update)
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/pacote"
+
+  # Só os commits NOVOS. Os arquivos que já carregam chave de propósito estão em
+  # .gitleaks.toml, com o motivo.
+  segredos:
+    name: Segredos (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Varredura de segredos nos commits novos
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.18.4 detect \
+            --source /repo --config /repo/.gitleaks.toml --no-banner --redact --log-opts="$BASE..HEAD"

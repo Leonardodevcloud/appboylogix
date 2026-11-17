@@ -8,7 +8,10 @@
     "ios": "expo start --ios",
     "eas-build-pre-install": "node scripts/set-marca.js",
     "marca": "node scripts/set-marca.js",
-    "update": "node scripts/publicar-update.js"
+    "update": "node scripts/publicar-update.js",
+    "lint": "eslint app src --max-warnings 0",
+    "test": "node --test \"test/*.test.*\"",
+    "check": "npm run lint && npm test"
   },
   "dependencies": {
     "@react-navigation/native": "^7.0.0",
@@ -44,6 +47,8 @@
     "react-native-view-shot": "4.0.3"
   },
   "devDependencies": {
-    "@babel/core": "^7.24.0"
+    "@babel/core": "^7.24.0",
+    "eslint": "^9.39.0",
+    "eslint-plugin-react-hooks": "^5.2.0"
   }
 }

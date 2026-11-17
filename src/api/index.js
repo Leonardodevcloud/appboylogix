@@ -1,7 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
 import marca from '../../marca.config';
+import { API_URL } from '../config';
 
-export const API_URL = 'https://logix-production-61ae.up.railway.app/api/v1';
+// Reexportado para quem já importa daqui; o endereço mora em src/config.js.
+export { API_URL };
 
 // Identidade da empresa (white-label) — definida em marca.config.js (1 arquivo por cliente).
 export const EMPRESA_SLUG = marca.slug;

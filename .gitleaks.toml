@@ -1,0 +1,16 @@
+# Varredura de segredos (job `segredos` do CI). Regras padrão do gitleaks + exceções abaixo.
+# Entrar na lista é decisão registrada, com motivo — nunca um atalho para o CI passar.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Arquivos que carregam chave do Google de propósito"
+paths = [
+  # Vai dentro de todo APK (o Firebase exige): não é segredo, é identificador do app.
+  # A proteção é a restrição da chave por pacote + SHA-1 no console do Google.
+  '''(^|/)google-services\.json$''',
+  # Chave do Google Maps do SDK Android: também embutida no APK, restrita por pacote + SHA-1.
+  '''^app\.json$''',
+  # Hashes de integridade de pacote, não credenciais.
+  '''^package-lock\.json$''',
+]

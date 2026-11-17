@@ -3,10 +3,9 @@ import * as SecureStore from 'expo-secure-store';
 import * as Location from 'expo-location';
 import { T } from '../tema';
 import marca from '../../marca.config';
-
-// URL do backend (duplicada de propósito para NÃO importar de ../api e evitar
-// dependência circular: api → gpsTask → api).
-const API_URL = 'https://logix-production-61ae.up.railway.app/api/v1';
+// Endereço da API: de src/config.js (que não importa nada), e NÃO de ../api — evita a
+// dependência circular api → gpsTask → api sem duplicar o endereço.
+import { API_URL } from '../config';
 
 export const GPS_TASK = 'logix-gps-background';
 
