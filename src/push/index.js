@@ -17,20 +17,10 @@ import { alertaCorrida } from '../utils/alerta';
 import { conferirComunicados } from '../state/comunicados';
 import { T } from '../tema';
 import marca from '../../marca.config';
-import * as TaskManager from 'expo-task-manager';
-import { acordarGps } from '../tasks/gpsTask';
-
-// Push SILENCIOSO "acordar o GPS" (18/10/2026): o servidor manda quando o motoboy online
-// fica alguns minutos sem posição. Não aparece nada para ele — só lê a posição e religa o
-// rastreamento. Chega aqui com o app fechado (task de fundo) ou aberto (listener).
-const TASK_PUSH_FUNDO = 'logix-push-fundo';
-export const ehAcordarGps = (dados) => { try { return JSON.stringify(dados || {}).includes('gps_acordar'); } catch { return false; } };
-try {
-  TaskManager.defineTask(TASK_PUSH_FUNDO, async ({ data, error }) => {
-    if (error) return;
-    if (ehAcordarGps(data)) { try { await acordarGps(); } catch (e) { console.log('[push] acordar gps:', e?.message); } }
-  });
-} catch (e) { console.log('[push] task de fundo não registrada:', e?.message); }
+// A tarefa do push silencioso "acordar o GPS" é DEFINIDA em src/tasks/pushFundo.js, que o
+// index.js importa antes de tudo (com o app fechado, este arquivo aqui nem chega a rodar).
+import { TASK_PUSH_FUNDO, ehAcordarGps } from '../tasks/pushFundo';
+export { ehAcordarGps };
 
 // Canal de notificação. IMPORTANTE: as configs de um canal travam após a 1a
 // criação no Android — se precisar mudar som/vibração, troque o ID (sufixo _vN).

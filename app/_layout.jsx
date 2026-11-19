@@ -3,7 +3,8 @@ import { Stack, router, usePathname } from 'expo-router';
 import { irPara } from '../src/navegacao/abas';
 import { setTelaAtual } from '../src/state/telaAtual';
 import { StatusBar } from 'expo-status-bar';
-// Importa a task de GPS para registra-la no app (defineTask roda no import).
+// As tarefas de segundo plano são definidas no index.js (ponto de entrada), não aqui: arquivo
+// de rota só roda quando a tela é montada, e com o app fechado não há tela.
 import '../src/tasks/gpsTask';
 import { configurarNotificacoes, aoTocarNotificacao, aoReceberNotificacao, notificacaoQueAbriuApp } from '../src/push';
 import AvisoHost from '../src/componentes/AvisoHost';
