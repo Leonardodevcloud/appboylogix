@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 import { AppState } from 'react-native';
-import { setEntregaAtiva, garantirUpdatesBackground, pararUpdatesBackground, registrarPontoForeground, descarregarBuffer } from '../tasks/gpsTask';
+import { setEntregaAtiva, garantirUpdatesBackground, pararUpdatesBackground, registrarPontoForeground, descarregarBuffer, baterPonto } from '../tasks/gpsTask';
 import { garantirDisclosureLocalizacao } from '../utils/disclosure';
 
 // Ativa o rastreamento GPS quando o motoboy está ONLINE (esperando corrida) ou
@@ -51,8 +51,13 @@ export function useGPS(entregaId, ativoExtra = false) {
 
       // Se o background está de pé, ele já cobre foreground + tela apagada +
       // app fechado. Não roda o foreground em paralelo (duplicaria o /posicao).
+      // Com o app aberto roda só um BATIMENTO: se o serviço ficou mais de 25 s sem
+      // enviar (celular parado, sem sinal de GPS), lê a posição e envia. Quando o serviço
+      // está em dia o batimento não faz nada — não duplica ponto.
       if (modoBg.current) {
         if (!cancelado) console.log('[GPS] background ativo');
+        if (fgInterval.current) clearInterval(fgInterval.current);
+        if (!cancelado) fgInterval.current = setInterval(() => { baterPonto().catch(() => {}); }, 20000);
         return;
       }
 

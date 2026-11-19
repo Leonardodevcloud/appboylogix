@@ -170,15 +170,19 @@ try {
 // (Re)inicia o rastreamento em segundo plano. Chamado ao ficar online, ao abrir
 // o app e no botão "reativar". É SEMPRE chamado (não confia no hasStarted, que
 // fica "true" mesmo depois de o SO matar o serviço — era o que impedia revivê-lo).
-//   emEntrega=true  -> precisão High (trajetória da corrida).
-//   emEntrega=false -> Balanced (rede/wifi/célula): sobrevive melhor com a tela
-//                      apagada e o celular parado, mantendo o motoboy "online".
+// Precisão High SEMPRE que está online (19/11/2026), em entrega ou esperando corrida.
+// Antes, fora de entrega, era Balanced — e aí o Android para de entregar posição quando
+// o celular está parado (o serviço segue vivo, mas nenhuma leitura nova chega; as
+// repetidas o expo-location descarta). Resultado: "GPS parado há mais de 10 min" com o
+// motoboy online e parado na base. High mantém o GPS ligado e lê a cada 15 s mesmo sem
+// sair do lugar. Custa mais bateria; é o preço de rastrear quem está parado.
+// O parâmetro continua na assinatura porque quem chama já informa se há entrega.
 export async function garantirUpdatesBackground(emEntrega = false) {
   try {
     const bg = await Location.getBackgroundPermissionsAsync();
     if (bg.status !== 'granted') return false;
     await Location.startLocationUpdatesAsync(GPS_TASK, {
-      accuracy: emEntrega ? Location.Accuracy.High : Location.Accuracy.Balanced,
+      accuracy: Location.Accuracy.High,
       timeInterval: 15000,
       distanceInterval: 0,
       // Deixa o Android agrupar leituras e acordar a task com menos frequência
@@ -224,6 +228,32 @@ export async function acordarGps() {
   const r = await enviarBuffer().catch(() => ({ enviados: 0 }));
   await garantirUpdatesBackground(emEntrega);
   return { ok: true, ...r };
+}
+
+// Batimento com o app ABERTO (19/11/2026): se o serviço passou do intervalo sem enviar
+// nada (celular parado, GPS sem sinal dentro de casa), lê a posição agora e envia — parado
+// também conta. Só roda com o app em primeiro plano (em segundo plano o Android pausa os
+// timers do JS; lá quem cobre é o serviço em High e o push de acordar do servidor).
+const BATIMENTO_FOLGA_MS = 25_000;
+let _batendo = false;
+export async function baterPonto() {
+  if (_batendo) return { ok: false, motivo: 'em_andamento' };
+  _batendo = true;
+  try {
+    const ultimo = Number(await SecureStore.getItemAsync(KEY_ULTIMO_ENVIO).catch(() => 0)) || 0;
+    if (Date.now() - ultimo < BATIMENTO_FOLGA_MS) return { ok: true, motivo: 'em_dia' };
+    let loc = null;
+    try {
+      loc = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+        new Promise((r) => setTimeout(() => r(null), 8000)),
+      ]);
+    } catch {}
+    if (!loc) { try { loc = await Location.getLastKnownPositionAsync(); } catch {} }
+    if (loc && loc.coords) await acumular([{ coords: loc.coords, timestamp: Date.now() }]);
+    const r = await enviarBuffer().catch(() => ({ enviados: 0 }));
+    return { ok: true, ...r };
+  } finally { _batendo = false; }
 }
 
 export async function pararUpdatesBackground() {
